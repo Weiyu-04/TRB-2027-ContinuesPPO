@@ -21,7 +21,9 @@
 #   · 绝不 claim「从零稳定收敛」。
 #
 # 用法（服务器·先同步【整个 代码 文件夹】）：改下面 1 行 CODE_DIR → bash run_multiparent.sh [并发K=9]
-#   断点续：被杀重跑同一条命令·自动跳过已完成 run。训练吃 CPU 不吃 GPU；9 run × n_envs=8 = 72 核。
+#   断点续（诚实·对抗审订正）：只有【整段跑完】的 run 会被跳过；中途被杀的 run 重跑会【整个从头重热启动+重训】
+#     （非分段续训·且会覆盖被杀那次留下的中间 checkpoint）→ 长时间无人值守烧多天前先知情此代价。
+#   训练吃 CPU 不吃 GPU；9 run × n_envs=8 = 72 核。
 #   ⚠️ 需要服务器上有 s0/s2/s7 三个金标 ckpt（金标 run `结果0710-22:00-10种子最优方案/checkpoints/`）。
 #      缺哪个脚本会 fail-fast 并告诉你补传哪个文件。
 # ============================================================================
@@ -53,6 +55,11 @@ PARENTS_CKPTS=(
 )
 FT_SEEDS=("0" "1" "2")                                  # 每父的微调种子（同一批跨父=配对）
 
+# ---- 数组一致性断言（改父策略时防写错·对抗审 NIT）----
+[ "${#PARENTS_LABELS[@]}" = "${#PARENTS_CKPTS[@]}" ] || { echo "❌ PARENTS_LABELS(${#PARENTS_LABELS[@]}) 与 PARENTS_CKPTS(${#PARENTS_CKPTS[@]}) 长度不一致（改数组须一一对应）"; exit 1; }
+_dup=$(printf '%s\n' "${PARENTS_LABELS[@]}" | sort | uniq -d)
+[ -z "$_dup" ] || { echo "❌ PARENTS_LABELS 有重复标签：$_dup（TAG 会撞）"; exit 1; }
+
 # ============================================================================
 # [准备] 逐父：自动发现 + 冻结只读 + 指纹（防跑到一半被覆盖=换源静默混写·`03` L190 D3 HIGH#1）
 # ============================================================================
@@ -64,17 +71,27 @@ for i in "${!PARENTS_CKPTS[@]}"; do
   PL="${PARENTS_LABELS[$i]}"
   FROZEN="$FROZEN_DIR/$NAME"
   FROZEN_OF["$NAME"]="$FROZEN"
-  if [ -f "$FROZEN.zip" ]; then
-    echo "  ✅ 父 s$PL 冻结源已存在（复用）：$FROZEN.zip"
+  if [ -f "$FROZEN.zip" ] && [ -f "${FROZEN}_vecnorm.pkl" ] && [ -f "${FROZEN}.progress.json" ]; then
+    echo "  ✅ 父 s$PL 冻结源已存在（三文件齐·复用）：$FROZEN.zip"
     continue
   fi
+  # 残缺冻结（上次三文件复制中途被 kill·对抗审 fix）→ 清掉重来（只读位可能挡 rm·先加回写）
+  chmod +w "$FROZEN".* 2>/dev/null || true
+  rm -f "$FROZEN.zip" "${FROZEN}_vecnorm.pkl" "${FROZEN}.progress.json" "${FROZEN}".*.tmp 2>/dev/null || true
   # 🔎 全盘搜金标源（别硬编码路径·服务器目录名可能不同）·排除已冻结目录避免自发现
-  SRC_ZIP="$(find "$ROOT" -name "${NAME}.zip" -not -path "$FROZEN_DIR/*" -not -path "$ROOT/ws_src/*" 2>/dev/null | head -1)"
-  if [ -z "$SRC_ZIP" ]; then
+  SRC_ZIPS="$(find "$ROOT" -name "${NAME}.zip" -not -path "$FROZEN_DIR/*" -not -path "$ROOT/ws_src/*" 2>/dev/null)"
+  NCAND=$(printf '%s' "$SRC_ZIPS" | grep -c .)
+  if [ "$NCAND" = "0" ]; then
     echo "  ❌ 父 s$PL 找不到金标源 ${NAME}.zip（在 $ROOT 全盘搜过）"
     miss=1; continue
   fi
-  SRC_GOLD="${SRC_ZIP%.zip}"
+  if [ "$NCAND" -gt 1 ]; then                            # 🔴 多个同名源=可能选错父静默污染嵌套设计（自证查不出"选错但用得一致"·对抗审 MEDIUM）
+    echo "  ❌ 父 s$PL 发现【$NCAND 个】同名源 ${NAME}.zip → 无法判断用哪个（恐选错源）："
+    printf '%s\n' "$SRC_ZIPS" | sed 's/^/       /'
+    echo "     → 删掉多余/旧副本只留 1 个再跑。"
+    miss=1; continue
+  fi
+  SRC_GOLD="${SRC_ZIPS%.zip}"
   echo "  🔎 父 s$PL 发现源：$SRC_GOLD"
   ok=1
   for f in ".zip" "_vecnorm.pkl" ".progress.json"; do   # ⚠️ .progress.json 必带=源配置校验靠它
@@ -85,9 +102,11 @@ for i in "${!PARENTS_CKPTS[@]}"; do
     fi
   done
   if [ "$ok" != "1" ]; then miss=1; continue; fi
-  for f in ".zip" "_vecnorm.pkl" ".progress.json"; do cp "${SRC_GOLD}${f}" "${FROZEN}${f}" || exit 1; done
-  chmod -w "$FROZEN".* 2>/dev/null || true              # 只读=杜绝被覆盖
-  echo "     ✅ 已冻结到 $FROZEN_DIR（只读）"
+  # 原子冻结（对抗审 fix）：先全复制到 .tmp·三个都成功再 rename → 半途被 kill 只留 .tmp（不会被误判"已冻结"）
+  for f in ".zip" "_vecnorm.pkl" ".progress.json"; do cp "${SRC_GOLD}${f}" "${FROZEN}${f}.tmp" || exit 1; done
+  for f in ".zip" "_vecnorm.pkl" ".progress.json"; do mv "${FROZEN}${f}.tmp" "${FROZEN}${f}" || exit 1; done
+  chmod -w "$FROZEN".* 2>/dev/null || true              # 只读=挡非 root 误覆盖（注：root 无视权限位·非硬保证）
+  echo "     ✅ 已冻结到 $FROZEN_DIR（三文件原子落地·只读）"
 done
 if [ "$miss" = "1" ]; then
   echo ""
@@ -184,4 +203,4 @@ if [ "$UNIQ_PARENTS" -ge 2 ]; then
 fi
 echo ""
 echo "回传给主窗口：结果/step4e_partial_mpP*_ppo_s*.jsonl + 结果/checkpoints/*_mpP*_ppo_s*.progress.json（含 trend）"
-echo "被杀/失败：重跑同一条命令自动续跑未完成 run。"
+echo "被杀/失败：重跑同一条命令跳过【已整段跑完】的 run；中途被杀的 run 会整个从头重跑（非分段续·会覆盖中间 checkpoint）。"
