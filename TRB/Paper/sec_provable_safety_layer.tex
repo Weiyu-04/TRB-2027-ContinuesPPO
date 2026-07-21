@@ -1,0 +1,347 @@
+% =====================================================================
+%  TRB 2027 · Paper section draft: THE PROVABLE SAFETY LAYER
+%  论文正式章节草稿（可证明层）· 由三份理论底稿忠实落稿：
+%    - Paper/可证明层_正式命题_0707.md      (单障碍 命题 1/2/3)
+%    - Paper/可证明层_多障碍扩展_0716.md    (多障碍 ∀i / ∃i 扩展)
+%    - Paper/失败机理与紧急兜底刻画_0714.md (Limitations / 紧急兜底)
+%  溯源：03 决策日志 L133-L141（原推导）· L164（诚实审计）· L165（gap#1 攻坚）·
+%        L166（证书接进 repo）· L189 H（多障碍）· L192（承重订正）。
+%
+%  诚实红线（继承 CLAUDE.md §0 + 三份底稿）——本节任何改写都必须守：
+%    绝不写 provably collision-free / provably compliant（裸）/ complete provable coverage。
+%    能 claim 的只有：远场单步无碰(∀i·sound) + 每让路步方向合规(by-construction·作用域受限)
+%    + 迫近不可避 sound 证书(∃i)；恒速(CV)单/多障碍模型下基准经验零船体碰撞。可证明档 = 中。
+%
+%  用法：\input{sec_provable_safety_layer} 进 Methods 之后（或作为独立 section）。
+%  依赖宏包：\usepackage{amsmath,amsthm,amssymb,bm}。TRB 无附录/7500 词 →
+%  正文留命题陈述 + 证明梗概 + 诚实作用域；完整证明移交外部技术报告（见 \cite{techreport}）。
+% =====================================================================
+
+% ---- 若主文档尚未定义，取消注释以下 theorem 环境 ----
+% \newtheorem{proposition}{Proposition}
+% \newtheorem{assumption}{Assumption}
+% \theoremstyle{remark}\newtheorem*{scope}{Scope and honest limits}
+
+\section{The Provable Safety Layer}
+\label{sec:provable}
+
+Our contribution is \emph{not} a claim of provable collision freedom. Prior
+provably COLREGs-\emph{direction}-compliant collision avoidance either sacrificed
+the continuous action space (discrete action masking, Krasowski and Althoff 2024)
+or sacrificed the guarantee (continuous-action work reverts to soft reward
+shaping). We place a \emph{projection-based safety shield} on maritime COLREGs in
+the continuous action space and characterize \emph{exactly what can and cannot be
+proven}. The safety layer is organized by encounter regime and yields three
+guarantees of different strengths: a far-field single-step no-collision guarantee
+(Proposition~\ref{prop:farfield}), a per-give-way-step direction-compliance
+guarantee (Proposition~\ref{prop:compliance}), and a \emph{sound} imminent-%
+unavoidability certificate for the emergency regime (Proposition~\ref{prop:imminent}).
+Each is stated with its full assumption set, and each carries an explicit scope
+boundary. Full proofs are deferred to the external technical report; here we give
+statements and proof sketches. Throughout, ``proven'' means a strict lemma;
+existence-level and empirical results are labeled as such.
+
+\subsection{System setting and notation}
+\label{sec:provable-setup}
+
+We adopt the yaw-constrained point-mass vessel dynamics of Krasowski and Althoff
+(2024) (vessel class SR108 container ship, $175 \times 25.4$~m):
+\begin{equation}
+  \dot{x}=v\cos\theta,\quad \dot{y}=v\sin\theta,\quad \dot{\theta}=\omega,\quad \dot{v}=a,
+  \label{eq:dyn}
+\end{equation}
+with control bounds $|a|\le a_{\max}=0.24~\mathrm{m/s^2}$,
+$|\omega|\le\omega_{\max}=0.03~\mathrm{rad/s}$, speed clipped by the environment to
+$0\le v\le v_{\max}=9.5~\mathrm{m/s}$ each step (within a step $v$ may briefly reach
+$v_{\max}+a_{\max}\Delta t=11.9~\mathrm{m/s}$), and decision step
+$\Delta t=10~\mathrm{s}$. The ego body is the $175\times25.4$~m rectangle with
+circumscribed radius $R_{\mathrm{circ}}=\tfrac12\sqrt{175^2+25.4^2}=88.4$~m and
+inscribed radius $r_{\mathrm{insc}}=\tfrac12\cdot25.4=12.7$~m. Target vessels occupy
+their body rectangle (or, conservatively, their circumscribed disk); unless stated
+otherwise, in stand-on regimes they are extrapolated at \emph{constant velocity}
+(CV). We write $p_e,p_m$ for ego/target positions,
+$\bm{v}_e=v_e(\cos\theta_e,\sin\theta_e)$ for the ego velocity vector, and
+$\hat{h},\hat{h}^{\perp}$ for the heading unit vector and its normal.
+
+\subsection{Far-field regime: single-step no-collision}
+\label{sec:provable-farfield}
+
+\begin{proposition}[Far-field single-step no-collision]
+\label{prop:farfield}
+Let $d=\lVert p_e-p_m\rVert$ be the ego--target center distance for a single target.
+If
+\begin{equation}
+  d \;\ge\; d_{\mathrm{safe}} + v_{\mathrm{obs,max}}\,\Delta t + \rho_{\mathrm{ego}},
+  \label{eq:farfield}
+\end{equation}
+then after one decision step the two (circumscribed-disk) bodies cannot intersect,
+i.e.\ a collision is impossible in that step. Here
+$d_{\mathrm{safe}}=R_{\mathrm{circ,ego}}+R_{\mathrm{circ,obs}}$ and
+$\rho_{\mathrm{ego}}=v_{\max}\Delta t+\tfrac12 a_{\max}\Delta t^2$ is the maximum
+single-step ego displacement.
+\end{proposition}
+
+Substituting constants gives $R_{\mathrm{circ,ego}}=88.4$~m and, because the target
+width is not in the state, a conservative square upper bound with the Table~II
+safety margin $d_{\mathrm{obs,safety}}=2\ell$:
+$R_{\mathrm{circ,obs}}=\tfrac12\sqrt2\,\ell+d_{\mathrm{obs,safety}}
+=123.74+350=473.74$~m, so $d_{\mathrm{safe}}=562.16$~m,
+$\rho_{\mathrm{ego}}=9.5\cdot10+\tfrac12\cdot0.24\cdot100=107.0$~m, and
+$v_{\mathrm{obs,max}}\Delta t=95$~m, yielding a threshold of $764.16$~m
+(engineering value $\sim\!780$~m with margin).
+
+\emph{Assumptions.} (A1) single target (for $N$ targets, each $i$ must satisfy the
+threshold, Proposition~\ref{prop:farfield-N}); (A2) target speed
+$v_{\mathrm{obs}}\le9.5~\mathrm{m/s}$---Krasowski sets $v_{\max}$ only for the ego, so
+this bound must be assumed explicitly. It is \emph{empirically verified} on the full
+benchmark: across all $2000$ HandcraftedTwoVessel scenarios ($342{,}000$ obstacle
+states) the maximum is $7.10~\mathrm{m/s}$, with zero states exceeding $9.5$
+($\sim\!2.4~\mathrm{m/s}$ margin); higher-speed real AIS data would require raising
+the threshold. (A3) $v\le v_{\max}$ at step end (environment clip); (A4) the target
+is approximately CV within a step (stand-on); (A5) circumscribed-disk occupancy
+(disks disjoint $\Rightarrow$ bodies disjoint).
+
+\emph{Proof sketch.} By the triangle inequality the next-step center distance
+satisfies $d_{\mathrm{next}}\ge d-\lVert\Delta p_e\rVert-\lVert\Delta p_m\rVert
+\ge d-\rho_{\mathrm{ego}}-v_{\mathrm{obs,max}}\Delta t$. With \eqref{eq:farfield},
+$d_{\mathrm{next}}\ge d_{\mathrm{safe}}=R_{\mathrm{circ,ego}}+R_{\mathrm{circ,obs}}$,
+so the circumscribed disks---hence the bodies---are disjoint. $\square$
+
+\begin{scope}
+The triangle inequality is direction-independent, so head-on is already the true
+worst case and there is no geometric gap; this is the \emph{soundest} block of the
+provable layer (an elementary lemma). It is a conservative single-step
+\emph{sufficient} condition---not invariance, not a near-field guarantee---and is
+currently not implemented as an early exit (an $O(1)$ far-field fast path could be
+added).
+\end{scope}
+
+\subsection{Give-way regime: per-step direction compliance}
+\label{sec:provable-compliance}
+
+\begin{proposition}[Per-give-way-step direction compliance]
+\label{prop:compliance}
+At every decision step that the state machine classifies as a give-way regime
+($\rho\in\{\text{head-on},\text{crossing},\text{overtake}\}$) and for which the
+projection quadratic program (QP) is feasible (\texttt{needs\_fallback}=False), the
+executed safe action $u_{\mathrm{safe}}$ lies in the COLREGs-mandated compliant
+half-plane (e.g.\ give-way starboard turn $\omega\le-\omega_{\mathrm{turn}}$).
+\end{proposition}
+
+\emph{Assumptions.} (B1) single target; (B2) correct state-machine classification of
+$\rho$ (inheriting the $\sim\!12.6\%$ classification gap and the Lemma-1 tie-break
+issue); (B3) QP feasibility (not fallback); (B4) scope $=$ give-way encounters. The
+empirical give-way trigger rate is $\sim\!13$--$16\%$ \emph{at the
+encounter/episode level} (measured twice over $933$ scenarios; overtake $=0$)---not
+per step; stand-on violations are counted per step.
+
+\emph{Proof.} The compliant half-plane enters the QP as a hard interval constraint
+($w_{\mathrm{hi}}=-\omega_{\mathrm{turn}}$, etc.), so any projected solution
+satisfies it. $\square$ (by construction; no separate theorem required).
+
+\begin{scope}
+This does \emph{not} cover the emergency regime $\rho_5$ (which occupies
+$\sim\!55$--$60\%$ of conflict steps and whose \texttt{is\_emergency} predicate
+structurally bypasses the compliance constraint), nor the relaxed/%
+collision-minimizing fallbacks (which drop the half-plane). We therefore write only
+``provably give-way-direction-compliant, per give-way step'' and \textbf{never}
+``provably compliant / compliant at every step'' (the measured violation rate is a
+nonzero $1.2$--$1.6$ per episode).
+\end{scope}
+
+\subsection{Emergency regime: a sound imminent-unavoidability certificate}
+\label{sec:provable-imminent}
+
+The emergency controller is an empirical last resort. To characterize it honestly we
+do not claim it avoids collisions; instead we provide a \emph{sound sufficient
+condition} that certifies when a collision is physically unavoidable, so that the
+``black box'' becomes a decidable boundary. This replaces an earlier
+turn-only condition that was \emph{unsound} because it ignored acceleration/%
+deceleration escapes (gap\#1).
+
+\begin{proposition}[Imminent-unavoidability certificate, single CV target]
+\label{prop:imminent}
+Consider a single constant-velocity (stand-on) target. Define the ego
+reachable-center over-approximation $R_{\mathrm{box}}(t)$ (a heading-frame rectangle
+centered at the CV extrapolation $c_e(t)=p_e+\bm{v}_e t$) with longitudinal
+half-axis $B_{\mathrm{lon}}(t)=\tfrac12 a_{\mathrm{eff}}t^2$ and lateral half-axis
+$L_{\mathrm{lat}}(t)$, where
+\begin{align}
+  a_{\mathrm{eff}} &= \sqrt{a_{\max}^2+(v_{\mathrm{bnd}}\,\omega_{\max})^2},
+    \quad v_{\mathrm{bnd}}=v_{\max}+a_{\max}\Delta t=11.9~\mathrm{m/s},\\
+  L_{\mathrm{lat}}(t) &=
+    \begin{cases}
+      \dfrac{v_{\mathrm{bnd}}}{\omega_{\max}}\bigl(1-\cos\omega_{\max}t\bigr),
+        & \omega_{\max}t\le\tfrac{\pi}{2},\\[1.2ex]
+      \dfrac{v_{\mathrm{bnd}}}{\omega_{\max}}
+        + v_{\mathrm{bnd}}\Bigl(t-\tfrac{\pi}{2\omega_{\max}}\Bigr),
+        & \text{otherwise.}
+    \end{cases}
+\end{align}
+Let $O(t)$ be the target body rectangle (center $p_m+\bm{v}_m t$, heading
+$\theta_m$). If
+\begin{equation}
+  \exists\, t^\ast\in[0,T]:\quad
+  R_{\mathrm{box}}(t^\ast)\;\subseteq\;\bigl(O(t^\ast)\oplus \mathrm{disk}(r_{\mathrm{insc,ego}}=12.7~\mathrm{m})\bigr),
+  \label{eq:imminent}
+\end{equation}
+then the collision is \emph{unavoidable}: every feasible control sequence collides
+with the target at $t^\ast$.
+\end{proposition}
+
+\emph{Assumptions.} (A1) single target, \emph{per-pair} (per-pair unavoidable
+$\Rightarrow$ global unavoidable; per-pair \emph{avoidable} does \emph{not}
+compose); (A2) target CV stand-on (a maneuvering target changes $O(t)$ and voids the
+guarantee---we state ``unavoidable within the CV world''); (A3) $v\le
+v_{\mathrm{bnd}}=11.9$ within a step (includes the clip overshoot); (A4) the ego
+inscribed disk $r_{\mathrm{insc}}=12.7~\mathrm{m}\subseteq$ body at any heading; (A5)
+the certificate fires only in the region $\omega_{\max}t^\ast\le\pi/2$
+($\le52.4$~s)---we verified that firing is limited by the longitudinal quadratic term
+to $t_{\mathrm{crit,lon}}=\sqrt{2(\tfrac12\cdot175+12.7)/a_{\mathrm{eff}}}=21.6~\mathrm{s}<52.4~\mathrm{s}$;
+(A6) single-instant containment (sufficient, not necessary); (A7) occupancy
+under-approximation: $\text{obs\_width}\le$ true target width and $L_{\mathrm{obs}}\le$
+true target length (a soundness precondition the caller must guarantee---passing
+sizes larger than the truth over-approximates $O$ and can yield false positives).
+
+\emph{Proof sketch (three steps).} (i) $R_{\mathrm{box}}$ over-approximates the true
+reachable center: $\lVert d\bm{v}/dt\rVert=\sqrt{a^2+(v\omega)^2}\le a_{\mathrm{eff}}$,
+and double integration bounds the longitudinal offset by $\tfrac12 a_{\mathrm{eff}}t^2$
+while $|y'(t)|\le\int_0^t v_{\mathrm{bnd}}\sin(\omega_{\max}s)\,ds=L_{\mathrm{lat}}(t)$.
+(ii) The inscribed disk under-approximates the body. (iii) If
+$R_{\mathrm{box}}(t^\ast)\subseteq O(t^\ast)\oplus\mathrm{disk}(12.7)$, then every
+reachable ego center lies within $12.7$~m of $O(t^\ast)$, so the ego inscribed disk
+($\subseteq$ body) intersects $O(t^\ast)$: a collision. Since this holds for
+\emph{all} reachable positions, every trajectory collides at $t^\ast$. $\square$
+
+\emph{Verification.} A six-agent adversarial audit ($20{,}000$ random $+$ $735$
+curated cases, with a triple-switch bang-bang escape search under exact hull-collision
+geometry) found \emph{zero} true false positives; after hardening the
+$v_{\mathrm{bnd}}/L_{\mathrm{lat}}$ envelope, a battery plus $1500$ fuzz cases
+remained sound (0 false positives) and non-vacuous (firing at $t^\ast\le7$~s).
+
+\begin{scope}
+The certificate is a conservative \emph{one-sided sufficient} condition for
+imminent unavoidability. It is \textbf{not} an early-warning cost (it is a terminal
+classifier, not a planner), \textbf{not} complete or necessary (no-fire $\ne$
+avoidable), and by itself certifies nothing about collision freedom. We
+\textbf{never} write ``provably zero-collision'': this is an emergency-regime
+classifier, not a system-wide guarantee.
+\end{scope}
+
+\subsection{Robust extension to multiple targets}
+\label{sec:provable-multi}
+
+For $N$ targets with occupancies $O_i(t)$, collision freedom is a conjunction over
+targets, $\text{no collision}\iff\bigwedge_{i=1}^{N}(\text{ego\_body}\cap O_i=\varnothing)$.
+This structure is the mathematical root of the robust extension: sufficient
+conditions compose as $\forall i$, while the unavoidability certificate composes as
+$\exists i$.
+
+\begin{proposition}[Far-field, multi-target]
+\label{prop:farfield-N}
+If $d_i\ge d_{\mathrm{safe}}+v_{\mathrm{obs,max}}\Delta t+\rho_{\mathrm{ego}}$ for
+\emph{all} $i$ (the same $\sim\!780$~m threshold), then after one step the ego body
+intersects no target body.
+\end{proposition}
+The single-target proof holds independently for each $i$; the conjunction is exactly
+the definition of collision freedom, so the extension is \emph{sound and tight}
+(no extra conservatism beyond the per-pair circumscribed-disk bound). The new
+obligation is (A2-N): $v_{\mathrm{obs}}^i\le9.5$ for \emph{each} target---the
+single-target empirical bound must be re-verified on multi-target scenarios.
+
+\begin{proposition}[Give-way, multi-target]
+\label{prop:compliance-N}
+Let $G=\{i:\rho_i \text{ is give-way}\}$ with compliant half-planes $H_i$. At every
+step where $(i)$ $H_G:=\bigcap_{i\in G}H_i\ne\varnothing$ (the give-way directions
+coexist) and $(ii)$ the QP over $U_{\mathrm{box}}\cap H_G\cap\bigcap_i
+U_{\mathrm{collision\text{-}free}}^i$ is feasible, the executed $u_{\mathrm{safe}}$ is
+direction-compliant for all $i\in G$.
+\end{proposition}
+The half-planes enter one QP and the projected solution satisfies their
+intersection. The honest scope is sharper than in the single-target case: if two
+targets demand opposite give-way directions then $H_G=\varnothing$ and the step falls
+to fallback (a COLREGs \emph{violation}). This is not a defect but a boundary of
+COLREGs itself---a pairwise rule set with no crisp multi-vessel norm (Rule~2 /
+special-circumstances); our defensible position is ``compliant when the pairwise
+norms coexist, collision-avoidance-first otherwise.'' As $N$ grows the feasible set
+shrinks and the give-way compliance rate \emph{decreases}; this must be measured,
+not assumed.
+
+\begin{proposition}[Imminent unavoidability, multi-target]
+\label{prop:imminent-N}
+With $R_{\mathrm{box}}(t)$ as in Proposition~\ref{prop:imminent} (target-independent),
+if $\exists\,i,\ \exists\,t^\ast$ ($\omega_{\max}t^\ast\le\pi/2$) with
+$R_{\mathrm{box}}(t^\ast)\subseteq O_i(t^\ast)\oplus\mathrm{disk}(12.7)$, then the
+collision is unavoidable.
+\end{proposition}
+The per-pair certificate for target $i$ implies every reachable trajectory collides
+with $O_i$, hence with some target; the existential $\exists i$ is exactly what the
+emergency layer needs, at cost $O(N\cdot|T|)$. The half that does \emph{not} compose
+is avoidability: per-pair no-fire for all $i$ does \emph{not} imply global
+avoidability (evading $A$ may force the ego into the future position of $B$), so
+in the multi-target world no-fire is even weaker than for a single target.
+
+\subsection{Honest positioning of the provable layer}
+\label{sec:provable-summary}
+
+Table~\ref{tab:provable} summarizes the guarantees, their status, and their scope.
+The headline claim we can defend, with all assumptions attached, is: continuous
+action $\cap$ provably \emph{direction}-compliant $\cap$ COLREGs (a previously empty
+intersection), plus far-field single-step provable safety ($\forall i$, sound) and a
+sound imminent-unavoidability certificate for the emergency regime ($\exists i$),
+under a constant-velocity target model, with empirically zero hull collisions on the
+benchmark. We do \textbf{not} claim provable collision freedom, complete provable
+coverage, maneuvering targets, or multi-target direction conflicts (which fall to
+fallback by the pairwise nature of COLREGs). The provable tier is therefore \emph{medium}:
+gap\#1 is now sound but the coverage is still not complete, and---critically---the
+empirical zero-collision backing remains single-target until multi-vessel benchmark
+data are available.
+
+\begin{table}[h]
+  \caption{Provable safety layer: guarantees, status, and honest scope}
+  \label{tab:provable}
+  \centering
+  \small
+  \begin{tabular}{@{}p{0.20\linewidth}p{0.24\linewidth}p{0.46\linewidth}@{}}
+    \toprule
+    \textbf{Guarantee} & \textbf{Status} & \textbf{Scope / limits} \\
+    \midrule
+    Far-field single-step no-collision (Prop.~\ref{prop:farfield},
+    \ref{prop:farfield-N})
+      & Proven (elementary; sound and tight)
+      & $d\ge\sim\!780$~m; CV target(s); $\forall i$ conjunction; each
+        $v_{\mathrm{obs}}\le9.5$; single step, not invariance; early exit not yet
+        implemented. \\
+    \addlinespace
+    Per-give-way-step direction compliance (Prop.~\ref{prop:compliance},
+    \ref{prop:compliance-N})
+      & By construction (scope-limited)
+      & Give-way encounters ($\sim\!13$--$16\%$, encounter-level, not per step);
+        excludes emergency $\rho_5$ and fallbacks; multi-target rate drops with $N$;
+        direction conflict $\to$ fallback (COLREGs pairwise boundary). Never ``every
+        step.'' \\
+    \addlinespace
+    Imminent-unavoidability certificate (gap\#1) (Prop.~\ref{prop:imminent},
+    \ref{prop:imminent-N})
+      & Sound sufficient condition ($\sim\!29{,}000$ scenarios, 0 false positives)
+      & Imminent only; CV target(s); $\exists i$ composes, avoidability does not;
+        not complete / not early-warning; a classifier, not a system guarantee. \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\paragraph{Emergency fallback and the failure-mechanism boundary.}
+When the projection is infeasible ($P=\varnothing$) in the emergency regime
+$\rho_5$, the \texttt{is\_emergency} predicate structurally bypasses the direction
+constraint and Algorithm~1 minimizes collision risk---an \emph{empirical} fallback,
+not a guarantee. On an adversarial purely-geometric baseline that forces the shield
+into the emergency branch on $44$--$69\%$ of steps, we observe $45\%$ arrival and
+two collisions; auditing confirms both occur with
+\texttt{source=emergency},~$\rho=5$, i.e.\ the emergency last resort trying and
+failing to avoid, and both lie outside the domain of Proposition~\ref{prop:farfield}
+(far-field, non-emergency, single-step). They are not counterexamples to the headline
+but they do substantiate that the emergency regime is not a guarantee. On the learned
+policy (non-adversarial), we observe zero hull collisions over $10$ seeds
+$\times$ $400$ episodes, so the ``empirically zero-collision'' statement holds; we
+nonetheless \textbf{never} write provably collision-free and label the emergency
+regime as an empirical fallback throughout.
