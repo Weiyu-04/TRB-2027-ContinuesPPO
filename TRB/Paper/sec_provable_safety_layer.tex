@@ -145,8 +145,8 @@ $\sim\!55$--$60\%$ of conflict steps and whose \texttt{is\_emergency} predicate
 structurally bypasses the compliance constraint), nor the relaxed/%
 collision-minimizing fallbacks (which drop the half-plane). We therefore write only
 ``provably give-way-direction-compliant, per give-way step'' and \textbf{never}
-``provably compliant / compliant at every step'' (the measured violation rate is a
-nonzero $1.2$--$1.6$ per episode).
+``provably compliant / compliant at every step'' (the measured violation rate on the
+golden 10-seed run is a nonzero $1.13$--$1.8$ per episode).
 \end{scope}
 
 \subsection{Emergency regime: a sound imminent-unavoidability certificate}
@@ -194,7 +194,8 @@ $\Rightarrow$ global unavoidable; per-pair \emph{avoidable} does \emph{not}
 compose); (A2) target CV stand-on (a maneuvering target changes $O(t)$ and voids the
 guarantee---we state ``unavoidable within the CV world''); (A3) $v\le
 v_{\mathrm{bnd}}=11.9$ within a step (includes the clip overshoot); (A4) the ego
-inscribed disk $r_{\mathrm{insc}}=12.7~\mathrm{m}\subseteq$ body at any heading; (A5)
+inscribed disk $r_{\mathrm{insc}}=12.7~\mathrm{m}\subseteq$ body at any heading
+(from the short edge; the long-edge zero-margin case is pending an independent re-check); (A5)
 the certificate fires only in the region $\omega_{\max}t^\ast\le\pi/2$
 ($\le52.4$~s)---we verified that firing is limited by the longitudinal quadratic term
 to $t_{\mathrm{crit,lon}}=\sqrt{2(\tfrac12\cdot175+12.7)/a_{\mathrm{eff}}}=21.6~\mathrm{s}<52.4~\mathrm{s}$;
@@ -290,7 +291,7 @@ action $\cap$ provably \emph{direction}-compliant $\cap$ COLREGs (a previously e
 intersection), plus far-field single-step provable safety ($\forall i$, sound) and a
 sound imminent-unavoidability certificate for the emergency regime ($\exists i$),
 under a constant-velocity target model, with empirically zero hull collisions on the
-benchmark. We do \textbf{not} claim provable collision freedom, complete provable
+single-target benchmark. We do \textbf{not} claim provable collision freedom, complete provable
 coverage, maneuvering targets, or multi-target direction conflicts (which fall to
 fallback by the pairwise nature of COLREGs). The provable tier is therefore \emph{medium}:
 gap\#1 is now sound but the coverage is still not complete, and---critically---the
@@ -308,7 +309,7 @@ data are available.
     \midrule
     Far-field single-step no-collision (Prop.~\ref{prop:farfield},
     \ref{prop:farfield-N})
-      & Proven (elementary; sound and tight)
+      & Proven (elementary; single-target bound conservative, multi-target conjunction adds no extra slack)
       & $d\ge\sim\!780$~m; CV target(s); $\forall i$ conjunction; each
         $v_{\mathrm{obs}}\le9.5$; single step, not invariance; early exit not yet
         implemented. \\
@@ -323,7 +324,7 @@ data are available.
     \addlinespace
     Imminent-unavoidability certificate (gap\#1) (Prop.~\ref{prop:imminent},
     \ref{prop:imminent-N})
-      & Sound sufficient condition ($\sim\!29{,}000$ scenarios, 0 false positives)
+      & Sound sufficient condition ($>\!20{,}000$ adversarial scenarios, 0 false positives)
       & Imminent only; CV target(s); $\exists i$ composes, avoidability does not;
         not complete / not early-warning; a classifier, not a system guarantee. \\
     \bottomrule
@@ -342,6 +343,6 @@ failing to avoid, and both lie outside the domain of Proposition~\ref{prop:farfi
 (far-field, non-emergency, single-step). They are not counterexamples to the headline
 but they do substantiate that the emergency regime is not a guarantee. On the learned
 policy (non-adversarial), we observe zero hull collisions over $10$ seeds
-$\times$ $400$ episodes, so the ``empirically zero-collision'' statement holds; we
+$\times$ $40$ episodes ($400$ total), so the ``empirically zero-collision'' statement holds; we
 nonetheless \textbf{never} write provably collision-free and label the emergency
 regime as an empirical fallback throughout.
