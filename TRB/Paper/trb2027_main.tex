@@ -1,0 +1,228 @@
+% =====================================================================
+%  TRB 2027 · MAIN PAPER SKELETON (draft)
+%  连续动作空间下可证明 COLREGs【方向】合规的无人船避碰 · 投影式安全盾 + RL
+%
+%  这是把论文从模板占位文(0626-paper/paper.tex = Lorem ipsum)推进成【真骨架】的草稿。
+%  每节：已定稿处写草稿正文；待实验数据处标 [PENDING: ...]；诚实边界处标 [HONESTY]。
+%  可证明层正文由独立文件提供：\input{sec_provable_safety_layer}
+%
+%  诚实红线（CLAUDE.md §0 + 三份理论稿·全文必须守）：
+%    绝不写 provably collision-free / provably compliant（裸）/ complete provable coverage。
+%    头条能 claim = 连续动作 ∩ 可证明【方向】合规 ∩ COLREGs + 远场单步可证明 + 迫近不可避 sound 证书。
+%    可证明档 = 中。到达率【不进卖点清单】（L192 B1 配平后无可证优势）。
+%  TRB 硬约束：~7500 词·无附录（完整证明移交外部技术报告）。
+% =====================================================================
+\documentclass[12pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amsthm,amssymb,bm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\newtheorem{proposition}{Proposition}
+\newtheorem{assumption}{Assumption}
+\theoremstyle{remark}\newtheorem*{scope}{Scope and honest limits}
+
+\title{Continuous-Action, Provably COLREGs-Direction-Compliant
+Collision Avoidance for Unmanned Surface Vessels via a
+Projection-Based Safety Shield}
+\author{[authors]}
+\date{}
+
+\begin{document}
+\maketitle
+
+% =====================================================================
+\section{Abstract}
+% [DRAFT · 守诚实红线 · ~200 words target]
+Provably COLREGs-\emph{direction}-compliant collision avoidance for unmanned
+surface vessels (USVs) has, until now, forced a choice: either discretize the
+action space and mask illegal actions (sacrificing continuous control), or keep
+continuous actions but revert to soft reward shaping (sacrificing the guarantee).
+We place a projection-based safety shield on maritime COLREGs directly in the
+\emph{continuous} action space: a reinforcement-learning policy proposes a
+continuous command, a rule state machine classifies the encounter regime and the
+compliant give-way direction, and a quadratic program projects the command onto
+the nearest action that is both direction-compliant and (single-step)
+collision-free. We characterize exactly what the layer can and cannot prove: a
+sound far-field single-step no-collision guarantee, per-give-way-step direction
+compliance by construction, and a \emph{sound} imminent-unavoidability certificate
+for the emergency regime; we deliberately do \emph{not} claim provable collision
+freedom. On the Krasowski--Althoff benchmark the shielded continuous policy attains
+zero hull collisions over [PENDING: seeds$\times$episodes] and a structural
+$\sim\!5\times$ advantage in throttle smoothness over the discrete baseline, at
+comparable arrival. We report all limitations honestly, including a
+training-stability collapse on a minority of seeds that we address with
+policy warm-starting. [HONESTY: never "provably collision-free"; arrival is
+comparable, not superior.]
+
+% =====================================================================
+\section{Introduction}
+% [DRAFT skeleton]
+Autonomous collision avoidance for surface vessels must satisfy the International
+Regulations for Preventing Collisions at Sea (COLREGs), whose give-way rules are
+\emph{directional} (e.g.\ in a head-on or crossing encounter the give-way vessel
+must alter course to starboard). Two research lines have advanced maritime
+collision avoidance but each concedes something essential:
+\begin{itemize}
+  \item \textbf{Discrete + masking} (Krasowski and Althoff 2024) obtains
+  provable direction compliance by enumerating a discrete action set and masking
+  non-compliant actions---at the cost of the continuous control that real actuators
+  and smoothness require.
+  \item \textbf{Continuous + soft reward} encodes COLREGs as a reward penalty,
+  keeping continuous control but forfeiting any hard guarantee.
+\end{itemize}
+The intersection---continuous action $\cap$ provable direction compliance $\cap$
+COLREGs---has been empty. We fill it with a projection-based safety shield adapted
+from the safe-RL / action-projection literature to maritime COLREGs.
+
+\paragraph{Contributions.}
+\begin{enumerate}
+  \item A projection-based COLREGs shield in the continuous action space
+  (Section~\ref{sec:method}), integrated with RL in the safe-environment (SE-RL)
+  style so the policy learns against the shielded dynamics.
+  \item A \emph{provable safety layer} with an explicit, honestly-scoped set of
+  guarantees (Section~\ref{sec:provable}): far-field single-step no-collision
+  ($\forall$ target, sound), per-give-way-step direction compliance (by
+  construction), and a sound imminent-unavoidability certificate for the emergency
+  regime; extended to multiple targets ($\forall i$ / $\exists i$). We are explicit
+  about what is \emph{not} proven.
+  \item An empirical evaluation on the Krasowski--Althoff benchmark showing zero
+  hull collisions and a structural smoothness advantage, with a candid account of a
+  minority-seed training-stability collapse and its warm-start remedy
+  (Section~\ref{sec:results}).
+\end{enumerate}
+% [HONESTY] We do not claim provable collision freedom or superior arrival rate.
+
+% =====================================================================
+\section{Related Work}
+% [DRAFT skeleton · 待补引用]
+\begin{itemize}
+  \item \textbf{COLREGs-aware RL for USVs}: Krasowski and Althoff (2024) (discrete
+  provably-compliant shield; our anchor and baseline); Meyer et al.\ (2020)
+  (COLREG-aware RL).
+  \item \textbf{Safe RL via action projection / shielding}: SE-RL and
+  zonotope/QP action projection (Markgraf et al.\ 2026, serl-sprl); control
+  barrier functions (CBF) and predictive safety filters as the guarantee mechanism
+  we relate to.
+  \item \textbf{Training-stability / exploration failure and remedies}: seed
+  sensitivity in deep RL (Henderson et al.\ 2018; Agarwal et al.\ 2021, rliable);
+  warm-starting / guided RL (JSRL 2022; AWAC 2020; RLPD 2023) and reverse
+  curricula (Florensa et al.\ 2017), which motivate our collapse remedy.
+  \item [PENDING: external baselines APF / VO-ORCA / CBF-QP for the Pareto
+  comparison, Section~\ref{sec:results}.]
+\end{itemize}
+
+% =====================================================================
+\section{Method}
+\label{sec:method}
+% [DRAFT skeleton]
+\subsection{Problem setup and shielded MDP}
+We adopt the Krasowski--Althoff CommonOcean setting: yaw-constrained point-mass
+vessel dynamics (Eq.~\ref{eq:dyn} in Section~\ref{sec:provable}), continuous
+control $u=[a,\omega]$, and the handcrafted two-vessel encounter benchmark. The
+policy is trained in the SE-RL style, i.e.\ against the \emph{shielded} transition
+so that it observes and adapts to the projection.
+
+\subsection{The projection-based COLREGs shield}
+At each step: (i) a rule state machine classifies the encounter regime
+$\rho\in\{\text{far},\text{give-way(head-on/crossing/overtake)},\text{stand-on},
+\text{emergency}\}$ and the compliant give-way half-plane; (ii) the compliant
+half-plane and per-target collision-free constraints define the safe action set;
+(iii) a quadratic program projects the policy command $u$ onto the nearest safe
+action $u_{\mathrm{safe}}$; (iv) when the safe set is empty ($P=\varnothing$) in
+the emergency regime, an empirical last-resort controller (Algorithm~1) minimizes
+collision risk. [HONESTY: the emergency branch is empirical, not guaranteed.]
+
+% ---- 可证明层正文（独立文件，含命题 1/2/3 + 多障碍 + 汇总表 + 失败机理段）----
+\input{sec_provable_safety_layer}
+
+% =====================================================================
+\section{Experiments and Results}
+\label{sec:results}
+% [DRAFT skeleton · 大量 PENDING = 待烧卡]
+\subsection{Setup}
+Benchmark: Krasowski--Althoff CommonOcean handcrafted two-vessel scenarios
+(head-on / crossing / overtake). Metrics (reported as IQM with bootstrap CI over
+seeds, never cherry-picked): arrival rate, hull-collision rate, COLREGs violation
+rate, and control smoothness (throttle-increment, yaw-increment, jerk). We report
+two arrival criteria: strict (position + heading $\pm9.74^\circ$ + time, faithful
+to the CommonOcean \texttt{is\_reached}) as primary, and position-only as a clearly
+labeled looser complement. [HONESTY: dual criteria because Krasowski's published
+maritime eval code is not in hand.]
+
+\subsection{Main comparison (four arms)}
+% [PENDING: headline four-way money chart on the balanced/overtaking dataset]
+Baseline / soft-reward / discrete-safe / continuous-safe on the balanced dataset
+(head-on + crossing + overtake). Expected honest positioning:
+\begin{itemize}
+  \item \textbf{Collision}: zero hull collisions for the shielded continuous arm
+  (empirical; [PENDING seeds$\times$episodes]); safety methods tie near zero.
+  \item \textbf{Throttle smoothness}: structural $\sim\!5\times$ advantage of the
+  continuous arm over discrete (discrete has 7 quantized throttle levels).
+  \textbf{[HONESTY] yaw-increment and jerk currently \emph{lose} to discrete
+  ($\sim\!1.2$--$1.3\times$); de-jittering the yaw axis is open work.}
+  \item \textbf{Arrival}: comparable to discrete, \emph{not} superior.
+  [HONESTY: after balancing hidden collapsed seeds across arms, arrival shows no
+  provable advantage over discrete (L192); we therefore do not list arrival as a
+  selling point.]
+  \item \textbf{Violation}: [PENDING same-budget same-dataset paired test.]
+\end{itemize}
+
+\subsection{Training-stability collapse and the warm-start remedy}
+% [DRAFT · from 失败机理与紧急兜底刻画_0714 + L190/L191/L191-B/L192]
+A minority of seeds (2/10 in the from-scratch golden run) collapse: the policy
+never escapes a ``full-speed circling / time-out'' attractor and arrival flat-lines
+near zero. We show (position-vs-heading decomposition; limit-cycle trajectories)
+that this is a \emph{training-instability} limitation, not a criterion artifact,
+and that reward shaping does not fix it (14 dosage sweeps). Warm-starting all seeds
+from a single healthy policy escapes the bad basin (collapsed seeds' failure mode
+changes entirely from time-out to near-goal stopping; zero hull collisions
+maintained). [HONESTY: we describe this as ``warm-started training,'' never
+``stable from scratch''; the ten warm-started seeds share one parent, so their
+low spread is a fine-tuning band, \emph{not} a seed-variance claim---establishing
+seed-level stability requires a multi-parent design, PENDING.]
+
+\subsection{Emergency-regime characterization}
+On an adversarial purely-geometric baseline that forces the emergency branch, we
+observe the two collisions occurring with \texttt{source=emergency}, substantiating
+that the emergency regime is an empirical fallback outside the far-field domain of
+Proposition~\ref{prop:farfield}. [HONESTY: not a counterexample to the headline;
+the headline is the provable direction-compliant shield with empirical zero
+collision on the learned policy.]
+
+% =====================================================================
+\section{Discussion and Limitations}
+% [DRAFT · 把 13 条 over-claim 收紧措辞落这里 · L189 E / L191-B / L192]
+\begin{itemize}
+  \item The provable tier is \emph{medium}: gap\#1 (velocity-dimension
+  unavoidability) is now sound, but coverage is not complete, and the empirical
+  zero-collision backing is single-target until multi-vessel benchmark data exist.
+  \item We claim provable \emph{direction} compliance only per give-way step
+  ($\sim\!13$--$16\%$ of encounters), \emph{never} at every step (measured
+  violation $1.2$--$1.6$ per episode; emergency regime bypasses the constraint).
+  \item Arrival is comparable, not superior; the defensible advantages are the
+  provable direction-compliant shield (zero collision) and throttle smoothness.
+  \item Warm-start establishes escape from the bad basin, not from-scratch
+  stability; multi-parent seed-variance evidence is [PENDING].
+  \item [PENDING] multi-target empirical backing; hard-dataset stress test to make
+  the shield's value visible where the current benchmark is too easy.
+\end{itemize}
+
+% =====================================================================
+\section{Conclusion}
+% [DRAFT]
+We presented a projection-based, continuous-action COLREGs shield with an
+honestly-scoped provable safety layer, filling the previously empty intersection of
+continuous action, provable direction compliance, and COLREGs. We are explicit
+about the boundary of the guarantee and about a training-stability limitation and
+its warm-start remedy. Future work: multi-target empirical validation, a
+multi-parent seed-variance study, yaw-axis smoothing, and external
+(CBF/VO) Pareto baselines.
+
+\section*{References}
+% [PENDING: BibTeX; anchors: Krasowski \& Althoff 2024; Markgraf et al. 2026;
+%  Meyer et al. 2020; Florensa et al. 2017; JSRL 2022; AWAC 2020; RLPD 2023;
+%  Henderson et al. 2018; Agarwal et al. 2021.]
+
+\end{document}
