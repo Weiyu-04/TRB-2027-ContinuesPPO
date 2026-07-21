@@ -1,0 +1,352 @@
+%==============================================================================
+%  TRB 2027 投稿草稿 —— 连续动作空间下投影式安全盾的可证明 COLREGs 方向合规无人船避碰
+%
+%  ▶ 版本：0626-paper.tex（首版中文草稿·基于 paper.tex 原版 TRB/TAD 模板）
+%  ▶ 规矩（user 2026-06-26）：
+%     · paper.tex = 原版模板·永不改（备份/格式基准）。
+%     · 本文件 = 当前工作草稿。先写【中文】，待内容定稿再译英文投稿。
+%     · 重大转折/大改 → 复制本文件、按日期命名 + 文件名注明改了什么（如
+%       0701-paper-换provable档位B.tex），旧稿即备份，形成时间线。
+%  ▶ 编译：因含中文，须用 xelatex（非 pdflatex）：xelatex 0626-paper.tex（跑两次更新交叉引用）。
+%
+%  ▶ 诚实标注（2026-06-26 撰稿时状态·`02`/`03` L89）：
+%     · 主贡献=投影盾把【可证明 COLREGs 方向合规】带进【连续动作空间】（档位A·经验性）。
+%     · "provably 零碰撞 / 前向不变性"=档位B/Phase 4·未做 → 标题/正文只敢说"方向合规"。
+%     · 结果章为【骨架+占位】：训练在跑、Φ_xtrack 有效性未证、修法A n=5 显著性未达——
+%       绝不填未定数字；定稿前所有 [待数据] 须换成多种子 IQM+自助法CI+失败率（不挑种子）。
+%==============================================================================
+\documentclass[12pt,letterpaper]{article}
+
+%--- 字体：拉丁/公式用 Times 风格；中文用 xeCJK（须 xelatex 编译）---------------
+\usepackage{iftex}
+\usepackage{amsmath}          % 数学：\text、\arg\min 等（须在字体包前·标准·不改版式）
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{mathptmx}       % 拉丁与公式 Times 风格（pdflatex 分支）
+\else                         % XeLaTeX / LuaLaTeX：原生 UTF-8 + 中日韩字体
+  \usepackage{mathptmx}       % 先载（提供 Times 数学）；其文本字体族随后被 fontspec 覆盖
+  \usepackage{fontspec}
+  \setmainfont{Times New Roman}  % 拉丁正文（粗/斜在 TU 编码下可用·覆盖 mathptmx 文本设定）
+  \usepackage{xeCJK}
+  \setCJKmainfont{Songti SC}  % macOS 自带宋体（衬线·近 Times 观感）；换机改此处
+\fi
+
+%--- 页面：US Letter，四周 1 英寸页边距，页眉/页脚 0.5 英寸 ----------------------
+\usepackage[letterpaper,margin=1in,headheight=15pt,headsep=0.25in,footskip=0.3in]{geometry}
+
+%--- 页眉（斜体 running head）+ 页脚（居中页码）---------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\itshape Author, Author, and Author}   % ▶ 改成你的 running head
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+%--- 正文：左对齐(右侧自然参差)、单倍行距、首行缩进 0.5 英寸、段间不额外加空 --------
+\usepackage{ragged2e}
+\setlength{\RaggedRightParindent}{0.5in}
+\RaggedRight
+\setlength{\parindent}{0.5in}
+\setlength{\parskip}{0pt}
+
+%--- 标题层级样式 --------------------------------------------------------------
+\usepackage{titlesec}
+\setcounter{secnumdepth}{0}                                   % 标题不编号
+\titleformat{\section}{\normalfont\bfseries}{}{0pt}{\MakeUppercase}
+\titlespacing*{\section}{0pt}{12pt}{4pt}
+\titleformat{\subsection}{\normalfont\bfseries}{}{0pt}{}
+\titlespacing*{\subsection}{0pt}{12pt}{4pt}
+\titleformat{\subsubsection}{\normalfont\itshape}{}{0pt}{}
+\titlespacing*{\subsubsection}{0pt}{12pt}{4pt}
+
+%--- 图表标题 ------------------------------------------------------------------
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{caption}
+\captionsetup{labelsep=space,font=bf,justification=raggedright,singlelinecheck=false}
+\captionsetup[table]{name=TABLE}
+\captionsetup[figure]{name=Figure}
+
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\abshead}[1]{\textbf{#1}\ }
+\newcommand{\refitem}[1]{\par\noindent\hangindent=0.5in\hangafter=1 #1\par\vspace{6pt}}
+
+%==============================================================================
+\begin{document}
+
+%------------------------------------------------------------------------------
+%  题名与作者信息
+%------------------------------------------------------------------------------
+\begin{flushleft}
+{\bfseries 连续动作空间下基于投影式安全盾的可证明 COLREGs 方向合规无人船避碰}\par
+{\itshape（工作标题·中文草稿；英文定名待档位 B 结果决定是否能用 “provably collision-free”）}\par
+\vspace{12pt}
+
+% ▶ 作者块（占位·待补）
+{\bfseries 作者姓名\textsuperscript{*}}\par
+所属院系\par
+单位名称，城市，国家／地区，邮编\par
+ORCID: https://XXX\par
+Email: author@university.edu\par
+\vspace{12pt}
+
+总页数：XX\par
+\vspace{12pt}
+
+\textit{投稿日期：[待定]}\par
+\textsuperscript{*}通讯作者\par
+\end{flushleft}
+
+\vspace{6pt}
+
+%------------------------------------------------------------------------------
+%  结构化摘要（< 300 词·定稿前据真实结果重写"发现"段）
+%------------------------------------------------------------------------------
+\section{摘要}
+\noindent\textit{（结构化摘要·须 < 300 词。下方"发现"段为占位骨架，待多种子实验完成后据真实结果重写，不填未定数字。）}
+
+\justifying
+
+\abshead{研究目标（Objectives）：}在自主水面航行器（无人船）的避碰控制中，既要满足《国际海上避碰规则》（COLREGs），又要可证明地满足该规则，此前的方法面临两难：要么牺牲连续控制（采用离散动作 + 动作屏蔽以获得可证明合规），要么牺牲合规保证（连续动作工作普遍退回软奖励、无硬保证）。本文的目标是把投影式安全盾首次落到海事 COLREGs，在\textbf{连续动作空间}内实现\textbf{可证明 COLREGs 方向合规}的避碰。
+
+\abshead{方法（Methods）：}在以投影盾为环境一部分的强化学习框架（SE-RL）下，连续策略（PPO）输出的动作经三步处理：(i) COLREGs 状态机判定相遇态势（对遇／交叉／追越）并给出合规转向方向；(ii) 据合规方向与单前瞻无碰撞条件构造\textbf{安全动作集}；(iii) 用二次规划把策略动作\textbf{投影}进该集合，得到既合规又无碰撞的安全动作。在 CommonOcean 海事场景库上，与四方基线（无合规 Base／软奖励 Rule-reward／离散安全 Discrete-safe／本文连续安全 Continuous-safe）按同一口径对比。
+
+\abshead{发现（Findings）：}\textit{[待数据——训练进行中]} 安全盾对\textbf{所有随机种子}保证 COLREGs 方向合规（不受强化学习种子方差影响）；投影把离散动作屏蔽损失的到达率代价 \textit{[占位]}。所有效率指标报告\textbf{多种子 IQM + 自助法置信区间 + 失败率}，绝不挑选种子。
+
+\abshead{创新（Novelty）：}据我们所知，这是首个把投影式安全盾落到海事 COLREGs 连续控制的工作；并将盾在环的势函数奖励塑形与规则合规的不变性绑定。
+
+\abshead{实际应用（Practical Applications）：}为自主水面航行器提供可证明规则合规、且保留连续控制平滑性的避碰方案。
+
+\RaggedRight
+
+%------------------------------------------------------------------------------
+%  正文
+%------------------------------------------------------------------------------
+\section{引言}
+自主水面航行器（无人船）正逐步进入有人船共航的公共水域，其避碰行为必须遵守《国际海上避碰规则》（COLREGs）。与陆上交通规则不同，COLREGs 不仅要求"不发生碰撞"，还规定了\textbf{合规的避让方式}：在对遇（head-on）态势两船应各自右转、在交叉（crossing）态势让路船（give-way）应向右避让而直航船（stand-on）应保向保速、在追越（overtake）态势追越船负责让清。也就是说，一个避碰动作即使在几何上避免了碰撞，若转向方向违反规则，仍属违规。把这样的规则合规交给强化学习（RL）策略，是近年自主航行研究的核心难题。
+
+\subsection{核心张力与现有两类做法}
+学习型 COLREGs 避碰面临一个三方难以兼得的张力：\textbf{连续控制}、\textbf{可证明合规}与 \textbf{COLREGs 语义}。现有工作大体落在两类，各舍其一：
+
+\textit{（一）离散动作 + 动作屏蔽。}\ 以 Krasowski 与 Althoff（2024）为代表，把控制量离散成有限动作集，在每步用规则把违规动作\textbf{屏蔽}（masking）掉，策略只能从合规动作里选。这样能\textbf{形式化地保证}规则合规，但代价是放弃连续控制：离散网格限制了操纵的精细度与平滑度，且动作个数随维度组合爆炸。
+
+\textit{（二）连续动作 + 软奖励。}\ 另一类工作保留连续控制，但把 COLREGs 合规退化为奖励函数里的\textbf{软惩罚}项（soft penalty），在训练中鼓励合规。这类方法能输出平滑连续控制，却\textbf{没有任何硬性保证}——合规只在统计意义上"大概率"成立，部署时仍可能违规，无法满足安全攸关场景对可证明性的要求。
+
+\subsection{投影式安全盾与海事 COLREGs 的空白}
+\textbf{投影式安全盾}（safety shield）提供了第三条路：让策略自由输出连续动作，再把不安全动作\textbf{投影}回一个安全集合，从而"既保证安全、又不限定动作空间"。这一思路在通用安全 RL 中已有进展（如 Markgraf 等 2026 以盾为环境一部分的 SE-RL 框架、基于 zonotope 与二次规划的投影）。然而，把它落到\textbf{海事 COLREGs} 并非把通用避碰盾照搬：其安全集合不仅要\textbf{无碰撞}，还必须编码规则规定的\textbf{合规转向方向}，而方向约束依赖于\textbf{相遇态势的实时分类}（对遇／交叉让路／交叉直航／追越／紧急），且在无可行合规避让时需要\textbf{明确的兜底逻辑}。据我们所知，把投影式安全盾用于海事 COLREGs 连续控制、并将"合规方向"纳入投影约束，此前尚属空白。
+
+\subsection{相关工作}
+除上述三类（离散屏蔽、软奖励、通用投影盾）外，与本文相关的工作还有几条线。\textit{[本节具体文献待正式检索补全；现仅给概念定位与已读锚点。]}
+
+\textit{经典海事避碰。}\ 速度障碍法（velocity obstacles）、人工势场（artificial potential field）与模型预测控制（MPC）等模型驱动方法在海事避碰中应用广泛 \textit{[文献待补]}，其 COLREGs 合规多以手工规则硬编码实现。这类方法可解释、在设定场景下可靠，但依赖较精确的模型与人工调参，对复杂多船态势与分布外场景的适应性有限。
+
+\textit{控制论安全滤波。}\ 控制屏障函数（control barrier function, CBF）、Hamilton--Jacobi 可达性分析与 MPC 安全滤波等可对学习型策略施加\textbf{可证明的安全约束} \textit{[文献待补]}。它们与本文投影盾理念相通——都在策略输出上施加安全投影／滤波——但通常面向\textbf{无碰撞}约束，需手工设计屏障函数或终端集，且一般\textbf{不直接编码 COLREGs 的合规转向方向}；而后者正是海事规则合规的关键。本文的档位 B（不变集终端约束、追求可证明零碰撞）与这一线最为接近，属后续工作。
+
+\textit{海事 COLREGs 的强化学习。}\ 已有较多工作用强化学习学习 COLREGs 避碰 \textit{[文献待补]}，但合规多以软奖励实现、缺乏硬性保证；少数引入安全机制者多采用离散动作 + 屏蔽（如 Krasowski 与 Althoff 2024）。本文区别于这些工作之处，在于在\textbf{连续动作空间}内以投影同时编码无碰撞与\textbf{规则合规方向}，并对合规方向给出构造性保证（命题 2）。
+
+\textit{奖励塑形。}\ 势函数奖励塑形（PBRS）由 Ng 等（1999）提出并证明其策略不变性，距离型塑形亦被广泛用于缓解稀疏奖励 \textit{[文献待补]}。本文不主张塑形形式本身的新颖性，而是强调其在\textbf{盾在环}设定下的用法：以保策略不变的塑形补偿盾抬高的样本复杂度，且\textbf{可证明不破坏盾的合规保证}（命题 1）。
+
+\subsection{本文贡献}
+本文填补这一空白，贡献如下：
+\begin{itemize}
+  \item 提出面向海事 COLREGs 的\textbf{投影式安全盾}：用与离散基线同一套 COLREGs 状态机判定相遇态势，把规则的合规转向方向编码为对连续动作的约束，再用二次规划把策略动作投影进"合规 $\cap$ 无碰撞 $\cap$ 物理限幅"集合，从而在\textbf{连续动作空间}内实现\textbf{可证明的 COLREGs 方向合规}（贡献定位在盾、对所有随机种子成立、与策略好坏无关）。
+  \item 给出盾在环的\textbf{势函数奖励塑形}（保策略不变性的 Ng 1999 式 PBRS），用以补偿安全盾抬高的样本复杂度，且严格不破坏合规保证（命题 1）。
+  \item 在 CommonOcean 海事场景上与\textbf{四方基线}（无合规 Base／软奖励 Rule-reward／离散安全 Discrete-safe／本文连续安全 Continuous-safe）按同一口径对比，以\textbf{多种子 IQM、自助法置信区间与失败率}诚实报告（绝不挑选种子）。
+\end{itemize}
+
+\textit{[诚实边界——撰稿时（2026-06-26）状态]}\ 本文当前可\textbf{严格证明}的是两点：奖励塑形不改变最优策略（命题 1），以及在安全集非空时投影动作满足 COLREGs \textbf{合规方向}（命题 2，构造性、有条件）。\textbf{零碰撞}当前为经验性结果（单前瞻一阶近似 + 保守裕度，档位 A），\textbf{未}声称可证明；把前向不变性／递归可行性做进投影硬约束以获得\textbf{可证明零碰撞}（档位 B）属后续工作，其成败决定英文标题能否使用 “provably collision-free”。
+
+\section{方法}
+\subsection{问题形式化}
+把单他船避碰建模为马尔可夫决策过程。本船（ego）状态 $s=[x,y,\theta,v]$（位置、航向、速度）。动作为连续控制量 $u=[a,\omega]$（纵向加速度、转艏角速度），受物理限幅
+\begin{equation}
+U_{\text{box}}=[-a_{\max},a_{\max}]\times[-\omega_{\max},\omega_{\max}],
+\end{equation}
+取 CommonOcean 集装箱船 SR108（\texttt{parameters\_vessel\_1}，船长 $l=175$\,m）的 $a_{\max}=0.24$\,m/s$^2$、$\omega_{\max}=0.03$\,rad/s（与基准 Table II 一致）。本船动力学 $s_{t+1}=f(s_t,u_t)$ 为 CommonOcean 偏航受限模型；他船在规则态势下按恒速（CV）预测。观测含本船状态、目标相对量与感知范围内他船相对量。任务成功定义为：在时间窗内进入目标区——\textbf{位置门 $\cap$ 朝向门 $\cap$ 时间门}三者同时满足，判据与基准官方 \texttt{is\_reached} 逐位一致——且全程无碰撞、无 COLREGs 违规。
+
+\subsection{COLREGs 相遇态势状态机}
+设本船—他船相对方位 $\beta=\mathrm{wrap}\big(\theta^{\text{ego}}-\mathrm{atan2}(\Delta y,\Delta x)\big)$。按 Krasowski 与 Althoff（2024）Table IV 划扇区：前扇区 $|\beta|\le 5^\circ$、右扇区 $5^\circ<\beta\le112.5^\circ$、左扇区 $-112.5^\circ\le\beta<-5^\circ$、后扇区 $|\beta|>112.5^\circ$。在"碰撞可能"（时域 $T_{\text{hor}}=420$\,s 内的最近会遇距离低于阈值）触发下，状态机把当前态势判为 $\rho\in\{0,\dots,5\}$：$\rho_2$ 对遇（head-on, R4：他船在前扇区、航向近反平行）、$\rho_3$ 交叉让路（crossing, R3：他船在右扇区、其航向偏左）、$\rho_4$ 追越（overtake, R5：本船自他船后扇区接近）均为\textbf{让路方}（give-way）；$\rho_1$ 直航（stand-on, R6：本船为被让方）须\textbf{保向保速}；$\rho_5$ 紧急（R1：无可行合规避让）；$\rho_0$ 无冲突。合规转向方向由规则确定：对遇与交叉让路船应\textbf{右转}（$\omega<0$）。该状态机与离散基线\textbf{共用同一实现}，确保四方对比同口径。
+
+\subsection{安全动作集}
+盾把动作约束进三层交集 $U_{\text{safe}}=U_{\text{box}}\cap U_{\text{colregs}}\cap U_{\text{cf}}$。
+
+\textit{（1）合规方向集 $U_{\text{colregs}}$}（据状态机 $\rho$，把 COLREGs 转向方向编码为对 $u$ 的约束）：
+\begin{itemize}
+  \item 让路（$\rho\in\{2,3,4\}$，须"明显转向"）：$\omega\le-\omega_{\text{turn}}$，其中
+  \begin{equation}
+  \omega_{\text{turn}}=\Delta_{\text{large}}/T_M = 20^\circ/40\,\text{s}\approx 8.73\times10^{-3}\ \text{rad/s}
+  \end{equation}
+  为"持续机动段 $T_M=40$\,s 累积转角 $\ge\Delta_{\text{large}}=20^\circ$"对应的转艏率下限（即 COLREGs"明显转向"阈值本尊）。
+  \item 直航（$\rho=1$，保向保速）：$|\omega|\le\varepsilon_\omega=\Delta_{\text{no}}/T_M=10^\circ/40\,\text{s}\approx4.36\times10^{-3}$\,rad/s 且 $|a|\le\varepsilon_a=0.016$。
+  \item $\rho_0$ 无方向约束；$\rho_5$ 不施合规约束、转兜底。
+\end{itemize}
+
+\textit{（2）无碰撞集 $U_{\text{cf}}$}（单前瞻、一阶线性化；蓝图 §12.3.3）：将他船在前瞻时刻 $\tau$ 的占据用\textbf{外接圆盘}保守过近似（含安全膨胀 $d_{\text{safe}}=2\,l_{\text{obs}}$，Table II），本船一步可达位置对动作的依赖以\textbf{位置 Jacobian} 一阶展开，得到对 $u$ 的标量线性约束（分离超平面：要求本船预测位置在他船占据盘外、裕度 $\ge d_{\text{safe}}$）
+\begin{equation}
+g(\tau)^\top u \le h(\tau).
+\end{equation}
+
+\textit{（3）物理箱 $U_{\text{box}}$} 如式 (1)。
+
+\subsection{二次规划投影与兜底}
+盾把策略动作 $u_\pi$ 投影到安全集中欧氏最近的可行点：
+\begin{equation}
+u_{\text{safe}}=\arg\min_{u}\ \|u-u_\pi\|_2^2\quad\text{s.t.}\quad u\in U_{\text{box}}\cap U_{\text{colregs}}\cap U_{\text{cf}}.
+\end{equation}
+当约束仅为轴对齐（$\rho\in\{0,1\}$，无耦合无碰撞约束）时存在解析逐轴投影解；含无碰撞约束时用 OSQP 求二次规划。当安全集为空（$P=\emptyset$：合规与无碰撞冲突、退化、或 $\rho_5$ 紧急）时，触发\textbf{分级兜底}（绝不静默放行）：(i) 放松合规方向、保无碰撞（relaxed）；(ii) 仍不可行 $\to$ 碰撞风险最小化（collision\_min）；(iii) 圆心重合/已碰 $\to$ 退化占位。盾以 SE-RL 方式作为环境一部分，每决策步于 \texttt{env.step} 前用当前态推状态机一步、且只调一次（图~\ref{fig:shield}）。
+
+% ▶ 架构图占位（待用 plot_results 出的 pipeline 示意/CAT5 轨迹替换）
+\begin{figure}[h]
+  \centering
+  \fbox{\parbox[c][1.6in][c]{0.8\linewidth}{\centering\itshape [架构图占位 —— 观测 $\to$ 策略(PPO) $\to$ (1) 状态机判 $\rho$ + 合规方向 $\to$ (2) 安全动作集 $U_{\text{box}}\cap U_{\text{colregs}}\cap U_{\text{cf}}$ $\to$ (3) 二次规划投影 $\to$ 安全动作 $\to$ 环境]}}
+  \caption{投影式安全盾的处理流程}
+  \label{fig:shield}
+\end{figure}
+
+\subsection{势函数奖励塑形}
+安全盾会抬高到达目标的样本复杂度。为补偿，本文加入两个\textbf{纯状态势函数}的势塑形项（PBRS，$F=\gamma\Phi(s')-\Phi(s)$）。\textbf{进门势}
+\begin{equation}\label{eq:phiA}
+\Phi_A(s)=w_B\cdot\mathrm{prox}(d;R_{\text{near}})\cdot\mathrm{align}(\theta),
+\end{equation}
+其中 $d=\|p-p_{\text{goal}}\|$，$\mathrm{prox}(d;R_{\text{near}})=\max\!\big(0,1-d/R_{\text{near}}\big)$ 为近场门（$R_{\text{near}}=500$\,m，远场为 0、不干扰避碰段），$\mathrm{align}(\theta)=\tfrac12\big(1+\cos(\theta-\theta_c)\big)$ 引导航向拧向进门朝向 $\theta_c$。\textbf{横向进带势}
+\begin{equation}\label{eq:phix}
+\Phi_{\text{xtrack}}(s)=w_X\cdot\mathrm{prox}(d;R_{\text{near}})\cdot\mathrm{prox}_{\text{lat}}(e_{\text{cross}};R_{\text{lat}}),
+\end{equation}
+其中 $e_{\text{cross}}=(p_{\text{goal}}-p)\cdot n_\perp$（$n_\perp=(-\sin\theta_c,\cos\theta_c)$）为到"过目标中心、沿 $\theta_c$ 的中心线"的横向（cross-track）垂距，$\mathrm{prox}_{\text{lat}}=\max\!\big(0,1-|e_{\text{cross}}|/R_{\text{lat}}\big)$ 为线性核（$R_{\text{lat}}=80$\,m），针对"终端横向偏出窄目标带"的残余失败把刹停点横向拉回带内。两权重默认 $w_B=w_X=0$（关闭时与无塑形逐位等价），其取值与有效性由消融实验确定。\textit{[诚实——塑形仅为训练辅助、非核心贡献；其提升效果待多种子实验确证，无效则关闭、贡献仍在盾。]}
+
+\subsection{诊断驱动的修复方案演进：进门势及其横向进带加固}
+本文的奖励塑形并非一次设计成型，而是\textbf{由诊断驱动、逐步加固}得到的。我们将这一演进完整记录于此，因为"先定位失败根因、再对症设计、并验证不破坏安全保证"本身是本工作方法论的一部分。
+
+\textit{初始观察。}\ 安全盾抬高了到达目标的样本复杂度：连续策略臂初期呈现到达率中等、随机种子间方差较大，且部分种子陷入"在目标区外徘徊/停滞"的局部最优。
+
+\textit{诊断一（根因：到达与主导奖励解耦）。}\ 分析训练曲线与轨迹发现，主导奖励是距离势的 telescoping 累加（数值上占绝对主导），而"进入目标区"的终端信号占比极小，导致\textbf{进门梯度弱}——部分随机种子早期未探索到"进门"，稳定收敛到徘徊（loiter）。简单叠加距离势是冗余的（主导项已是距离势）。
+
+\textit{修复方案 A（进门势 $\Phi_A$）。}\ 针对弱进门梯度，引入进门势 $\Phi_A$（式~\eqref{eq:phiA}）：近场 $\mathrm{prox}$ 门控 $\times$ 航向对齐 $\mathrm{align}$，在目标近场处处给出"接近并拧向进门航向"的梯度。$\Phi_A$ 为纯状态势函数，按命题~1 保策略不变、不破坏盾的合规保证。该修复抬升了到达率、消除了接近塌缩的最差种子；\textit{但仍遗留残余失败}。
+
+\textit{诊断二（last-mile：终端横向进带失败）。}\ 我们对修复 A 之后的残余失败做\textbf{仪表化评估 + 失败分解}：在每个失败回合记录终止旗、终端状态与目标区几何，用一套与基准官方到达判据\textbf{严格等价}的后处理（多边形 + 朝向区间，经独立校验零误判）把失败分解为位置门 / 朝向门 / 时间门未达。结果钉死：残余失败\textbf{约 97\% 为终端刹停}、\textbf{约 94\% 为横向（cross-track）未进入窄目标带}——即船已到达正确的纵向位置，却横向差一截、刹停在窄带之外，并非奖励吸引子所致（基础奖励已重罚停车）。
+
+\textit{修复 A 的加固（横向进带势 $\Phi_{\text{xtrack}}$）。}\ 针对该终端横向缺口，加入横向进带势 $\Phi_{\text{xtrack}}$（式~\eqref{eq:phix}）：在近场内沿目标带法向给出把刹停点\textbf{横向拉入窄带}的梯度（线性核、带半径覆盖实测横向缺口）。它同为纯状态势函数（命题~1），作为修复 A 之上的\textbf{加固层}专门消解其残余的"刹停带外"失败，而非替换修复 A——二者叠加、各司其职。机制性验证表明：在修复 A（$w_B>0$）之上开启 $\Phi_{\text{xtrack}}$ 能显著削减"刹停带外"失败、且不增碰撞与违规；而 $\Phi_{\text{xtrack}}$ 单独（无修复 A 打底）不稳定，印证二者的互补关系。
+
+\textit{备用项（学习率退火）。}\ 我们亦实现了学习率退火以稳定后期训练，但诊断表明其对"终端横向进带"无针对性，故降为辅助、默认关闭，仅作记录。
+
+\textit{诚实定位。}\ 上述各塑形项均为\textbf{训练辅助}、默认可关、并\textbf{可证明地保持盾的合规不变性}（命题~1，这正是其相对于一般软奖励的关键区别）。其定量有效性以\textbf{多种子 IQM、自助法置信区间与失败率}如实报告，绝不挑选种子（见结果章，\textit{[待数据]}）。
+
+\subsection{理论保证与诚实边界}
+\textbf{命题 1（奖励塑形不改变最优策略）。}\ $\Phi_A$ 与 $\Phi_{\text{xtrack}}$ 均为纯状态势函数，其势塑形 $F=\gamma\Phi(s')-\Phi(s)$ 按 Ng 等（1999）的策略不变性定理不改变 MDP 的最优策略；两纯状态势之和仍为势塑形。故奖励塑形\textbf{不影响盾所施加的任何约束、不改变合规保证}。（数值核验：单轨折扣 telescoping 残差 $\approx1.4\times10^{-14}$。）
+
+\textbf{命题 2（COLREGs 方向合规·构造性）。}\ 当安全集非空且二次规划求得可行解时，$u_{\text{safe}}\in U_{\text{colregs}}$，故其转艏率满足当前态势 $\rho$ 规定的合规方向约束（让路 $\omega\le-\omega_{\text{turn}}$；直航 $|\omega|\le\varepsilon_\omega$）。该保证为\textbf{构造性}、\textbf{对所有随机种子成立}、与策略好坏无关。\textit{条件与例外}：依赖状态机对 $\rho$ 的正确分类；在 $\rho_5$ 紧急兜底步，方向约束被放松以优先避碰，此时不保证方向合规——兜底步比例作为指标如实报告。
+
+\textbf{诚实边界（当前为档位 A）。}\ 无碰撞集 $U_{\text{cf}}$ 为\textbf{单前瞻、一阶线性化 + 保守圆盘膨胀}的近似，且为单步约束（多前瞻几何尚未落地）。因此本文\textbf{不声称可证明零碰撞}：零碰撞是经验性结果（Phase 2 闭环在对遇态势整段零碰撞零违规），而非数学保证。要获得\textbf{可证明零碰撞}，需把前向不变性／递归可行性（如鲁棒控制不变集 / reach-avoid 终端约束）做进投影硬约束（\textbf{档位 B}），属后续工作，其成败决定英文标题能否使用 “provably collision-free”。
+
+\section{结果}
+\textit{[本章为骨架——多种子训练进行中，所有数字待回填；定稿前以多种子 IQM + 自助法置信区间 + 失败率呈现，绝不挑种子。本文报告\textbf{两组规模}的实验：\textbf{实验一}（200 场景·中等规模·多种子消融）与\textbf{实验二}（2000 场景·全量·去噪标准结果），以交叉印证并分析规模与迁移效应。]}
+
+\subsection{实验设置}
+四方同口径对比：无合规 Base、软奖励 Rule-reward、离散安全 Discrete-safe（复现 Krasowski 与 Althoff 2024）、本文连续安全 Continuous-safe。所有方法共享环境、场景、评估口径、观测归一化与折扣因子；唯一有意差异为是否带盾、算法与合规奖励项。评估指标：碰撞率、COLREGs 违规率（对齐基准锚点）、到达率、轨迹长度与控制平滑度。统计：$\ge 5$ 随机种子，报告均值与 IQM、自助法置信区间与失败率。两组规模：
+\begin{itemize}
+  \item \textbf{实验一（200 场景）：}场景池为 200（跨全库分层选取），中等规模、可承担更多种子与消融，用于多种子地验证修复方案（进门势 $\Phi_A$、横向进带势 $\Phi_{\text{xtrack}}$）的效应与诊断驱动设计。
+  \item \textbf{实验二（2000 场景）：}全场景库（约 2000），评估去噪、作为标准头条结果，并分析自 200 场景的配方迁移与规模效应。
+\end{itemize}
+
+\subsection{实验一：200 场景（多种子消融与四方对比）}
+\textit{[待数据——训练进行中]}
+
+% ▶ 实验一·四方对比表 @ 200（对齐 Krasowski Table III 口径）
+\begin{table}[h]
+  \caption{实验一·四方对比 @ 200 场景（占位·待多种子数据；均值与 IQM[自助 CI]）}
+  \label{tab:main200}
+  \centering
+  \begin{tabular}{lcccc}
+    \toprule
+    \textbf{方法} & \textbf{碰撞率} & \textbf{违规率} & \textbf{到达率} & \textbf{合规保证} \\
+    \midrule
+    Base（无合规）        & [待] & [待] & [待] & 无 \\
+    Rule-reward（软奖励）  & [待] & [待] & [待] & 软（无硬保证） \\
+    Discrete-safe（离散）  & [待] & [待] & [待] & 可证明（离散） \\
+    \textbf{Continuous-safe（本文）} & [待] & [待] & [待] & \textbf{可证明方向合规（连续）} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textit{修复方案消融（诊断驱动设计的定量验证）。}\ \textit{[待数据]} 在连续安全臂上对进门势与横向进带势做多种子 A/B，验证"进门势抬到达、横向进带势消解残余的终端横向失败"：
+
+% ▶ 实验一·修复消融表 @ 200
+\begin{table}[h]
+  \caption{实验一·修复消融 @ 200 场景：进门势 $\Phi_A$ 与横向进带势 $\Phi_{\text{xtrack}}$（占位·待数据；$\ge 5$ 种子）}
+  \label{tab:ablation200}
+  \centering
+  \begin{tabular}{lccc}
+    \toprule
+    \textbf{配置} & \textbf{到达率 IQM[CI]} & \textbf{带内刹停率} & \textbf{碰撞／违规} \\
+    \midrule
+    无塑形 ($w_B{=}0,w_X{=}0$)          & [待] & [待] & [待] \\
+    进门势 ($w_B{>}0,w_X{=}0$)          & [待] & [待] & [待] \\
+    \textbf{进门势 + 横向进带 ($w_B{>}0,w_X{>}0$)} & [待] & [待] & [待] \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textit{[图占位：实验一——四方训练回报曲线 / 四方钱图 / 残余失败分解（位置门/朝向门/时间门）]}
+
+\subsection{实验二：2000 场景（全量去噪·标准头条结果）}
+\textit{[待数据——待实验一通过门后开跑]} 作为论文的标准头条结果：在全场景库上，连续安全方法在保证 COLREGs 方向合规（对所有种子）与（经验性）零碰撞的同时，把离散动作屏蔽所损失的到达率代价压低。
+
+% ▶ 实验二·四方对比表 @ 2000（标准头条）
+\begin{table}[h]
+  \caption{实验二·四方对比 @ 2000 场景（标准头条·占位·待数据；均值与 IQM[自助 CI] + 失败率）}
+  \label{tab:main2000}
+  \centering
+  \begin{tabular}{lcccc}
+    \toprule
+    \textbf{方法} & \textbf{碰撞率} & \textbf{违规率} & \textbf{到达率} & \textbf{合规保证} \\
+    \midrule
+    Base（无合规）        & [待] & [待] & [待] & 无 \\
+    Rule-reward（软奖励）  & [待] & [待] & [待] & 软（无硬保证） \\
+    Discrete-safe（离散）  & [待] & [待] & [待] & 可证明（离散） \\
+    \textbf{Continuous-safe（本文）} & [待] & [待] & [待] & \textbf{可证明方向合规（连续）} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textit{规模与迁移分析。}\ \textit{[待数据]} 对照实验一（200）与实验二（2000）：分析评估去噪效应（更大评估集是否收窄种子间方差）与配方迁移（200 场景调定的 $w_B,w_X$ 是否在全库维持效应），以论证结论对场景规模的稳健性。
+
+\textit{[图占位：实验二——四方钱图（标准头条）/ 训练诊断仪表盘 / 典型态势示例轨迹（交叉给路、对遇、追越）]}
+
+\section{讨论}
+\textit{[骨架]} 拟讨论的诚实局限：(i) 当前为档位 A——可证明的是 COLREGs 合规\textbf{方向}与经验性无碰撞，可证明零碰撞（前向不变性）留待档位 B；(ii) 随机种子方差是强化学习固有难题，本文以多种子 IQM／置信区间／失败率诚实报告、不挑种子，且\textbf{合规保证对所有种子成立}、不受种子方差影响；(iii) 紧急冲突几何下的兜底行为与其触发统计。
+
+\section{结论}
+\textit{[待定稿]} 本文把投影式安全盾首次落到海事 COLREGs，在连续动作空间内实现可证明的 COLREGs 方向合规避碰；并以盾在环的势函数塑形补偿样本复杂度而不破坏合规保证。
+
+%------------------------------------------------------------------------------
+%  文末声明
+%------------------------------------------------------------------------------
+\section{致谢}
+\textit{[须按期刊要求声明 AI/大模型的使用：用了哪个模型、用于何处。]}
+
+\section{作者贡献}
+\textit{[待补]}
+
+\section{利益冲突声明}
+作者声明本研究、署名及发表不存在潜在利益冲突。
+
+\section{资助}
+\textit{[待补]}
+
+%------------------------------------------------------------------------------
+%  参考文献（Chicago 作者-年份·锚点文献先占位·定稿前补全）
+%------------------------------------------------------------------------------
+\section{参考文献}
+\refitem{Krasowski, Hanna, and Matthias Althoff. 2024. ``Provable Traffic-Rule Compliance in Safe Reinforcement Learning on the Open Sea.'' \textit{[期刊/会议·卷·页码待补]}.}
+
+\refitem{Markgraf, [作者待补]. 2026. ``[serl-sprl / 安全盾在环强化学习·题名待补].'' \textit{[出处待补]}.}
+
+\refitem{Ng, Andrew Y., Daishi Harada, and Stuart Russell. 1999. ``Policy Invariance Under Reward Transformations: Theory and Application to Reward Shaping.'' In \textit{Proceedings of the 16th International Conference on Machine Learning (ICML)}, 278--287.}
+
+\refitem{[CommonOcean 基准·文献待补]}
+
+\end{document}

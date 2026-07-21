@@ -1,0 +1,520 @@
+{
+  "schema_version": 1,
+  "ship_dynamics": {
+    "model": "vessel_dynamics_yp (Krasowski & Althoff 2024 eq.(1); yaw-constrained point mass Ω_yc)",
+    "rhs": "f = [cos(theta)*v, sin(theta)*v, omega, a]  (state x=[px,py,theta,v], input u=[a,omega])",
+    "integrator": "scipy.integrate.odeint over [0,dt] (constant-u; ego trajectory convention, her exact integrator unpublished)",
+    "vessel_class": "parameters_vessel_1 (SR108 container ship)",
+    "length_m": 175.0,
+    "width_m": 25.4,
+    "a_max_m_s2": 0.24,
+    "omega_max_rad_s": 0.03,
+    "v_max_m_s": 9.5,
+    "v_max_note": "paper §VII reduced default 16.8 -> 9.5 m/s; RHS does not clip v (env layer manages via safe_speed)",
+    "decision_dt_s": 10.0,
+    "vessel_params_full": {
+      "I_z": 54996070984.6669,
+      "N_r": -1113465.737545,
+      "N_rdot": -44854701237.0896,
+      "N_v": -14228.3163250072,
+      "N_vdot": -175519156.763611,
+      "X_u": -150639.788002265,
+      "X_udot": -1799893.02539637,
+      "Y_r": 9276.58982069771,
+      "Y_rdot": -283417813.92759,
+      "Y_v": -218.602814490728,
+      "Y_vdot": -26543765.9872343,
+      "a_max": 0.24,
+      "d": 9.0,
+      "l": 175.0,
+      "m": 24562069.875,
+      "surge_force_max": 5894896.77,
+      "sway_force_max": 5894896.77,
+      "v_max": 9.5,
+      "w": 25.4,
+      "w_dot_max": 2.455465405069919e-05,
+      "w_max": 0.03,
+      "x_g": -2.55,
+      "yaw_moment_max": 1350409.4971761913
+    }
+  },
+  "colregs_params": {
+    "sector_angles": {
+      "delta_head_on": {
+        "rad": 0.08726646259971647,
+        "deg": 5.0
+      },
+      "delta_overtake": {
+        "rad": 1.1780972450961724,
+        "deg": 67.5
+      },
+      "delta_no_turn": {
+        "rad": 0.17453292519943295,
+        "deg": 10.0
+      },
+      "delta_large_turn": {
+        "rad": 0.3490658503988659,
+        "deg": 20.0
+      },
+      "sector_side": {
+        "rad": 1.9634954084936207,
+        "deg": 112.5
+      },
+      "sector_behind_lo": {
+        "rad": 1.9634954084936207,
+        "deg": 112.5
+      },
+      "sector_behind_hi": {
+        "rad": 4.319689898685966,
+        "deg": 247.5
+      }
+    },
+    "time_horizons_s": {
+      "t_horizon_collision_possible": 420.0,
+      "t_pred_emergency": 180.0,
+      "t_react": 60.0,
+      "t_maneuver": 70.0,
+      "dt_decision": 10.0
+    },
+    "collision_possible": {
+      "r_m_factor": 3.0,
+      "v_eps_m_s": 1.0
+    },
+    "emergency_reachset": {
+      "v_pm_max_m_s": 10.0,
+      "a_pm_max_m_s2": 0.045,
+      "dt_reach_s": 1.0,
+      "d_resolved_factor": 2.0,
+      "reach_radius_pm": "min(0.5*a_pm_max*t*(t+dt_reach), v_pm_max*(t+dt_reach))  (strict over-approx of continuous Ω_pm)"
+    },
+    "emergency_controller": {
+      "delta_ahead": {
+        "rad": 0.7853981633974483,
+        "deg": 45.0
+      },
+      "delta_stern": {
+        "rad": 0.3490658503988659,
+        "deg": 20.0
+      },
+      "a_stern_factor": 0.2,
+      "dobs_safety_factor": 2.0,
+      "dmin_ahead_factor": 3.0,
+      "t_m_s": 40.0,
+      "t_max_m_s": 200.0,
+      "v_desired_m_s": 6.0,
+      "delta_v_omega": 0.3
+    },
+    "rho_states": {
+      "NO_CONFLICT": 0,
+      "STAND_ON": 1,
+      "HEAD_ON": 2,
+      "CROSSING": 3,
+      "OVERTAKE": 4,
+      "EMERGENCY": 5
+    },
+    "ego_width_m": 25.4
+  },
+  "projection_params": {
+    "tier": "A (empirical, one-step lookahead + large d_safe margin; NOT provable — provable = tier B = Phase 4 invariant set)",
+    "omega_turn_rad_s": 0.008726646259971648,
+    "omega_turn_note": "give-way turn rate = DELTA_LARGE_TURN(20deg)/T_M(40s) ~= 0.008727 rad/s (exact infimum)",
+    "eps_omega_rad_s": 0.004363323129985824,
+    "eps_a_m_s2": 0.016,
+    "nj_degen_tol": 0.0001,
+    "d_safe": "R_ego + R_obs (R_obs includes dobs_safety = 2*l_obs); separating-hyperplane + scalar first-order linearization",
+    "fallback_chain": [
+      "projection",
+      "emergency",
+      "relaxed",
+      "collision_min",
+      "degenerate"
+    ],
+    "fallback_note": "P=empty detected by QP -> falls to emergency/collision_min/relaxed; never silently passes unsafe action"
+  },
+  "reward_coefficients": {
+    "source": "Krasowski 2024 Table II (PDF p11) + Meyer 2020 Table 4 (r_colregs)",
+    "c_time": -25.0,
+    "c_area": -5.0,
+    "c_goal": 50.0,
+    "c_stopped": -40.0,
+    "c_collision": -50.0,
+    "c_emergency": -0.5,
+    "c_reach": 1.5,
+    "c_v": -2.0,
+    "c_deviate": -0.001,
+    "v_low_m_s": 2.5,
+    "v_high_m_s": 8.0,
+    "d_hull_m": 2000.0,
+    "r_colregs_meyer": {
+      "alpha_x": 75.0,
+      "gamma_theta_dyn": 1.0,
+      "zeta_x": {
+        "starboard": 0.007,
+        "port": 0.009,
+        "stern": 0.01
+      },
+      "zeta_v": {
+        "starboard": [
+          0.004,
+          0.05
+        ],
+        "port": [
+          0.007,
+          0.005
+        ],
+        "stern": [
+          0.007,
+          0.005
+        ]
+      },
+      "default_d_sense_m": 8000.0,
+      "deviation_note": "v_y normalized by v_pm_max + exp clamp (BLOCKER fix) — MUST declare this deviation from Meyer literal in paper"
+    }
+  },
+  "training_config": {
+    "policy_net_arch": [
+      64,
+      64
+    ],
+    "total_timesteps_per_seed": 3000000,
+    "n_seeds_paper": 10,
+    "ent_coef_discrete_traindefault": 0.01,
+    "ent_coef_discrete_actual_in": "run_config.ent_start/ent_end/ent_frac (本 run 真实配方)",
+    "ent_coef_continuous": "auto (SAC max-entropy)",
+    "vecnorm_kwargs": {
+      "norm_obs": true,
+      "norm_reward": true,
+      "clip_obs": 10.0
+    },
+    "gamma": 0.99,
+    "algorithms": {
+      "Base": "MaskablePPO (unshielded, colregs_weight=0)",
+      "Rule-reward": "MaskablePPO (unshielded, colregs_weight=1)",
+      "Discrete-safe": "MaskablePPO + As(rho) action mask (shielded)",
+      "Continuous-safe": "SAC + continuous projection shield (this work)"
+    }
+  },
+  "action_space": {
+    "continuous": {
+      "a_range": [
+        -0.048,
+        0.048
+      ],
+      "omega_range": [
+        -0.018,
+        0.018
+      ],
+      "physical_emergency_range": {
+        "a": [
+          -0.24,
+          0.24
+        ],
+        "omega": [
+          -0.03,
+          0.03
+        ]
+      },
+      "physical_range_note": "physical ±a_max/±w_max used ONLY by shield/emergency-controller/_map_action box-clip, NOT RL normal-operation authority (Fix② 03 L63)"
+    },
+    "discrete_grid": {
+      "a_values": [
+        -0.048,
+        -0.032,
+        -0.016,
+        0.0,
+        0.016,
+        0.032,
+        0.048
+      ],
+      "omega_values": [
+        -0.018,
+        -0.012,
+        -0.006,
+        0.0,
+        0.006,
+        0.012,
+        0.018
+      ],
+      "n_regular": 49,
+      "idx_emergency": 49
+    }
+  },
+  "paper_narrative": {
+    "contribution": "continuous action ∩ provably(tier-B/Phase4) COLREGs-compliant ∩ maritime collision avoidance via projection shield",
+    "omega_turn_continuous_rad_s": 0.008726646259971648,
+    "omega_turn_discrete_grid_rad_s": 0.012,
+    "omega_turn_note": "continuous exact infimum (omega_turn_continuous_rad_s) vs discrete grid min-compliant rate (omega_turn_discrete_grid_rad_s) = continuous fine-control advantage; anchor to these fields, declare in writing",
+    "action_range_caveat": "RL action box (continuous arm) = Krasowski normal-operation range ±0.048/±0.018, EQUAL to the discrete grid's span (Fix② 03 L63). The earlier RANGE-difference confound (review L1a-4) is now ELIMINATED: continuous and discrete arms have MATCHED action authority; the only remaining action-space difference is RESOLUTION (continuous interval vs 7-point grid). Physical ±a_max/±w_max is reserved for the shield/emergency-controller (NOT RL authority).",
+    "action_aliasing_metric_caveat": "||u_applied - u_desired|| uses u_applied = env action AFTER box clip, so it = projection correction + box clipping (NOT pure projection). Anchor the zero-correction-fraction selling point to keep / trained-SAC policy (~0.96 on T-0 keep, NOT the 0.48 test stub); disclose box-clip inclusion (review L1b-3/L1b-1)",
+    "four_party_intended_differences_only": [
+      "shield/projection on-off",
+      "algorithm (MaskablePPO vs SAC)",
+      "r_colregs (RR/Safe have, Base/Continuous drop)"
+    ],
+    "honesty_red_lines": [
+      "tier-A here is empirical (one-step lookahead + d_safe), NOT provable — provable is tier-B Phase 4",
+      "COLREGs-violation count must NOT be claimed to beat Krasowski (ours shielded 0.98 > her shielded Safe 0)",
+      "reproduced discrete baselines are OUR re-implementation; seed fragility not attributed to Krasowski"
+    ],
+    "key_metrics_table3": [
+      "arrival rate (%)",
+      "collision rate (%)",
+      "COLREGs violations per episode",
+      "emergency-control steps (%)",
+      "episode length (s)"
+    ],
+    "continuous_arm_extra_diagnostics": [
+      "fallback steps (%) [P=empty]",
+      "projection correction magnitude ||u_safe - u_desired|| [action aliasing]"
+    ]
+  },
+  "library_versions": {
+    "python": "3.10.8",
+    "stable-baselines3": "2.3.2",
+    "sb3-contrib": "2.3.0",
+    "torch": "2.12.0",
+    "gymnasium": "0.29.1",
+    "numpy": "1.24.4",
+    "shapely": "2.1.2",
+    "osqp": "1.1.1",
+    "commonocean-io": "2025.1"
+  },
+  "sb3_hyperparameters": {
+    "overridden_by_maker": [
+      "gamma",
+      "net_arch",
+      "ent_coef(discrete=见 run_config.ent_start/end/frac·continuous=auto)",
+      "seed",
+      "device",
+      "norm_reward"
+    ],
+    "note": "values below = sb3 class __init__ defaults for params the makers do NOT override; learning_rate may be a schedule (repr); 论文报告超参直接引此 + training_config 的 maker 覆盖项",
+    "SAC": {
+      "learning_rate": 0.0003,
+      "buffer_size": 1000000,
+      "learning_starts": 100,
+      "batch_size": 256,
+      "tau": 0.005,
+      "train_freq": 1,
+      "gradient_steps": 1,
+      "target_update_interval": 1
+    },
+    "MaskablePPO": {
+      "learning_rate": 0.0003,
+      "n_steps": 2048,
+      "batch_size": 64,
+      "n_epochs": 10,
+      "gae_lambda": 0.95,
+      "clip_range": 0.2,
+      "vf_coef": 0.5,
+      "max_grad_norm": 0.5
+    }
+  },
+  "krasowski_table3_reference": {
+    "source": "Krasowski & Althoff 2024, Table III (PDF p11-13; §VII); shield-attribution per 03 L34",
+    "colregs_violations_per_episode": {
+      "Base_unshielded": 2.65,
+      "Rule-reward_unshielded": 2.24,
+      "shielded_Safe": 0.0
+    },
+    "arrival_rate_pct_approx": 86,
+    "honesty_note": "literature anchors for Phase-1 reproduction comparison; OUR shielded violations (~0.98) do NOT beat her shielded Safe=0 (honesty red line); verify exact per-cell vs PDF Table III before final paper"
+  },
+  "run_config": {
+    "tag": "_L2creach05_ppo_s4",
+    "parties": [
+      "Base",
+      "Rule-reward",
+      "Discrete-safe",
+      "Continuous-safe"
+    ],
+    "seeds": [
+      4
+    ],
+    "n_total": 200,
+    "total_steps": 5000000,
+    "n_seg": 10,
+    "pool_size": 2000,
+    "split_seed": 0,
+    "test_frac": 0.3,
+    "n_envs": 8,
+    "n_envs_sac": 1,
+    "continuous_algo": "ppo",
+    "n_train": 94,
+    "n_test": 40,
+    "train_ids": [
+      "T-807.xml",
+      "T-930.xml",
+      "T-139.xml",
+      "T-707.xml",
+      "T-275.xml",
+      "T-713.xml",
+      "T-647.xml",
+      "T-882.xml",
+      "T-906.xml",
+      "T-660.xml",
+      "T-1566.xml",
+      "T-125.xml",
+      "T-1655.xml",
+      "T-221.xml",
+      "T-1271.xml",
+      "T-1396.xml",
+      "T-430.xml",
+      "T-1041.xml",
+      "T-1774.xml",
+      "T-1049.xml",
+      "T-673.xml",
+      "T-998.xml",
+      "T-611.xml",
+      "T-1681.xml",
+      "T-1520.xml",
+      "T-179.xml",
+      "T-757.xml",
+      "T-298.xml",
+      "T-1880.xml",
+      "T-1549.xml",
+      "T-1162.xml",
+      "T-1387.xml",
+      "T-694.xml",
+      "T-648.xml",
+      "T-1078.xml",
+      "T-253.xml",
+      "T-898.xml",
+      "T-1295.xml",
+      "T-1651.xml",
+      "T-1131.xml",
+      "T-596.xml",
+      "T-529.xml",
+      "T-1459.xml",
+      "T-631.xml",
+      "T-1979.xml",
+      "T-1828.xml",
+      "T-1762.xml",
+      "T-879.xml",
+      "T-1157.xml",
+      "T-885.xml",
+      "T-866.xml",
+      "T-917.xml",
+      "T-1822.xml",
+      "T-1728.xml",
+      "T-1687.xml",
+      "T-1191.xml",
+      "T-948.xml",
+      "T-222.xml",
+      "T-1393.xml",
+      "T-1997.xml",
+      "T-1777.xml",
+      "T-831.xml",
+      "T-1648.xml",
+      "T-1300.xml",
+      "T-182.xml",
+      "T-1273.xml",
+      "T-1508.xml",
+      "T-1963.xml",
+      "T-1864.xml",
+      "T-1868.xml",
+      "T-1942.xml",
+      "T-1048.xml",
+      "T-279.xml",
+      "T-1630.xml",
+      "T-1201.xml",
+      "T-444.xml",
+      "T-1921.xml",
+      "T-1606.xml",
+      "T-915.xml",
+      "T-325.xml",
+      "T-297.xml",
+      "T-1250.xml",
+      "T-300.xml",
+      "T-1442.xml",
+      "T-1166.xml",
+      "T-786.xml",
+      "T-1817.xml",
+      "T-1330.xml",
+      "T-603.xml",
+      "T-715.xml",
+      "T-1210.xml",
+      "T-345.xml",
+      "T-539.xml",
+      "T-628.xml"
+    ],
+    "test_ids": [
+      "T-745.xml",
+      "T-1418.xml",
+      "T-748.xml",
+      "T-517.xml",
+      "T-909.xml",
+      "T-887.xml",
+      "T-1275.xml",
+      "T-257.xml",
+      "T-1100.xml",
+      "T-712.xml",
+      "T-64.xml",
+      "T-1421.xml",
+      "T-1124.xml",
+      "T-1708.xml",
+      "T-1463.xml",
+      "T-397.xml",
+      "T-1139.xml",
+      "T-1901.xml",
+      "T-1398.xml",
+      "T-1228.xml",
+      "T-1515.xml",
+      "T-572.xml",
+      "T-654.xml",
+      "T-211.xml",
+      "T-1634.xml",
+      "T-219.xml",
+      "T-1001.xml",
+      "T-760.xml",
+      "T-1785.xml",
+      "T-1265.xml",
+      "T-1451.xml",
+      "T-781.xml",
+      "T-1406.xml",
+      "T-116.xml",
+      "T-1317.xml",
+      "T-1894.xml",
+      "T-716.xml",
+      "T-1955.xml",
+      "T-1896.xml",
+      "T-992.xml"
+    ],
+    "ent_start": 0.01,
+    "ent_end": 0.01,
+    "ent_frac": 0.6,
+    "ent_schedule_discrete": "constant",
+    "well_shaping_weight": 200.0,
+    "shaping_radius": 500.0,
+    "xtrack_weight": 200.0,
+    "xtrack_radius": 80.0,
+    "park_weight": 20.0,
+    "park_radius": 400.0,
+    "park_v_target": 4.0,
+    "c_step": 0.0,
+    "c_dwell": 0.0,
+    "w_dwell": 90.0,
+    "h_dwell": 0.52,
+    "dwell_radius": 250.0,
+    "b_dwell": 0.0,
+    "c_reach": 0.5,
+    "dock_radius": 0.0,
+    "v_dock": 2.5,
+    "rate_dock": null,
+    "continuous_shield": true,
+    "goal_cone_half_deg": null,
+    "goal_v_floor": 2.0,
+    "augment_rho": false,
+    "arr_slack_start_deg": null,
+    "arr_slack_anneal_frac": 0.65,
+    "dataset": "manifest_hocr_200.json",
+    "manifest": "/root/trb/balanced_pool/manifest_hocr_200.json",
+    "lr_anneal_end": null,
+    "lr_anneal_frac": 1.0,
+    "lr_schedule": "constant",
+    "clip_reward": 10.0,
+    "norm_reward": true,
+    "log_curves": true,
+    "created_at": "2026-07-12 00:29:03"
+  }
+}

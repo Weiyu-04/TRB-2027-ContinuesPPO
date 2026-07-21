@@ -1,0 +1,38 @@
+=== step4e [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | parties=['Continuous-safe'] | N_TOTAL=200 test_frac=0.3 | steps=5000000 seeds=[1] n_seg=10 n_envs=8 | ent_coef=0.01(恒定·关退火) clip_reward=10(默认) norm_reward=True(默认) ===
+  …下载 200/934（失败 0）
+  …下载 400/934（失败 0）
+  …下载 600/934（失败 0）
+  …下载 800/934（失败 0）
+均衡数据集模式（manifest）：训练 934（head-on/crossing 934 + overtaking 0）+ 测试 40（head-on/crossing 40 + overtaking 0）← /root/trb/balanced_pool/manifest_bigtr_hocr.json
+实际可用：训练 934/934 / 测试 40/40
+📋 静态元数据 → run_metadata_probeBigHOCRA_s1.json（论文参数全记齐）
+
+>>> Continuous-safe (env=continuous, colregs_weight=0.0) seed=1 训练中…
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed1]   500000步 | 到达   0.0% 碰撞  0.0% 违规  2.45 紧急  8.9% 兜底  0.4% Ep   844s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed1]  1000000步 | 到达  10.0% 碰撞  0.0% 违规  0.30 紧急  0.7% 兜底  0.8% Ep   706s
+    [Continuous-safe seed1]  1500000步 | 到达   5.0% 碰撞  0.0% 违规  0.23 紧急  0.6% 兜底  0.0% Ep   617s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed1]  2000000步 | 到达   7.5% 碰撞  0.0% 违规  0.82 紧急  3.7% 兜底  0.2% Ep   632s
+    [Continuous-safe seed1]  2500000步 | 到达  15.0% 碰撞  0.0% 违规  0.70 紧急  3.0% 兜底  0.2% Ep   614s
+    [Continuous-safe seed1]  3000000步 | 到达  42.5% 碰撞  0.0% 违规  0.78 紧急  4.9% 兜底  0.1% Ep   622s
+    [Continuous-safe seed1]  3500000步 | 到达  40.0% 碰撞  0.0% 违规  1.12 紧急  4.4% 兜底  0.2% Ep   618s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed1]  4000000步 | 到达  57.5% 碰撞  0.0% 违规  0.55 紧急  5.1% 兜底  0.2% Ep   634s

@@ -1,0 +1,90 @@
+
+# simulation parameters
+###
+# .. code-block:: yaml
+#
+#    - dt: time step size
+#    - operating_mode: specifies operating mode: either single_scenario, single_scenario_limited, single_vehicle, test, or evaluation
+#    - ego_vehicle_id: ego vehicle ID
+#    - scenario_directories: directories in which CommonOcean scenarios are located
+#    - num_vehicles: number of vehicles which should be evaluated
+#    - benchmark_id: CommonOcean solution file name
+#    - evaluation_dirs: list of directories which contain scenarios which should be evaluated
+#    - verbose_mode: activate/deactivate status output of algorithms and simulation
+#    - scenario_dir: directory in which specified scenario is located
+#    - generate_viz: activate/deactivate generation of scenario visualization
+#    - mode: possible modes of monitor - only monitor mode fully implemented
+
+simulation_param:
+    dt: 10.0
+    operating_mode: evaluation # single_scenario, single_vehicle, test, evaluation, single_scenario_limited
+    ego_vehicle_id: 205387000
+    scenario_dir: /../scenarios/evaluation/05_21_MarineCadastre/Florida # /../scenarios/evaluation/05_21_MarineCadastre/UpperWestCoast # /../scenarios/evaluation/05_21_MarineCadastre/MiddleEastCoast
+    benchmark_id: USOCEAN_Florida-20190101_1_T-1
+    scenario_directories:  ["/../scenarios/evaluation/05_21_MarineCadastre/Florida"]
+    num_vehicles: 500
+    verbose_mode: false
+    time_measuring: false
+    generate_viz : false
+    mode: monitor # one of monitor/constraint/robustness
+
+
+# Ego vehicle parameters
+###
+# .. code-block:: yaml
+#
+#    - a_max: maximum acceleration of egovehicle
+#    - a_min: minimum acceleration of egovehicle
+#    - v_max: maximum velocity for ship
+#    - t_react: reaction time of ego vehicle
+#    - v_min: minimum allowed velocity considering vehicle dynamics
+
+ego_vehicle_param:
+    a_max: 1
+    a_min: -1
+    v_min: 0
+    v_max: 20
+    t_react: 60
+
+
+# Other vehicle's parameters
+###
+# .. code-block:: yaml
+#
+#    - v_max: maximum velocity of leading vehicle
+#    - v_min: minimum velocity of leading vehicle
+#    - a_max: maximum acceleration of leading vehicle
+#    - a_min: minimum acceleration of leading vehicle
+
+other_vehicles_param:
+    v_max: 20
+    v_min: 0
+    a_max: 1
+    a_min: -1
+
+
+# Constraint parameter
+# Default constraint parameter which characterize the area in which actions area possible
+###
+# .. code-block:: yaml
+#
+#    a_max: Maximum acceleration [m/s²]
+#    a_min: Minimum acceleration [m/s²]
+#    v_max: Maximum velocity [m/s] -> 20 m/s are about 40 knots
+#    v_min: Minimum velocity [m/s] -> no backwards driving
+#    theta_min: Minimum orientation [factor of pi]
+#    theta_max: Maximum orientation [factor of pi] -> default full range between 0 and 360 degree
+#    theta_dot_min: Minimum turning rate [rad/s] -> 10 degree per second
+#    theta_dot_max: Maximum turning rate [rad/s] -> 10 degree per second
+#    d_safe: Safe distance [m] -> default 500 m
+
+constraint_param:
+    a_max: 2.0
+    a_min: -2.0
+    v_max: 20
+    v_min: 0.0
+    theta_min: 0.0
+    theta_max: 2
+    theta_dot_min: -0.1745
+    theta_dot_max: 0.1745
+    d_safe: 0

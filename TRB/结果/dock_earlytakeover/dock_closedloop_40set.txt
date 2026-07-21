@@ -1,0 +1,15 @@
+停车模块闭环评估 | manifest 测试集(n=40·train=94) | 接管半径900.0 | dock权限=RL箱(公平)
+seed     RL单独      +停车      Δ  失败模式(RL单独)
+   0   34/40   37/40     +3  stopshort:5/6救
+   1   36/40   40/40     +4  stopshort:4/4救
+   2   27/40   39/40    +12  stopshort:12/13救
+   3   29/40   39/40    +10  stopshort:11/11救
+   4   33/40   37/40     +4  stopshort:5/7救
+   5    1/40   34/40    +33  circle:33/39救
+   6    1/40   36/40    +35  circle:35/38救 stopshort:0/1救
+   7   31/40   37/40     +6  stopshort:6/9救
+   8   29/40   35/40     +6  stopshort:6/11救
+   9   33/40   37/40     +4  stopshort:6/7救
+
+IQM RL单独=75.83 +停车=92.92 | 崩 RL单独=[5, 6] +停车=[]
+失败模式×dock救活率: circle:68/77=88% stopshort:55/69=80%

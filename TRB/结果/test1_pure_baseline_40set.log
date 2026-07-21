@@ -1,0 +1,47 @@
+Test1 纯基准全程过盾 | manifest 测试集(n=40) | 基准权限=RL箱(公平) | v_run=2.6
+
+scn | 到达 | term
+  0 |  ✅  | goal
+  1 |  ✅  | goal
+  2 |  ❌  | time
+  3 |  ❌  | stopped
+  4 |  ✅  | goal
+  5 |  ❌  | time
+  6 |  ❌  | time
+  7 |  ✅  | goal
+  8 |  ✅  | goal
+  9 |  ✅  | goal
+ 10 |  ✅  | goal
+ 11 |  ✅  | goal
+ 12 |  ❌  | time
+ 13 |  ❌  | time
+ 14 |  ❌  | time
+ 15 |  ✅  | goal
+ 16 |  ✅  | goal
+ 17 |  ❌  | time
+ 18 |  ❌  | time
+ 19 |  ✅  | goal
+ 20 |  ❌  | time
+ 21 |  ❌  | collision
+ 22 |  ❌  | time
+ 23 |  ✅  | goal
+ 24 |  ✅  | goal
+ 25 |  ❌  | time
+ 26 |  ❌  | time
+ 27 |  ❌  | time
+ 28 |  ✅  | goal
+ 29 |  ✅  | goal
+ 30 |  ❌  | collision
+ 31 |  ✅  | goal
+ 32 |  ❌  | time
+ 33 |  ✅  | goal
+ 34 |  ❌  | time
+ 35 |  ❌  | time
+ 36 |  ✅  | goal
+ 37 |  ❌  | time
+ 38 |  ❌  | time
+ 39 |  ❌  | time
+
+=== 纯基准到达率: 18/40 = 45.0% | term 分布: {'goal': 18, 'time': 19, 'stopped': 1, 'collision': 2} ===
+判读: 高到达→崩是训练动力学/坏盆地→残差/课程有地基→GO;  低到达(尤大量 time 超时)→场景硬/基准太慢→查 v_run 或中止。
+✅ 落盘: /root/trb/结果/test1_pure_baseline_40set.json

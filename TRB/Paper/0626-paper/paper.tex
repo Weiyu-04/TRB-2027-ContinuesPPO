@@ -1,0 +1,353 @@
+%==============================================================================
+%  TAD Publications / TRB 论文格式  —— LaTeX 模板
+%  本模板复刻自 Word 样例 (TAD_Publications_AMSamplePaper.docx)
+%  编译方式：pdflatex paper.tex   (运行两次以更新页码/交叉引用)
+%
+%  你只需要在下面带 ▶ 标记的地方替换成自己的内容即可。
+%==============================================================================
+\documentclass[12pt,letterpaper]{article}
+
+%--- 字体：Times New Roman 等价字体（正文与公式都用 Times 风格）-----------------
+\usepackage{mathptmx}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+
+%--- 页面：US Letter，四周 1 英寸页边距，页眉/页脚 0.5 英寸 ----------------------
+\usepackage[letterpaper,margin=1in,headheight=15pt,headsep=0.25in,footskip=0.3in]{geometry}
+
+%--- 页眉（斜体 running head）+ 页脚（居中页码）---------------------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\itshape Author, Author, and Author}   % ▶ 改成你的 running head
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+%--- 正文：左对齐(右侧自然参差)、单倍行距、首行缩进 0.5 英寸、段间不额外加空 --------
+\usepackage{ragged2e}
+\setlength{\RaggedRightParindent}{0.5in}
+\RaggedRight
+\setlength{\parindent}{0.5in}
+\setlength{\parskip}{0pt}
+% 如果你更喜欢两端对齐(齐边)的“正式出版”观感，把上面的 \RaggedRight 注释掉即可。
+
+%--- 标题层级样式 --------------------------------------------------------------
+\usepackage{titlesec}
+\setcounter{secnumdepth}{0}                                   % 标题不编号
+% 一级标题：全部大写 + 加粗，顶左对齐
+\titleformat{\section}{\normalfont\bfseries}{}{0pt}{\MakeUppercase}
+\titlespacing*{\section}{0pt}{12pt}{4pt}
+% 二级标题：加粗
+\titleformat{\subsection}{\normalfont\bfseries}{}{0pt}{}
+\titlespacing*{\subsection}{0pt}{12pt}{4pt}
+% 三级标题：斜体
+\titleformat{\subsubsection}{\normalfont\itshape}{}{0pt}{}
+\titlespacing*{\subsubsection}{0pt}{12pt}{4pt}
+
+%--- 图表标题：标签与正文一起加粗，空格分隔，左对齐 ------------------------------
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{caption}
+\captionsetup{labelsep=space,font=bf,justification=raggedright,singlelinecheck=false}
+\captionsetup[table]{name=TABLE}     % 表标题前缀：TABLE 1 …（在表上方）
+\captionsetup[figure]{name=Figure}   % 图标题前缀：Figure 1 …（在图下方）
+
+%--- 超链接 --------------------------------------------------------------------
+\usepackage[hidelinks]{hyperref}
+
+%--- 自定义命令 ----------------------------------------------------------------
+% 结构化摘要的加粗引导词
+\newcommand{\abshead}[1]{\textbf{#1}\ }
+% 参考文献：悬挂缩进（首行顶格，回行缩进 0.5 英寸）
+\newcommand{\refitem}[1]{\par\noindent\hangindent=0.5in\hangafter=1 #1\par\vspace{6pt}}
+
+%==============================================================================
+\begin{document}
+
+%------------------------------------------------------------------------------
+%  题名与作者信息（全部左对齐，单倍行距）
+%------------------------------------------------------------------------------
+\begin{flushleft}
+{\bfseries Title of TRB Paper Format Example}\par   % ▶ 论文标题
+\vspace{12pt}
+
+% ▶ 作者块 1：学术界作者
+{\bfseries Academic Author Name\textsuperscript{*}}\par
+Department of XXX\par
+Institution Name, City, State or Country, and Postcode\par
+ORCID: https://XXX\par
+Email: author@university.edu\par
+\vspace{12pt}
+
+% ▶ 作者块 2：公共部门作者
+{\bfseries Public Sector Author Name}\par
+Position\par
+XXStateXX Department of Transportation\par
+Department (if applicable)\par
+City, State or Country, Postcode\par
+Email: abc@dot.gov\par
+\vspace{12pt}
+
+% ▶ 作者块 3：业界从业者
+{\bfseries Private Practitioner Author Name}\par
+Position\par
+Company\par
+City, State or Country, Postcode\par
+Email: enj@abc.com\par
+\vspace{12pt}
+
+Total Number of Pages: XX\par                       % ▶ 总页数
+\vspace{12pt}
+
+\textit{Submitted [Submission Date]}\par             % ▶ 提交日期
+\textsuperscript{*}Corresponding Author\par
+\end{flushleft}
+
+\vspace{6pt}
+
+%------------------------------------------------------------------------------
+%  摘要（结构化摘要，两端对齐）
+%------------------------------------------------------------------------------
+\section{Abstract}
+\noindent\textit{(Must be formatted as a structured abstract per the instructions
+for authors. Must be less than 300 words. The content below is for illustrative
+purposes only.)}
+
+\justifying  % 摘要内部两端对齐
+
+\abshead{Objectives:}Fare capping, a policy in which a transit agency caps the
+maximum amount a rider pays over a given period, has emerged as a recent innovation
+in public transit fare policy. However, its use across U.S.\ transit agencies and
+its rider benefits are not yet well documented. The objective of this research is to
+compile and compare fare capping policies across the U.S.\ and to explore the
+potential rider benefits.
+
+\abshead{Methods:}A multiple case study method was used to examine fare capping
+policies at the 101 largest transit agencies in the U.S. Agency fare policies were
+identified through publicly available documents on the internet. For each agency,
+fare policy documents were reviewed to identify whether daily, weekly, and monthly
+caps were offered, and the number of one-way adult fares required to reach each cap
+were calculated.
+
+\abshead{Findings:}As of September 2021, fare capping was adopted by at least 21 of
+the 101 largest U.S.\ transit agencies. Of those agencies, twenty used daily caps,
+four used weekly caps, and fourteen used monthly caps. The results also revealed that
+most daily fare caps may not offer much, if any, discount for a typical commuter
+assumed to make only two transit trips per day; however, daily fare capping likely
+provided important discounts to transit-dependent riders, tourists, and other
+frequent riders. Some innovative fare capping policies like ``nested'' fare capping,
+which refers to fare caps within fare caps, were also identified.
+
+\abshead{Novelty:}This paper provides one of the first systematic syntheses of fare
+capping policies across major U.S.\ transit agencies. It also introduces a
+comparative framework based on cap structure, trip thresholds, and rider discount
+levels.
+
+\abshead{Practical Applications:}The findings can help transit agencies design fare
+capping policies that better match rider travel patterns and policy goals.
+
+\RaggedRight  % 摘要结束，正文恢复左对齐
+
+%------------------------------------------------------------------------------
+%  正文
+%------------------------------------------------------------------------------
+\section{Introduction}
+Sed efficitur magna nisl, id aliquet leo molestie et. Quisque vestibulum imperdiet
+neque, id cursus felis rutrum et. Duis porttitor nisl arcu, sit amet varius justo
+convallis vitae. Maecenas pretium ullamcorper massa sed volutpat (Smith 2020). Duis
+libero augue, porttitor sed magna quis, ultrices molestie magna. Nam in orci in dolor
+accumsan rhoncus ut et leo. Phasellus rutrum enim ut purus lacinia, eget faucibus
+odio fermentum. Vivamus at dolor ante. Suspendisse porttitor diam in diam
+condimentum, et commodo diam semper. Pellentesque habitant morbi tristique senectus
+et netus et malesuada fames ac turpis egestas.
+
+Morbi dictum placerat erat ac tempor. Pellentesque elementum accumsan quam. Integer
+ultricies feugiat placerat. Morbi quis eros et augue iaculis auctor. Aliquam rhoncus
+lacus ut tortor egestas, in luctus nisl semper. Quisque ultrices sapien turpis, at
+aliquam est sodales sit amet. Nulla congue risus in ligula aliquam cursus. Sed vel
+augue consequat orci mollis aliquet nec non arcu. Ut porttitor urna urna. Maecenas
+tempor, augue quis gravida suscipit, tortor nulla euismod turpis, at sagittis leo
+nisi quis justo. Ut ut elementum velit. Ut nec feugiat urna.
+
+\section{Methods}
+Mauris scelerisque maximus viverra. Proin sagittis faucibus viverra. Ut et tellus
+eros. Mauris sollicitudin porttitor enim vel congue. Quisque dictum ornare posuere.
+Fusce malesuada rhoncus nisl sit amet rutrum. Vivamus posuere elit dui, eu
+scelerisque urna interdum sed. Suspendisse potenti. Nulla vel massa non diam
+dignissim tristique. Aenean non tempus orci. Aliquam lobortis posuere nisi a
+imperdiet.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi dictum placerat erat
+ac tempor. Pellentesque elementum accumsan quam. Integer ultricies feugiat placerat.
+Aliquam rhoncus lacus ut tortor egestas, in luctus nisl semper. Quisque ultrices
+sapien turpis, at aliquam est sodales sit amet. Maecenas tempor, augue quis gravida
+suscipit, tortor nulla euismod turpis, at sagittis leo nisi quis justo.
+
+Duis ut turpis maximus, semper sapien in, elementum metus. Proin sit amet sem sit
+amet tortor blandit dapibus. Nam fringilla nunc quis nisl faucibus laoreet. Nam eu
+elit laoreet, iaculis sem quis, rhoncus libero (Smith and Jones 2020). Aliquam
+maximus nisi risus, a ultricies nunc auctor sit amet. Donec id dui in mi malesuada
+volutpat. Donec vel mi id mi congue convallis eget et nibh.
+
+\subsection{Level 2 Header}
+Quisque ultrices sapien turpis, at aliquam est sodales sit amet. Nulla congue risus in
+ligula aliquam cursus. Sed vel augue consequat orci mollis aliquet nec non arcu. Sed a
+neque sodales, rhoncus massa vel, imperdiet augue. Ut porttitor urna urna. Maecenas
+tempor, augue quis gravida suscipit, tortor nulla euismod turpis, at sagittis leo nisi
+quis justo. Ut ut elementum velit. Ut nec feugiat urna.
+
+\subsubsection{Level 3 Header}
+Fusce malesuada rhoncus nisl sit amet rutrum. Vivamus posuere elit dui, eu scelerisque
+urna interdum sed (Smith et al.\ 2020). Etiam quis libero id lacus bibendum interdum.
+Morbi et pretium lorem (Smith 2021, 25--27). Quisque mollis, enim vitae dapibus
+rhoncus, ex ipsum euismod metus, ultrices pharetra est augue et augue. Pellentesque
+commodo maximus nulla, in faucibus nisl vestibulum sed (Boback 2020, 45--78). Duis ut
+turpis maximus, semper sapien in, elementum metus (\textbf{Figure 1}), amet sem sit
+amet tortor blandit.
+
+% ▶ 插图：把下面的占位框换成 \includegraphics[width=...]{你的图片文件}
+\begin{figure}[h]
+  \centering
+  \fbox{\parbox[c][1.6in][c]{0.7\linewidth}{\centering\itshape [Figure placeholder —
+  replace with \textbackslash includegraphics]}}
+  \caption{Caption for figure}
+  \label{fig:1}
+\end{figure}
+
+Maecenas pretium ullamcorper massa sed volutpat. Duis libero augue, porttitor sed
+magna quis, ultrices molestie magna. Nam in orci in dolor accumsan rhoncus ut et leo.
+Phasellus rutrum enim ut purus lacinia, eget faucibus odio fermentum. Vivamus at dolor
+ante. Suspendisse porttitor diam in diam condimentum, et commodo diam semper.
+
+\section{Results}
+Nulla eu urna et erat bibendum venenatis sit amet sed sem. Nam quis quam tempor,
+placerat turpis a, imperdiet ante. Integer eleifend aliquam magna quis viverra. Nulla
+consequat sem vitae mi lacinia maximus. Fusce id ullamcorper nibh. Mauris sagittis,
+nunc et laoreet condimentum, lectus leo bibendum nisi, eu posuere nulla nisl non
+libero. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere
+cubilia Curae.
+
+Proin ut lacus in diam aliquet ultrices a eu neque. Fusce nec maximus elit, tempus
+ultrices sem. Cras vitae mi commodo, placerat justo a, gravida est. Sed gravida justo
+velit, et pharetra sem placerat in. Vivamus laoreet interdum magna eget luctus. Morbi
+volutpat pellentesque libero.
+
+Sed eu lacus sit amet risus sodales pretium a ac ex. Donec gravida auctor efficitur.
+Curabitur maximus pellentesque mollis. Nam eu ante sit amet ex feugiat dictum eget eu
+nisl. Maecenas hendrerit eget sem ut blandit. Nam sit amet dolor volutpat, sollicitudin
+mi iaculis, bibendum felis (\textbf{Table 1}).
+
+% ▶ 表格：表标题在表上方
+\begin{table}[h]
+  \caption{Measurement Conversion}
+  \label{tab:1}
+  \centering
+  \begin{tabular}{lll}
+    \toprule
+    \textbf{When You Know} & \textbf{Multiply by} & \textbf{To Find} \\
+    \midrule
+    \textbf{Length} & & \\
+    inches (in.)            & 25.4  & millimeters (mm) \\
+    feet (ft)               & 0.305 & meters (m) \\
+    yards (yd)              & 0.914 & meters (m) \\
+    miles (mi)              & 1.61  & kilometers (km) \\
+    \addlinespace
+    \textbf{Area} & & \\
+    square inches (in.\textsuperscript{2}) & 645.1 & millimeters squared (mm\textsuperscript{2}) \\
+    square feet (ft\textsuperscript{2})    & 0.093 & meters squared (m\textsuperscript{2}) \\
+    square yards (yd\textsuperscript{2})   & 0.836 & meters squared (m\textsuperscript{2}) \\
+    acres                                  & 0.405 & hectares (ha) \\
+    square miles (mi\textsuperscript{2})   & 2.59  & kilometers squared (km\textsuperscript{2}) \\
+    \addlinespace
+    \textbf{Volume} & & \\
+    fluid ounces (fl oz)              & 29.57 & milliliters (mL) \\
+    gallons (gal)                     & 3.785 & liters (L) \\
+    cubic feet (ft\textsuperscript{3})  & 0.028 & meters cubed (m\textsuperscript{3}) \\
+    cubic yards (yd\textsuperscript{3}) & 0.765 & meters cubed (m\textsuperscript{3}) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Discussion}
+Nunc eros felis, dapibus eu nisl convallis, pellentesque facilisis sapien. Duis vel
+magna ac ligula rutrum volutpat. Donec sed malesuada ipsum. Morbi sed metus sem. Etiam
+bibendum posuere elementum. In a tempor mauris. Mauris congue in diam ac malesuada.
+Praesent sed dignissim erat.
+
+Nunc porttitor magna sed ultrices condimentum. Suspendisse in nisl condimentum, posuere
+metus eu, ullamcorper mi. Fusce rutrum ipsum at felis pharetra porttitor. Pellentesque
+nec massa nulla \textbf{Equation 1}:
+
+% ▶ 公式：把占位内容替换成你的公式
+\begin{equation}
+  y = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \varepsilon
+\end{equation}
+
+Sed eu lacus sit amet risus sodales pretium a ac ex. Donec gravida auctor efficitur.
+Curabitur maximus pellentesque mollis. Maecenas hendrerit eget sem ut blandit. Nam sit
+amet dolor volutpat, sollicitudin mi iaculis, bibendum felis \textbf{Equation 2}:
+
+\begin{equation}
+  \hat{p} = \frac{1}{1 + e^{-(\beta_0 + \sum_i \beta_i x_i)}}
+\end{equation}
+
+Donec libero velit, bibendum sit amet dignissim in, tempus vel lorem. Donec consectetur
+dui lorem, gravida eleifend metus blandit ut. Fusce metus lorem, volutpat sagittis orci
+id, lobortis semper lectus. Nunc eu erat porttitor, molestie elit nec, pharetra enim.
+
+\section{Conclusions}
+Nulla eu urna et erat bibendum venenatis sit amet sed sem. Nam quis quam tempor,
+placerat turpis a, imperdiet ante. Integer eleifend aliquam magna quis viverra. Nulla
+consequat sem vitae mi lacinia maximus. Fusce id ullamcorper nibh. Proin id elementum
+metus. Cras dolor libero, dignissim in magna vitae, tincidunt porta tortor.
+
+%------------------------------------------------------------------------------
+%  文末声明部分
+%------------------------------------------------------------------------------
+\section{Acknowledgments}
+The author must be transparent in their use of AI or LLMs in the Submission Details tab
+in Editorial Manager and they must describe which model was used and for what purpose in
+their paper's ``Acknowledgements'' section.
+
+\section{Author Contributions}
+The authors confirm contribution to the paper as follows: study conception and design:
+X.\ Author, Y.\ Author; data collection: Y.\ Author; analysis and interpretation of
+results: X.\ Author, Y.\ Author, Z.\ Author; draft manuscript preparation: Y.\ Author,
+Z.\ Author. All authors reviewed the results and approved the final version of the
+manuscript.
+
+\section{Declaration of Conflicting Interests}
+The authors declared no potential conflicts of interest with respect to the research,
+authorship, and/or publication of this article.
+
+\section{Funding}
+The authors disclosed no financial support for the research, authorship, and/or
+publication of this article.
+
+%------------------------------------------------------------------------------
+%  参考文献（悬挂缩进；此处手动排版，Chicago 作者-年份样式）
+%  若文献多，建议改用 BibTeX/biblatex 管理。
+%------------------------------------------------------------------------------
+\section{References}
+\refitem{Smith, John. 2020. ``Evaluating Pavement Performance Under Variable Climate
+Conditions.'' \textit{Journal of Transportation Engineering} 146: 123--135.
+https://doi.org/10.0000/xxxxx}
+
+\refitem{Smith, John, and David Jones. 2020. ``Assessing Traffic Flow Improvements Using
+Adaptive Signal Control Systems.'' Paper presented at the 99th Annual Meeting of the
+Transportation Research Board, Washington, DC.}
+
+\refitem{Smith, John, David Jones, and Thomas Haas. 2020. \textit{Evaluation of Bridge
+Deck Deterioration and Maintenance Strategies}. Publication FHWA-RD-20-001. Washington,
+DC: Federal Highway Administration, U.S.\ Department of Transportation.}
+
+\refitem{Smith, John. 2021. ``Analysis of Traffic Congestion Patterns in Urban
+Corridors.'' \textit{Journal of Transportation Engineering} 147: 25--27.
+https://doi.org/10.0000/xxxxx}
+
+\refitem{Boback, Luke. 2020. \textit{Fundamentals of Transportation Systems Analysis}.
+Springer. Chapter 3, 45--78.}
+
+\end{document}

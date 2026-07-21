@@ -1,0 +1,57 @@
+# Traffic rules formalized in metric temporal logic (MTL)
+###
+# .. code-block:: yaml
+#
+#   - R_G1: safe distance
+#   - R_G2: safe speed
+#   - R_G3: crossing
+#   - R_G4: head-on
+#   - R_G5: overtaking
+#   - R_G6: stand-on vessel
+
+traffic_rules_forward:
+    R_G1: G(~collision_possible_soon__x_ego_x_o)
+    R_G2: G(safe_speed__x_ego)
+    R_G3: G((~crossing__x_ego_x_o & G[1,6](crossing__x_ego_x_o))  -> (F[0,12](maneuver_crossing__x_ego_x_o) & F[6,18](~crossing__x_ego_x_o)))
+    R_G4: G((~head_on__x_ego_x_o & G[1,6](head_on__x_ego_x_o)) -> (F[0,12](maneuver_head_on__x_ego_x_o) & F[6,18](~head_on__x_ego_x_o)))
+    R_G5: G((~overtake__x_ego_x_o & G[1,6](overtake__x_ego_x_o)) -> (F[0,12](maneuver_overtake__x_ego_x_o) & F[6,18](~overtake__x_ego_x_o)))
+    R_G6: G(keep__x_ego_x_o -> (no_turning__x_ego_x_o U ~keep__x_ego_x_o))
+
+
+# Parameters for traffic rules
+###
+# .. code-block:: yaml
+#
+#   - max_orientation_diff_head_on: maximum difference in heading for head-on encounter [degree]
+#   - max_orientation_diff_overtake: maximum difference in heading for overtake encounter [degree]
+#   - max_orientation_diff_no_change: maximum difference in heading for stand-on vessel [degree]
+#   - sig_orientation_diff: minimum difference in heading for detecting a maneuver of a give-way vessel [degree]
+#   - t_horizon_collision_possible: time horizon for COLREGS situation detection [s]
+#   - t_horizon_collision_possible_soon: time horizon for safe distance [s]
+#   - dt: time step size [s]
+#   - t_turning: Course change maneuver time [s]
+#   - shift_distance: distance for constructing phantom obstacles [m]
+#   - t_plan_horizon:  planning horizon for stand-on vessel phantom obstacles [s]
+
+traffic_rules_param:
+    max_orientation_diff_head_on: 5
+    max_orientation_diff_overtake: 67.5
+    max_orientation_diff_no_change: 10
+    sig_orientation_diff: 20
+    t_horizon_collision_possible: 420 # 7 min
+    t_horizon_collision_possible_soon: 300 # 5 min
+    dt: 10
+    t_turning: 10 # for constraint mode
+    shift_distance: 150 # for constraint mode
+    t_plan_horizon: 60 # for constraint mode
+
+traffic_rule_sets:
+    F_0: [R_G1, R_G2, R_G3, R_G4, R_G5, R_G6]
+    F_T1: [R_G1]
+    F_T2: [R_G2]
+    F_T6: [R_G6]
+    F_T3: [R_G3]
+    F_T4: [R_G4]
+    F_T5: [R_G5]
+activated_traffic_rule_sets: [F_0]
+vehicle_dependent_rules: [R_G1, R_G3, R_G4, R_G5, R_G6]

@@ -1,0 +1,64 @@
+▶ s5 训练开始 · 近门 frac=0.2 v=6 · 1M步 · TAG=_probeRC_ppo_s5 · Tue Jul 14 00:04:50 CST 2026
+=== step4e [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | parties=['Continuous-safe'] | N_TOTAL=200 test_frac=0.3 | steps=1000000 seeds=[5] n_seg=20 n_envs=8 | ent_coef=0.01(恒定·关退火) clip_reward=10(默认) norm_reward=True(默认) ===
+均衡数据集模式（manifest）：训练 94（head-on/crossing 94 + overtaking 0）+ 测试 40（head-on/crossing 40 + overtaking 0）← /root/trb/balanced_pool/manifest_hocr_200.json
+实际可用：训练 94/94 / 测试 40/40
+📋 静态元数据 → run_metadata_probeRC_ppo_s5.json（论文参数全记齐）
+
+>>> Continuous-safe (env=continuous, colregs_weight=0.0) seed=5 训练中…
+    [Continuous-safe seed5]    50000步 | 到达   2.5% 碰撞  0.0% 违规  3.08 紧急 15.6% 兜底  0.8% Ep  1491s
+    [Continuous-safe seed5]   100000步 | 到达   0.0% 碰撞  0.0% 违规  4.72 紧急 12.8% 兜底  0.5% Ep   744s
+    [Continuous-safe seed5]   150000步 | 到达   0.0% 碰撞  0.0% 违规  2.67 紧急 11.2% 兜底  0.3% Ep  1150s
+    [Continuous-safe seed5]   200000步 | 到达   0.0% 碰撞  0.0% 违规  2.30 紧急 12.1% 兜底  0.3% Ep   997s
+    [Continuous-safe seed5]   250000步 | 到达   0.0% 碰撞  0.0% 违规  2.23 紧急 21.2% 兜底  0.3% Ep   911s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed5]   300000步 | 到达   0.0% 碰撞  2.5% 违规  1.93 紧急 19.1% 兜底  0.3% Ep   952s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed5]   350000步 | 到达   2.5% 碰撞  0.0% 违规  1.70 紧急 15.6% 兜底  0.3% Ep   994s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed5]   400000步 | 到达   0.0% 碰撞  2.5% 违规  1.98 紧急 19.0% 兜底  0.7% Ep   936s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed5]   450000步 | 到达   0.0% 碰撞  0.0% 违规  2.20 紧急 10.2% 兜底  1.1% Ep   849s
+    [Continuous-safe seed5]   500000步 | 到达   0.0% 碰撞  0.0% 违规  1.77 紧急 11.0% 兜底  1.1% Ep   869s
+    [Continuous-safe seed5]   550000步 | 到达   0.0% 碰撞  0.0% 违规  1.25 紧急 12.2% 兜底  0.8% Ep   805s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed5]   600000步 | 到达   2.5% 碰撞  0.0% 违规  1.15 紧急  6.4% 兜底  0.7% Ep   792s
+    [Continuous-safe seed5]   650000步 | 到达   0.0% 碰撞  0.0% 违规  1.05 紧急  8.0% 兜底  0.2% Ep   939s
+    [Continuous-safe seed5]   700000步 | 到达   0.0% 碰撞  0.0% 违规  1.20 紧急  8.0% 兜底  0.4% Ep   868s
+    [Continuous-safe seed5]   750000步 | 到达   2.5% 碰撞  0.0% 违规  1.52 紧急  9.5% 兜底  0.4% Ep   926s
+    [Continuous-safe seed5]   800000步 | 到达   5.0% 碰撞  0.0% 违规  0.93 紧急  4.5% 兜底  0.4% Ep   936s
+    [Continuous-safe seed5]   850000步 | 到达   0.0% 碰撞  0.0% 违规  2.20 紧急 10.6% 兜底  1.1% Ep   894s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed5]   900000步 | 到达   5.0% 碰撞  0.0% 违规  2.75 紧急 12.4% 兜底  0.3% Ep   972s
+    [Continuous-safe seed5]   950000步 | 到达   5.0% 碰撞  0.0% 违规  2.15 紧急 13.4% 兜底  0.7% Ep   958s
+    [Continuous-safe seed5]  1000000步 | 到达  10.0% 碰撞  0.0% 违规  2.48 紧急 15.2% 兜底  1.0% Ep   916s
+    [Continuous-safe seed5] ✅ 训练 20435s = 49 fps + 评估 439s（评估占 wall 2%；满量 3M 预计 17.0h/种子）
+
+# step4e Table III [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | N_TOTAL=200 70/30 选取=均衡数据集 manifest(manifest_hocr_200.json) | 实际 训练 94 / 测试 40 | steps=1000000 | seeds=[5] | 均值±样本std
+# 四方同口径配方：同 env/场景/评估(ViolationCounter)/VecNormalize(obs+reward·clip 见下行配置)/gamma0.99；离散三方=MaskablePPO+ent_coef（配置见下行，03 D22/D25/L21）、Continuous-safe=SAC(ent_coef auto·无退火)+连续投影盾(丢 r_colregs·紧急步%两臂 pre-step rho_acting 同口径·另有「兜底步%」列见 jsonl，C2/L46)
+# ent/clip/normR 配置：（旧记录未标 → 未知）
+# 本次 run 耗时 20884s（续跑/并行场景非累计）
+
+Party          |         到达率% |         碰撞率% |         违规/局 |         紧急步% |         Ep长s | seeds
+------------------------------------------------------------------------------------------------
+Base           | （未完成）
+Rule-reward    | （未完成）
+Discrete-safe  | （未完成）
+Continuous-safe |     10.0±0.0 |      0.0±0.0 |    2.48±0.00 |     15.2±0.0 |        916±0 | 1
+
+✅ 完成。Table III → /root/trb/代码/../结果/table3_probeRC_ppo_s5.txt（partial → /root/trb/代码/../结果/step4e_partial_probeRC_ppo_s5.jsonl）
+⭐ 把 结果/table3.txt 发我核对是否过 Phase 1 通过门（对齐 Krasowski）。
+=== 训练结束·收产物 → /root/trb/结果/probeRC_s5 · Tue Jul 14 05:53:00 CST 2026 ===
+'/root/trb/结果/checkpoints/Continuous-safe_s5_probeRC_ppo_s5.zip' -> '/root/trb/结果/probeRC_s5/Continuous-safe_s5_probeRC_ppo_s5.zip'
+'/root/trb/结果/checkpoints/Continuous-safe_s5_probeRC_ppo_s5_vecnorm.pkl' -> '/root/trb/结果/probeRC_s5/Continuous-safe_s5_probeRC_ppo_s5_vecnorm.pkl'
+'/root/trb/结果/checkpoints/Continuous-safe_s5_probeRC_ppo_s5.progress.json' -> '/root/trb/结果/probeRC_s5/Continuous-safe_s5_probeRC_ppo_s5.progress.json'
+'/root/trb/结果/run_metadata_probeRC_ppo_s5.json' -> '/root/trb/结果/probeRC_s5/run_metadata_probeRC_ppo_s5.json'
+'/root/trb/结果/step4e_partial_probeRC_ppo_s5.jsonl' -> '/root/trb/结果/probeRC_s5/step4e_partial_probeRC_ppo_s5.jsonl'
+✅ s5 全部完成 · Tue Jul 14 05:53:00 CST 2026 · 文件夹 /root/trb/结果/probeRC_s5 自成一体(含 train.log + checkpoint 三件 + metadata)·可直接传回本地判读

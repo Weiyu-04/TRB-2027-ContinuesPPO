@@ -1,0 +1,11 @@
+# step4e Table III [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | N_TOTAL=200 70/30 选取=strided跨全库(pool=2000) | 实际 训练 140 / 测试 60 | steps=5000000 | seeds=[4] | 均值±样本std
+# 四方同口径配方：同 env/场景/评估(ViolationCounter)/VecNormalize(obs+reward·clip 见下行配置)/gamma0.99；离散三方=MaskablePPO+ent_coef（配置见下行，03 D22/D25/L21）、Continuous-safe=SAC(ent_coef auto·无退火)+连续投影盾(丢 r_colregs·紧急步%两臂 pre-step rho_acting 同口径·另有「兜底步%」列见 jsonl，C2/L46)
+# ent/clip/normR 配置：（旧记录未标 → 未知）
+# 本次 run 耗时 12918s（续跑/并行场景非累计）
+
+Party          |         到达率% |         碰撞率% |         违规/局 |         紧急步% |         Ep长s | seeds
+------------------------------------------------------------------------------------------------
+Base           | （未完成）
+Rule-reward    | （未完成）
+Discrete-safe  | （未完成）
+Continuous-safe |      1.7±0.0 |      0.0±0.0 |    3.78±0.00 |      2.8±0.0 |       1682±0 | 1

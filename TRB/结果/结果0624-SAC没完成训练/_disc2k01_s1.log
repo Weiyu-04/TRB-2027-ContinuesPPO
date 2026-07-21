@@ -1,0 +1,39 @@
+=== step4e [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | parties=['Discrete-safe'] | N_TOTAL=2000 test_frac=0.3 | steps=3000000 seeds=[1] n_seg=6 n_envs=8 | ent_coef=0.01(恒定·关退火) clip_reward=10(默认) norm_reward=True(默认) ===
+分散抽样：训练 1400 + held-out 测试 600（互不重叠、非尾块）→ 缓存 /root/trb/scenarios …
+  …下载 200/1400（失败 0）
+  …下载 400/1400（失败 0）
+  …下载 600/1400（失败 0）
+  …下载 800/1400（失败 0）
+  …下载 1000/1400（失败 0）
+  …下载 1200/1400（失败 0）
+  …下载 1400/1400（失败 0）
+  …下载 200/600（失败 0）
+  …下载 400/600（失败 0）
+  …下载 600/600（失败 0）
+实际可用：训练 1400/1400 / 测试 600/600
+📋 静态元数据 → run_metadata_disc2k01_s1.json（论文参数全记齐）
+
+>>> Discrete-safe (env=shielded, colregs_weight=1.0) seed=1 训练中…
+    [Discrete-safe seed1]   500000步 | 到达   1.0% 碰撞  0.3% 违规  0.88 紧急 10.1% Ep  1389s
+    [Discrete-safe seed1]  1000000步 | 到达  11.5% 碰撞  0.7% 违规  0.85 紧急  7.4% Ep   820s
+    [Discrete-safe seed1]  1500000步 | 到达  36.5% 碰撞  0.5% 违规  1.03 紧急  5.9% Ep   720s
+    [Discrete-safe seed1]  2000000步 | 到达  50.7% 碰撞  0.2% 违规  0.99 紧急  5.1% Ep   659s
+    [Discrete-safe seed1]  2500000步 | 到达  67.3% 碰撞  0.2% 违规  1.54 紧急  4.3% Ep   610s
+    [Discrete-safe seed1]  3000000步 | 到达  80.8% 碰撞  0.2% 违规  1.51 紧急  5.1% Ep   593s
+    [Discrete-safe seed1] ✅ 训练 23030s = 130 fps + 评估 1892s（评估占 wall 8%；满量 3M 训练预计 6.4h/方/种子）
+      ⓘ L23 定核：评估占比高 = 单线程 eval 空转多核 → 降 NSEG / 减评估场景数比加核更直接
+
+# step4e Table III [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | N_TOTAL=2000 70/30 选取=全库(N=2000) | 实际 训练 1400 / 测试 600 | steps=3000000 | seeds=[1] | 均值±样本std
+# 四方同口径配方：同 env/场景/评估(ViolationCounter)/VecNormalize(obs+reward·clip 见下行配置)/gamma0.99；离散三方=MaskablePPO+ent_coef（配置见下行，03 D22/D25/L21）、Continuous-safe=SAC(ent_coef auto·无退火)+连续投影盾(丢 r_colregs·紧急步%两臂 pre-step rho_acting 同口径·另有「兜底步%」列见 jsonl，C2/L46)
+# ent/clip/normR 配置：ent 0.01→0.01@前0.6 / clip±10.0 / normR=True
+# 本次 run 耗时 24966s（续跑/并行场景非累计）
+
+Party          |         到达率% |         碰撞率% |         违规/局 |         紧急步% |         Ep长s | seeds
+------------------------------------------------------------------------------------------------
+Base           | （未完成）
+Rule-reward    | （未完成）
+Discrete-safe  |     80.8±0.0 |      0.2±0.0 |    1.51±0.00 |      5.1±0.0 |        593±0 | 1
+Continuous-safe | （未完成）
+
+✅ 完成。Table III → /root/trb/代码/../结果/table3_disc2k01_s1.txt（partial → /root/trb/代码/../结果/step4e_partial_disc2k01_s1.jsonl）
+⭐ 把 结果/table3.txt 发我核对是否过 Phase 1 通过门（对齐 Krasowski）。

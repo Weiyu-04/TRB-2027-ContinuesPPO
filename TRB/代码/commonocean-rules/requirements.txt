@@ -1,0 +1,9 @@
+commonocean-io >= 2025.1
+python-monitors >= 0.1.1
+scipy
+numpy >= 1.16.4
+metric-temporal-logic >= 0.1.4
+matplotlib >= 2.5.0
+ruamel.yaml >= 0.16.10
+bezier >= 2020.2.3
+antlr4-python3-runtime>=4.7.2

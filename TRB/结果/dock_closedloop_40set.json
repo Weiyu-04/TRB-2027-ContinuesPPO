@@ -1,0 +1,167 @@
+{
+ "source": "manifest 测试集(n=40·train=94)",
+ "seeds": [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9
+ ],
+ "n_scen": 40,
+ "takeover_r": 350.0,
+ "dock_authority": "rl_box",
+ "per_seed": {
+  "0": {
+   "base": 37,
+   "dock": 40,
+   "n": 40,
+   "base_pct": 92.5,
+   "dock_pct": 100.0,
+   "modes": {
+    "stopshort": [
+     3,
+     3
+    ]
+   }
+  },
+  "1": {
+   "base": 36,
+   "dock": 40,
+   "n": 40,
+   "base_pct": 90.0,
+   "dock_pct": 100.0,
+   "modes": {
+    "stopshort": [
+     4,
+     4
+    ]
+   }
+  },
+  "2": {
+   "base": 26,
+   "dock": 40,
+   "n": 40,
+   "base_pct": 65.0,
+   "dock_pct": 100.0,
+   "modes": {
+    "stopshort": [
+     14,
+     14
+    ]
+   }
+  },
+  "3": {
+   "base": 29,
+   "dock": 39,
+   "n": 40,
+   "base_pct": 72.5,
+   "dock_pct": 97.5,
+   "modes": {
+    "stopshort": [
+     11,
+     11
+    ]
+   }
+  },
+  "4": {
+   "base": 33,
+   "dock": 40,
+   "n": 40,
+   "base_pct": 82.5,
+   "dock_pct": 100.0,
+   "modes": {
+    "stopshort": [
+     7,
+     7
+    ]
+   }
+  },
+  "5": {
+   "base": 1,
+   "dock": 9,
+   "n": 40,
+   "base_pct": 2.5,
+   "dock_pct": 22.5,
+   "modes": {
+    "circle": [
+     39,
+     8
+    ]
+   }
+  },
+  "6": {
+   "base": 0,
+   "dock": 10,
+   "n": 40,
+   "base_pct": 0.0,
+   "dock_pct": 25.0,
+   "modes": {
+    "circle": [
+     40,
+     10
+    ]
+   }
+  },
+  "7": {
+   "base": 31,
+   "dock": 39,
+   "n": 40,
+   "base_pct": 77.5,
+   "dock_pct": 97.5,
+   "modes": {
+    "stopshort": [
+     9,
+     8
+    ]
+   }
+  },
+  "8": {
+   "base": 28,
+   "dock": 37,
+   "n": 40,
+   "base_pct": 70.0,
+   "dock_pct": 92.5,
+   "modes": {
+    "stopshort": [
+     12,
+     9
+    ]
+   }
+  },
+  "9": {
+   "base": 35,
+   "dock": 39,
+   "n": 40,
+   "base_pct": 87.5,
+   "dock_pct": 97.5,
+   "modes": {
+    "stopshort": [
+     5,
+     5
+    ]
+   }
+  }
+ },
+ "iqm_base": 75.83,
+ "iqm_dock": 97.5,
+ "crashed_base": [
+  5,
+  6
+ ],
+ "crashed_dock": [],
+ "mode_table": {
+  "stopshort": {
+   "total": 65,
+   "rescued": 61
+  },
+  "circle": {
+   "total": 79,
+   "rescued": 18
+  }
+ }
+}

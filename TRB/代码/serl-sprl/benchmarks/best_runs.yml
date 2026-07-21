@@ -1,0 +1,45 @@
+SERL:
+  Pendulum:
+    TD3:
+      Vanilla:
+        0.0: ['e9739luv', 'ndad5jgq', 'saj7jg3m', 'fxyzg4k4', 'lnngjxjo', 'bci843vq', '8axouj4z']
+      Penalty:
+        0.1: ['pd9ez6l4', '0ielb08i', 'duvyxbga', 'u1km0ugo', '45noha0k', 'qlkqjeb3', 'uwcj3ylh']
+  Quadrotor:
+    TD3:
+      Vanilla:
+        0.0: ['o2cgojq8', 'gpzmmsv9', 'kl9ii31x', 'yefrgq6l', 'a6ri8l2n', 'n7qq020g', 'amm1a2zy']
+      Penalty:
+        2.0: ['zaczimna', 'nvxmiixt', 'z2lhz5kq', 'szsobwsh', 'wuju72uj', 'echlfwhv', '6fdjhrih']
+  Seeker:
+    TD3:
+      Vanilla:
+        0.0: ['n0q71gi7', 'qzootn15', 'i5btiuqr', '9rajz8xz', 'r59ovqe2', 'mrgwwigr', '5jy7bgqk']
+      Penalty:
+        0.5: ['745ej7px', 'rzglmhw1', '37cr0dm8', 'dnx56wtt', 'jws1ms2h', '7y85wcit', 'jm9eo4l4']
+
+SPRL:
+  Pendulum:
+    TD3:
+      Vanilla:
+        0.0: ['4vm5ow99', 'vo9jlmcl', 'eayqtjg6', '725lcf60', 's8zhfao4', 'jq3w6ei7', 'hhqvfr3z']
+      PSL:
+        0.1: ['kbz6r0xk', '0n6hmmny', 'wajzo1kz', 'z70xw78x', '418s0lif', '7d3emide', 'hmg3l2pi']
+      PenaltyCritic:
+        2.0: ['j84wuji9', '4da2yvbx', 'mr6tmfvl', '6n56vjgl', 'mxnflsqz', 'woeueg9e', 'zhj6sq1q']
+  Quadrotor:
+    TD3:
+      Vanilla:
+        0.0: ['36lmtde5', 'pq2g10su', 'ojcq7pbx', 'cz886jk2', 'fo4unwoa', 'q9xrtoqa', 'vzyv92uk']
+      PSL:
+        2.0: ['r5m9kgd8', '3z1c4t9x', '5n7xij1a', 'ako7y9xf', 'k4wecuc6', 'xv88o109', 'spb2hjit']
+      PenaltyCritic:
+        2.0: ['rv5i539q', 'e7ccnmf8', '95d7845r', 'mo9zupdd', 'jx0cm51z', 'c2syektg', 'yhg78v6x']
+  Seeker:
+    TD3:
+      Vanilla:
+        0.0: ['bihndeoj', 'kofouac7', 'vns04mbv', '2wqjhlkn', '8j3l4t8a', 'mt9dqxku', 'qtmmdpp0']
+      PSL:
+        0.5: ['bx8e199v', 'pxo1h7g2', 'lkpxt15a', 'zz12mev9', '6j5ez8l9', '1wc0l6ia', 'wreq2f1r']
+      PenaltyCritic:
+        0.5: ['mjyui4ee', '3wse236j', 'ypsd3n5f', '5xd7bkod', '675jkvs7', '99u0l2oy', 'tkwix779']

@@ -1,0 +1,25 @@
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+场景源=manifest 测试集(n=40·train=94) | 种子=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9] | 接管半径=350.0 | dock权限=RL箱±0.048/±0.018(公平)
+
+seed |    RL单独     +停车     Δ | 失败模式(RL单独)
+   0 |   37/40   40/40    +3 | stopshort:3/3救
+   1 |   36/40   40/40    +4 | stopshort:4/4救
+   2 |   26/40   40/40   +14 | stopshort:14/14救
+   3 |   29/40   39/40   +10 | stopshort:11/11救
+   4 |   33/40   40/40    +7 | stopshort:7/7救
+   5 |    1/40    9/40    +8 | circle:8/39救
+   6 |    0/40   10/40   +10 | circle:10/40救
+   7 |   31/40   39/40    +8 | stopshort:8/9救
+   8 |   28/40   37/40    +9 | stopshort:9/12救
+   9 |   35/40   39/40    +4 | stopshort:5/5救
+
+=== 汇总(n=40 场景/种子) ===
+到达率% RL单独: {s0:92.5, s1:90.0, s2:65.0, s3:72.5, s4:82.5, s5:2.5, s6:0.0, s7:77.5, s8:70.0, s9:87.5}
+到达率% +停车:  {s0:100.0, s1:100.0, s2:100.0, s3:97.5, s4:100.0, s5:22.5, s6:25.0, s7:97.5, s8:92.5, s9:97.5}
+IQM  RL单独=75.8  +停车=97.5
+崩(<10%)  RL单独=[5, 6]  +停车=[]
+失败模式 × dock 救活率:
+      circle: 18/79 救活 = 23%
+   stopshort: 61/65 救活 = 94%
+✅ 结果已落盘: /root/trb/结果/dock_closedloop_40set.json + /root/trb/结果/dock_closedloop_40set.txt

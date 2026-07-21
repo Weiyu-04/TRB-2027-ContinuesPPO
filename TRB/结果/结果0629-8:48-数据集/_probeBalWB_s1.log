@@ -1,0 +1,48 @@
+=== step4e [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | parties=['Continuous-safe'] | N_TOTAL=200 test_frac=0.3 | steps=5000000 seeds=[1] n_seg=10 n_envs=8 | ent_coef=0.01(恒定·关退火) clip_reward=10(默认) norm_reward=True(默认) ===
+均衡数据集模式（manifest）：训练 141（head-on/crossing 94 + overtaking 47）+ 测试 60（head-on/crossing 40 + overtaking 20）← /root/trb/balanced_pool/manifest_200.json
+实际可用：训练 141/141 / 测试 60/60
+📋 静态元数据 → run_metadata_probeBalWB_s1.json（论文参数全记齐）
+
+>>> Continuous-safe (env=continuous, colregs_weight=0.0) seed=1 训练中…
+    [Continuous-safe seed1]   500000步 | 到达   1.7% 碰撞  0.0% 违规  0.77 紧急 30.7% 兜底  0.2% Ep   844s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed1]  1000000步 | 到达   0.0% 碰撞  0.0% 违规  0.88 紧急 30.0% 兜底  0.2% Ep   721s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed1]  1500000步 | 到达   0.0% 碰撞  0.0% 违规  0.97 紧急 30.2% 兜底  0.3% Ep   662s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed1]  2000000步 | 到达   0.0% 碰撞  0.0% 违规  1.32 紧急 28.4% 兜底  0.2% Ep   662s
+    [Continuous-safe seed1]  2500000步 | 到达   0.0% 碰撞  0.0% 违规  0.90 紧急 30.4% 兜底  0.2% Ep   673s
+    [Continuous-safe seed1]  3000000步 | 到达   0.0% 碰撞  0.0% 违规  1.43 紧急 30.5% 兜底  0.2% Ep   678s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed1]  3500000步 | 到达   1.7% 碰撞  0.0% 违规  1.43 紧急 31.9% 兜底  0.2% Ep   675s
+    [Continuous-safe seed1]  4000000步 | 到达   1.7% 碰撞  0.0% 违规  1.38 紧急 29.1% 兜底  0.3% Ep   673s
+    [Continuous-safe seed1]  4500000步 | 到达   0.0% 碰撞  0.0% 违规  1.43 紧急 30.0% 兜底  0.3% Ep   684s
+    [Continuous-safe seed1]  5000000步 | 到达   0.0% 碰撞  0.0% 违规  1.52 紧急 30.0% 兜底  0.3% Ep   705s
+    [Continuous-safe seed1] ✅ 训练 14562s = 343 fps + 评估 364s（评估占 wall 2%；满量 3M 预计 2.4h/种子）
+
+# step4e Table III [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | N_TOTAL=200 70/30 选取=均衡数据集 manifest(manifest_200.json) | 实际 训练 141 / 测试 60 | steps=5000000 | seeds=[1] | 均值±样本std
+# 四方同口径配方：同 env/场景/评估(ViolationCounter)/VecNormalize(obs+reward·clip 见下行配置)/gamma0.99；离散三方=MaskablePPO+ent_coef（配置见下行，03 D22/D25/L21）、Continuous-safe=SAC(ent_coef auto·无退火)+连续投影盾(丢 r_colregs·紧急步%两臂 pre-step rho_acting 同口径·另有「兜底步%」列见 jsonl，C2/L46)
+# ent/clip/normR 配置：（旧记录未标 → 未知）
+# 本次 run 耗时 14935s（续跑/并行场景非累计）
+
+Party          |         到达率% |         碰撞率% |         违规/局 |         紧急步% |         Ep长s | seeds
+------------------------------------------------------------------------------------------------
+Base           | （未完成）
+Rule-reward    | （未完成）
+Discrete-safe  | （未完成）
+Continuous-safe |      0.0±0.0 |      0.0±0.0 |    1.52±0.00 |     30.0±0.0 |        705±0 | 1
+
+✅ 完成。Table III → /root/trb/代码/../结果/table3_probeBalWB_s1.txt（partial → /root/trb/代码/../结果/step4e_partial_probeBalWB_s1.jsonl）
+⭐ 把 结果/table3.txt 发我核对是否过 Phase 1 通过门（对齐 Krasowski）。

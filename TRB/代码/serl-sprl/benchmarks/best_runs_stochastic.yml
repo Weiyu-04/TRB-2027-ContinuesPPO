@@ -1,0 +1,38 @@
+Pendulum:
+  ProjectionProportionalPenalty:
+    A2C:
+      0.0: ['3l3crfow', 'oqgryj09', 'b48tuhvr', 'ckh1tsl6', 'plxfvlqx', 'i9b4sd8b', 'i361w6bp']
+      0.5: ['rhaubysm', '2tqhhagw', 'bvsjnr78', 'jktsomf2', 'ht374g0e', '84y06daz', 'i73fupco']
+  ProjectionCVXPyLoss:
+    A2CDiffProj:
+      0.0: ['3l3crfow', 'oqgryj09', 'b48tuhvr', 'ckh1tsl6', 'plxfvlqx', 'i9b4sd8b', 'i361w6bp']
+      2.0: ['p5m7n6r7', 'glcp8nr1', 'dszc6ysg', 's2axzo0w', '4k9nwyv0', '9dlq8a1e', '8jskkzqa']
+  ProjectionCVXPyLossCritic:
+    A2CDiffProj:
+      0.5: ['rhaubysm', '2tqhhagw', 'bvsjnr78', 'jktsomf2', 'ht374g0e', '84y06daz', 'i73fupco']
+
+Quadrotor:
+  ProjectionProportionalPenalty:
+    A2C:
+      0.0: ['i2uy9jdb', 'cssejju0', 'fewbnfsu', 'rpr88opz', 'fzle6d8g', 'b8ani4q6', 'dadgcd6z']
+      1.0: ['7lu1k1pp', 'tun094j9', 'n14qvhg7', 'p0cxn920', 'fz80wn5v', 'e35bcb9q', '02us5ozy']
+  ProjectionCVXPyLoss:
+    A2CDiffProj:
+      0.0: ['i2uy9jdb', 'cssejju0', 'fewbnfsu', 'rpr88opz', 'fzle6d8g', 'b8ani4q6', 'dadgcd6z']
+      0.5: ['iycjkb8t', 'yot7k905', 'cd5rcxxy', 'ahhwtrl4', 'yia94tdc', 'eahl23ow', 'udt5fsfy']
+  ProjectionCVXPyLossCritic:
+    A2CDiffProj:
+      1.0: ['7lu1k1pp', 'tun094j9', 'n14qvhg7', 'p0cxn920', 'fz80wn5v', 'e35bcb9q', '02us5ozy']
+
+Seeker:
+  ProjectionProportionalPenalty:
+    A2C:
+      0.0: ['yyl5w3zh', '2daw14bb', 'vaq29ss4', 'x4pahubr', 'rqp4xu4u', 'lf959phd', 'r8sjebfx']
+      0.1: ['3kx8p1vs', 'bg7p3i7x', '9pzrq16w', 'ruwf39tw', '1yfoac7k', 'ruyudwa5', 'pke4lmzd']
+  ProjectionCVXPyLoss:
+    A2CDiffProj:
+      0.0: ['yyl5w3zh', '2daw14bb', 'vaq29ss4', 'x4pahubr', 'rqp4xu4u', 'lf959phd', 'r8sjebfx']
+      0.1: ['f3jn6iu6', 'usr7lyig', '60oxqg01', 'oq60znn7', '61vzstzq', 'f1z9b2ne', 'yt5rbj4d']
+  ProjectionCVXPyLossCritic:
+    A2CDiffProj:
+      0.1: ['3kx8p1vs', 'bg7p3i7x', '9pzrq16w', 'ruwf39tw', '1yfoac7k', 'ruyudwa5', 'pke4lmzd']

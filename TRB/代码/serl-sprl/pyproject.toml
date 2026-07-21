@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "serl-sprl"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "continuoussets>=0.0.0",
+    "cvxpy>=1.7.2",
+    "cvxpylayers>=0.1.9",
+    "gurobipy>=12.0.3",
+    "optuna>=4.5.0",
+    "optuna-integration[wandb]>=4.5.0",
+    "pre-commit>=4.3.0",
+    "psutil>=7.1.0",
+    "pydantic>=2.11.9",
+    "pygame>=2.6.1",
+    "rich>=14.1.0",
+    "ruamel-yaml>=0.18.15",
+    "scikit-posthocs>=0.11.4",
+    "scipy>=1.15.3",
+    "seaborn>=0.13.2",
+    "stable-baselines3>=2.7.0",
+    "tensorboard>=2.20.0",
+    "torch>=2.8.0",
+    "tqdm>=4.67.1",
+    "wandb>=0.21.4",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["serl_sprl*"]

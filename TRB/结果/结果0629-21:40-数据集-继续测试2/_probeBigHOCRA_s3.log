@@ -1,0 +1,25 @@
+=== step4e [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | parties=['Continuous-safe'] | N_TOTAL=200 test_frac=0.3 | steps=5000000 seeds=[3] n_seg=10 n_envs=8 | ent_coef=0.01(恒定·关退火) clip_reward=10(默认) norm_reward=True(默认) ===
+  …下载 200/934（失败 0）
+  …下载 400/934（失败 0）
+  …下载 600/934（失败 0）
+  …下载 800/934（失败 0）
+均衡数据集模式（manifest）：训练 934（head-on/crossing 934 + overtaking 0）+ 测试 40（head-on/crossing 40 + overtaking 0）← /root/trb/balanced_pool/manifest_bigtr_hocr.json
+实际可用：训练 934/934 / 测试 40/40
+📋 静态元数据 → run_metadata_probeBigHOCRA_s3.json（论文参数全记齐）
+
+>>> Continuous-safe (env=continuous, colregs_weight=0.0) seed=3 训练中…
+    [Continuous-safe seed3]   500000步 | 到达   7.5% 碰撞  0.0% 违规  0.95 紧急  6.9% 兜底  0.1% Ep  1270s
+    [Continuous-safe seed3]  1000000步 | 到达   0.0% 碰撞  0.0% 违规  0.78 紧急  6.3% 兜底  0.1% Ep  1700s
+    [Continuous-safe seed3]  1500000步 | 到达   0.0% 碰撞  0.0% 违规  1.15 紧急  8.4% 兜底  0.0% Ep  1692s
+    [Continuous-safe seed3]  2000000步 | 到达   0.0% 碰撞  2.5% 违规  1.15 紧急  5.2% 兜底  0.0% Ep  1670s
+    [Continuous-safe seed3]  2500000步 | 到达   0.0% 碰撞  2.5% 违规  1.60 紧急  7.6% 兜底  0.1% Ep  1671s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed3]  3000000步 | 到达   2.5% 碰撞  0.0% 违规  1.68 紧急  4.0% 兜底  0.1% Ep  1676s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed3]  3500000步 | 到达   0.0% 碰撞  0.0% 违规  1.15 紧急  6.5% 兜底  0.1% Ep  1700s
+    [Continuous-safe seed3]  4000000步 | 到达   0.0% 碰撞  0.0% 违规  0.50 紧急  4.2% 兜底  0.0% Ep  1700s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed3]  4500000步 | 到达   0.0% 碰撞  0.0% 违规  0.53 紧急  0.2% 兜底  0.0% Ep  1700s

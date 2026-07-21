@@ -1,0 +1,33 @@
+=== step4e [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | parties=['Discrete-safe'] | N_TOTAL=200 test_frac=0.3 | steps=5000000 seeds=[4] n_seg=10 n_envs=8 | ent_coef=0.01(恒定·关退火) clip_reward=10(默认) norm_reward=True(默认) ===
+均衡数据集模式（manifest）：训练 94（head-on/crossing 94 + overtaking 0）+ 测试 40（head-on/crossing 40 + overtaking 0）← /root/trb/balanced_pool/manifest_hocr_200.json
+实际可用：训练 94/94 / 测试 40/40
+📋 静态元数据 → run_metadata_discStdW0_s4.json（论文参数全记齐）
+
+>>> Discrete-safe (env=shielded, colregs_weight=1.0) seed=4 训练中…
+    [Discrete-safe seed4]   500000步 | 到达  15.0% 碰撞  0.0% 违规  1.45 紧急  5.8% Ep   840s
+    [Discrete-safe seed4]  1000000步 | 到达  50.0% 碰撞  0.0% 违规  0.70 紧急  4.9% Ep   692s
+    [Discrete-safe seed4]  1500000步 | 到达  85.0% 碰撞  0.0% 违规  0.97 紧急  2.1% Ep   587s
+    [Discrete-safe seed4]  2000000步 | 到达  95.0% 碰撞  0.0% 违规  1.12 紧急  1.7% Ep   538s
+    [Discrete-safe seed4]  2500000步 | 到达  97.5% 碰撞  0.0% 违规  0.82 紧急  1.8% Ep   529s
+    [Discrete-safe seed4]  3000000步 | 到达  95.0% 碰撞  0.0% 违规  1.38 紧急  4.6% Ep   567s
+    [Discrete-safe seed4]  3500000步 | 到达  97.5% 碰撞  0.0% 违规  1.15 紧急  2.3% Ep   535s
+    [Discrete-safe seed4]  4000000步 | 到达 100.0% 碰撞  0.0% 违规  0.88 紧急  1.8% Ep   526s
+    [Discrete-safe seed4]  4500000步 | 到达  95.0% 碰撞  0.0% 违规  1.60 紧急  2.2% Ep   523s
+    [Discrete-safe seed4]  5000000步 | 到达  95.0% 碰撞  0.0% 违规  0.70 紧急  1.9% Ep   524s
+    [Discrete-safe seed4] ✅ 训练 21580s = 232 fps + 评估 261s（评估占 wall 1%；满量 3M 训练预计 3.6h/方/种子）
+      ⓘ L23 定核：评估占比高 = 单线程 eval 空转多核 → 降 NSEG / 减评估场景数比加核更直接
+
+# step4e Table III [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | N_TOTAL=200 70/30 选取=均衡数据集 manifest(manifest_hocr_200.json) | 实际 训练 94 / 测试 40 | steps=5000000 | seeds=[4] | 均值±样本std
+# 四方同口径配方：同 env/场景/评估(ViolationCounter)/VecNormalize(obs+reward·clip 见下行配置)/gamma0.99；离散三方=MaskablePPO+ent_coef（配置见下行，03 D22/D25/L21）、Continuous-safe=SAC(ent_coef auto·无退火)+连续投影盾(丢 r_colregs·紧急步%两臂 pre-step rho_acting 同口径·另有「兜底步%」列见 jsonl，C2/L46)
+# ent/clip/normR 配置：ent 0.01→0.01@前0.6 / clip±10.0 / normR=True
+# 本次 run 耗时 21866s（续跑/并行场景非累计）
+
+Party          |         到达率% |         碰撞率% |         违规/局 |         紧急步% |         Ep长s | seeds
+------------------------------------------------------------------------------------------------
+Base           | （未完成）
+Rule-reward    | （未完成）
+Discrete-safe  |     95.0±0.0 |      0.0±0.0 |    0.70±0.00 |      1.9±0.0 |        524±0 | 1
+Continuous-safe | （未完成）
+
+✅ 完成。Table III → /root/trb/代码/../结果/table3_discStdW0_s4.txt（partial → /root/trb/代码/../结果/step4e_partial_discStdW0_s4.jsonl）
+⭐ 把 结果/table3.txt 发我核对是否过 Phase 1 通过门（对齐 Krasowski）。

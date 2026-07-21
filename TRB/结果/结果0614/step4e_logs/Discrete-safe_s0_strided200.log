@@ -1,0 +1,29 @@
+=== step4e [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | parties=['Discrete-safe'] | N_TOTAL=200 test_frac=0.3 | steps=3000000 seeds=[0] n_seg=6 n_envs=8 | ent_coef=0.01(恒定·关退火) clip_reward=10(默认) norm_reward=True(默认) ===
+⚠️ 检测到【SMOKE】模式进度文件 step4e_partial_smoke.jsonl（非当前模式）。当前 = FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000），将写 step4e_partial_strided200.jsonl。
+   若你本想【续跑】那个 run：FULL 请改源码 SMOKE=False（推荐）或加 STEP4E_SMOKE=0 前缀。
+分散抽样：训练 140 + held-out 测试 60（互不重叠、非尾块）→ 缓存 /root/trb/scenarios …
+实际可用：训练 140/140 / 测试 60/60
+
+>>> Discrete-safe (env=shielded, colregs_weight=1.0) seed=0 训练中…
+    [Discrete-safe seed0]   500000步 | 到达  36.7% 碰撞  0.0% 违规  1.20 紧急 10.0% Ep   792s
+    [Discrete-safe seed0]  1000000步 | 到达  61.7% 碰撞  0.0% 违规  1.35 紧急  4.9% Ep   618s
+    [Discrete-safe seed0]  1500000步 | 到达  63.3% 碰撞  0.0% 违规  1.78 紧急  5.3% Ep   595s
+    [Discrete-safe seed0]  2000000步 | 到达  83.3% 碰撞  0.0% 违规  1.98 紧急  5.9% Ep   560s
+    [Discrete-safe seed0]  2500000步 | 到达  90.0% 碰撞  0.0% 违规  1.43 紧急  6.2% Ep   547s
+    [Discrete-safe seed0]  3000000步 | 到达  96.7% 碰撞  0.0% 违规  1.37 紧急  5.1% Ep   544s
+    [Discrete-safe seed0] ✅ 训练 10424s = 288 fps + 评估 258s（评估占 wall 2%；满量 3M 训练预计 2.9h/方/种子）
+      ⓘ L23 定核：评估占比高 = 单线程 eval 空转多核 → 降 NSEG / 减评估场景数比加核更直接
+
+# step4e Table III [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | N_TOTAL=200 70/30 选取=strided跨全库(pool=2000) | 实际 训练 140 / 测试 60 | steps=3000000 | seeds=[0] | 均值±样本std
+# 三方同口径配方：VecNormalize(obs+reward) + ent_coef（具体配置见下行）（03 D22/D25/L21）；Continuous-safe(SAC)=Phase 3 不在此
+# ent/clip/normR 配置：ent 0.01→0.01@前0.6 / clip±10.0 / normR=True
+# 本次 run 耗时 10700s（续跑/并行场景非累计）
+
+Party          |         到达率% |         碰撞率% |         违规/局 |         紧急步% |         Ep长s | seeds
+------------------------------------------------------------------------------------------------
+Base           | （未完成）
+Rule-reward    |     96.7±0.0 |      3.3±0.0 |    2.87±0.00 |            – |        486±0 | 1
+Discrete-safe  |     96.7±0.0 |      0.0±0.0 |    1.37±0.00 |      5.1±0.0 |        544±0 | 1
+
+✅ 完成。Table III → /root/trb/代码/../结果/table3_strided200.txt（partial → /root/trb/代码/../结果/step4e_partial_strided200.jsonl）
+⭐ 把 结果/table3.txt 发我核对是否过 Phase 1 通过门（对齐 Krasowski）。

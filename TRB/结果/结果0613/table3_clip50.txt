@@ -1,0 +1,10 @@
+# step4e Table III [FULL（全量）] | N_TOTAL=200 70/30 | 实际 训练 140 / 测试 60 | steps=1200000 | seeds=[1] | 均值±样本std
+# 三方同口径配方：VecNormalize(obs+reward) + ent_coef 熵退火（03 D22/D25/L21）；Continuous-safe(SAC)=Phase 3 不在此
+# ent/clip 配置：ent 0.03→0.005@前0.6 / clip±50.0
+# 本次 run 耗时 7248s（续跑/并行场景非累计）
+
+Party          |         到达率% |         碰撞率% |         违规/局 |         紧急步% |         Ep长s | seeds
+------------------------------------------------------------------------------------------------
+Base           | （未完成）
+Rule-reward    | （未完成）
+Discrete-safe  |      0.0±0.0 |      1.7±0.0 |    1.18±0.00 |      9.0±0.0 |       1679±0 | 1

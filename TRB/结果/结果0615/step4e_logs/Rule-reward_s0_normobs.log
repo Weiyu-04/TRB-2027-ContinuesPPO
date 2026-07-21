@@ -1,0 +1,27 @@
+=== step4e [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | parties=['Rule-reward'] | N_TOTAL=200 test_frac=0.3 | steps=3000000 seeds=[0] n_seg=6 n_envs=8 | ent_coef=0.01(恒定·关退火) clip_reward=10(默认) norm_reward=False(消融·关奖励归一化) ===
+分散抽样：训练 140 + held-out 测试 60（互不重叠、非尾块）→ 缓存 /root/trb/scenarios …
+实际可用：训练 140/140 / 测试 60/60
+
+>>> Rule-reward (env=unshielded, colregs_weight=1.0) seed=0 训练中…
+    [Rule-reward seed0]   500000步 | 到达   0.0% 碰撞 68.3% 违规 12.22 紧急  0.0% Ep   712s
+    [Rule-reward seed0]  1000000步 | 到达   0.0% 碰撞 70.0% 违规 10.30 紧急  0.0% Ep   596s
+    [Rule-reward seed0]  1500000步 | 到达   0.0% 碰撞 58.3% 违规 12.32 紧急  0.0% Ep   627s
+    [Rule-reward seed0]  2000000步 | 到达   0.0% 碰撞 35.0% 违规 10.85 紧急  0.0% Ep   854s
+    [Rule-reward seed0]  2500000步 | 到达   0.0% 碰撞  6.7% 违规  5.48 紧急  0.0% Ep   855s
+    [Rule-reward seed0]  3000000步 | 到达   0.0% 碰撞  6.7% 违规  4.12 紧急  0.0% Ep   642s
+    [Rule-reward seed0] ✅ 训练 5751s = 522 fps + 评估 77s（评估占 wall 1%；满量 3M 训练预计 1.6h/方/种子）
+      ⓘ L23 定核：评估占比高 = 单线程 eval 空转多核 → 降 NSEG / 减评估场景数比加核更直接
+
+# step4e Table III [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | N_TOTAL=200 70/30 选取=strided跨全库(pool=2000) | 实际 训练 140 / 测试 60 | steps=3000000 | seeds=[0] | 均值±样本std
+# 三方同口径配方：VecNormalize(obs+reward) + ent_coef（具体配置见下行）（03 D22/D25/L21）；Continuous-safe(SAC)=Phase 3 不在此
+# ent/clip/normR 配置：ent 0.01→0.01@前0.6 / clip±10.0 / normR=False
+# 本次 run 耗时 5843s（续跑/并行场景非累计）
+
+Party          |         到达率% |         碰撞率% |         违规/局 |         紧急步% |         Ep长s | seeds
+------------------------------------------------------------------------------------------------
+Base           | （未完成）
+Rule-reward    |      0.0±0.0 |      6.7±0.0 |    4.12±0.00 |            – |        642±0 | 1
+Discrete-safe  | （未完成）
+
+✅ 完成。Table III → /root/trb/代码/../结果/table3_normobs.txt（partial → /root/trb/代码/../结果/step4e_partial_normobs.jsonl）
+⭐ 把 结果/table3.txt 发我核对是否过 Phase 1 通过门（对齐 Krasowski）。

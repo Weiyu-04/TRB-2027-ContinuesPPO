@@ -1,0 +1,171 @@
+{
+ "source": "manifest 测试集(n=40·train=94)",
+ "seeds": [
+  0,
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9
+ ],
+ "n_scen": 40,
+ "takeover_r": 900.0,
+ "dock_authority": "rl_box",
+ "per_seed": {
+  "0": {
+   "base": 34,
+   "dock": 37,
+   "n": 40,
+   "base_pct": 85.0,
+   "dock_pct": 92.5,
+   "modes": {
+    "stopshort": [
+     6,
+     5
+    ]
+   }
+  },
+  "1": {
+   "base": 36,
+   "dock": 40,
+   "n": 40,
+   "base_pct": 90.0,
+   "dock_pct": 100.0,
+   "modes": {
+    "stopshort": [
+     4,
+     4
+    ]
+   }
+  },
+  "2": {
+   "base": 27,
+   "dock": 39,
+   "n": 40,
+   "base_pct": 67.5,
+   "dock_pct": 97.5,
+   "modes": {
+    "stopshort": [
+     13,
+     12
+    ]
+   }
+  },
+  "3": {
+   "base": 29,
+   "dock": 39,
+   "n": 40,
+   "base_pct": 72.5,
+   "dock_pct": 97.5,
+   "modes": {
+    "stopshort": [
+     11,
+     11
+    ]
+   }
+  },
+  "4": {
+   "base": 33,
+   "dock": 37,
+   "n": 40,
+   "base_pct": 82.5,
+   "dock_pct": 92.5,
+   "modes": {
+    "stopshort": [
+     7,
+     5
+    ]
+   }
+  },
+  "5": {
+   "base": 1,
+   "dock": 34,
+   "n": 40,
+   "base_pct": 2.5,
+   "dock_pct": 85.0,
+   "modes": {
+    "circle": [
+     39,
+     33
+    ]
+   }
+  },
+  "6": {
+   "base": 1,
+   "dock": 36,
+   "n": 40,
+   "base_pct": 2.5,
+   "dock_pct": 90.0,
+   "modes": {
+    "circle": [
+     38,
+     35
+    ],
+    "stopshort": [
+     1,
+     0
+    ]
+   }
+  },
+  "7": {
+   "base": 31,
+   "dock": 37,
+   "n": 40,
+   "base_pct": 77.5,
+   "dock_pct": 92.5,
+   "modes": {
+    "stopshort": [
+     9,
+     6
+    ]
+   }
+  },
+  "8": {
+   "base": 29,
+   "dock": 35,
+   "n": 40,
+   "base_pct": 72.5,
+   "dock_pct": 87.5,
+   "modes": {
+    "stopshort": [
+     11,
+     6
+    ]
+   }
+  },
+  "9": {
+   "base": 33,
+   "dock": 37,
+   "n": 40,
+   "base_pct": 82.5,
+   "dock_pct": 92.5,
+   "modes": {
+    "stopshort": [
+     7,
+     6
+    ]
+   }
+  }
+ },
+ "iqm_base": 75.83,
+ "iqm_dock": 92.92,
+ "crashed_base": [
+  5,
+  6
+ ],
+ "crashed_dock": [],
+ "mode_table": {
+  "stopshort": {
+   "total": 69,
+   "rescued": 55
+  },
+  "circle": {
+   "total": 77,
+   "rescued": 68
+  }
+ }
+}

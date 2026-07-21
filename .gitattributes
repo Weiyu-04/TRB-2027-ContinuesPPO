@@ -1,1 +1,2 @@
-*.zip filter=lfs diff=lfs merge=lfs -text
+# No Git LFS: all files < 100MB, stored as regular git objects.
+* -text

@@ -1,0 +1,19 @@
+=== step4e [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | parties=['Continuous-safe'] | N_TOTAL=200 test_frac=0.3 | steps=5000000 seeds=[5] n_seg=20 n_envs=8 | ent_coef=0.01(恒定·关退火) clip_reward=10(默认) norm_reward=True(默认) ===
+分散抽样：训练 140 + held-out 测试 60（互不重叠、非尾块）→ 缓存 /root/trb/scenarios …
+实际可用：训练 140/140 / 测试 60/60
+📋 静态元数据 → run_metadata_diagSACutd1_s5.json（论文参数全记齐）
+
+>>> Continuous-safe (env=continuous, colregs_weight=0.0) seed=5 训练中…
+    [Continuous-safe seed5]   250000步 | 到达   0.0% 碰撞  0.0% 违规  0.90 紧急  4.5% 兜底  0.1% Ep   369s
+    [Continuous-safe seed5]   500000步 | 到达   0.0% 碰撞  0.0% 违规  0.98 紧急  1.1% 兜底  0.2% Ep   380s
+    [Continuous-safe seed5]   750000步 | 到达   0.0% 碰撞  0.0% 违规  0.73 紧急  0.5% 兜底  0.0% Ep   365s
+    [Continuous-safe seed5]  1000000步 | 到达   0.0% 碰撞  0.0% 违规  1.77 紧急  2.9% 兜底  0.1% Ep   431s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed5]  1250000步 | 到达   0.0% 碰撞  1.7% 违规  2.15 紧急  1.2% 兜底  0.0% Ep   424s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed5]  1500000步 | 到达   0.0% 碰撞  0.0% 违规  1.55 紧急  1.4% 兜底  0.0% Ep   458s
+    [Continuous-safe seed5]  1750000步 | 到达   0.0% 碰撞  0.0% 违规  0.97 紧急  2.0% 兜底  0.2% Ep   495s
+    [Continuous-safe seed5]  2000000步 | 到达   0.0% 碰撞  0.0% 违规  2.15 紧急  4.2% 兜底  0.2% Ep   551s
+    [Continuous-safe seed5]  2250000步 | 到达   0.0% 碰撞  3.3% 违规  1.85 紧急  3.9% 兜底  0.2% Ep   506s

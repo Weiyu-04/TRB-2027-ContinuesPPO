@@ -1,0 +1,44 @@
+=== step4e [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | parties=['Continuous-safe'] | N_TOTAL=200 test_frac=0.3 | steps=5000000 seeds=[3] n_seg=10 n_envs=8 | ent_coef=0.01(恒定·关退火) clip_reward=10(默认) norm_reward=True(默认) ===
+分散抽样：训练 140 + held-out 测试 60（互不重叠、非尾块）→ 缓存 /root/trb/scenarios …
+实际可用：训练 140/140 / 测试 60/60
+📋 静态元数据 → run_metadata_diagXT_wb200_wx200_s3.json（论文参数全记齐）
+
+>>> Continuous-safe (env=continuous, colregs_weight=0.0) seed=3 训练中…
+    [Continuous-safe seed3]   500000步 | 到达   0.0% 碰撞  0.0% 违规  1.43 紧急  8.8% 兜底  0.2% Ep  1676s
+    [Continuous-safe seed3]  1000000步 | 到达   0.0% 碰撞  0.0% 违规  1.08 紧急  3.6% 兜底  0.0% Ep  1700s
+    [Continuous-safe seed3]  1500000步 | 到达   0.0% 碰撞  0.0% 违规  1.35 紧急  4.3% 兜底  0.0% Ep  1700s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed3]  2000000步 | 到达   0.0% 碰撞  0.0% 违规  0.98 紧急  3.8% 兜底  0.1% Ep  1700s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed3]  2500000步 | 到达   1.7% 碰撞  0.0% 违规  0.82 紧急  3.5% 兜底  0.1% Ep  1680s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed3]  3000000步 | 到达   1.7% 碰撞  0.0% 违规  0.68 紧急  2.1% 兜底  0.1% Ep  1662s
+    [Continuous-safe seed3]  3500000步 | 到达   1.7% 碰撞  0.0% 违规  0.97 紧急  1.9% 兜底  0.0% Ep  1695s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed3]  4000000步 | 到达   1.7% 碰撞  0.0% 违规  1.37 紧急  5.1% 兜底  0.1% Ep  1662s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed3]  4500000步 | 到达   0.0% 碰撞  0.0% 违规  1.08 紧急  3.8% 兜底  0.0% Ep  1700s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed3]  5000000步 | 到达   1.7% 碰撞  0.0% 违规  1.12 紧急  2.8% 兜底  0.0% Ep  1669s
+    [Continuous-safe seed3] ✅ 训练 11975s = 418 fps + 评估 1035s（评估占 wall 8%；满量 3M 预计 2.0h/种子）
+
+# step4e Table III [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | N_TOTAL=200 70/30 选取=strided跨全库(pool=2000) | 实际 训练 140 / 测试 60 | steps=5000000 | seeds=[3] | 均值±样本std
+# 四方同口径配方：同 env/场景/评估(ViolationCounter)/VecNormalize(obs+reward·clip 见下行配置)/gamma0.99；离散三方=MaskablePPO+ent_coef（配置见下行，03 D22/D25/L21）、Continuous-safe=SAC(ent_coef auto·无退火)+连续投影盾(丢 r_colregs·紧急步%两臂 pre-step rho_acting 同口径·另有「兜底步%」列见 jsonl，C2/L46)
+# ent/clip/normR 配置：（旧记录未标 → 未知）
+# 本次 run 耗时 13021s（续跑/并行场景非累计）
+
+Party          |         到达率% |         碰撞率% |         违规/局 |         紧急步% |         Ep长s | seeds
+------------------------------------------------------------------------------------------------
+Base           | （未完成）
+Rule-reward    | （未完成）
+Discrete-safe  | （未完成）
+Continuous-safe |      1.7±0.0 |      0.0±0.0 |    1.12±0.00 |      2.8±0.0 |       1669±0 | 1
+
+✅ 完成。Table III → /root/trb/代码/../结果/table3_diagXT_wb200_wx200_s3.txt（partial → /root/trb/代码/../结果/step4e_partial_diagXT_wb200_wx200_s3.jsonl）
+⭐ 把 结果/table3.txt 发我核对是否过 Phase 1 通过门（对齐 Krasowski）。

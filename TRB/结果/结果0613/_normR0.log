@@ -1,0 +1,29 @@
+=== step4e [FULL（全量）] | parties=['Discrete-safe'] | N_TOTAL=200 test_frac=0.3 | steps=1200000 seeds=[1] n_seg=6 n_envs=8 | ent_coef=0.01(恒定·关退火) clip_reward=10(默认) norm_reward=False(消融·关奖励归一化) ===
+⚠️ 检测到【SMOKE】模式进度文件 step4e_partial_smoke.jsonl（非当前模式）。当前 = FULL（全量），将写 step4e_partial_normR0.jsonl。
+   若你本想【续跑】那个 run：FULL 请改源码 SMOKE=False（推荐）或加 STEP4E_SMOKE=0 前缀。
+分散抽样：训练 140 + held-out 测试 60（互不重叠、非尾块）→ 缓存 /tmp/trb_scenarios_pool …
+实际可用：训练 140/140 / 测试 60/60
+
+>>> Discrete-safe (env=shielded, colregs_weight=1.0) seed=1 训练中…
+    [Discrete-safe seed1]   200000步 | 到达   0.0% 碰撞  0.0% 违规  2.13 紧急 26.6% Ep  1098s
+    [Discrete-safe seed1]   400000步 | 到达   0.0% 碰撞  0.0% 违规  2.83 紧急 28.0% Ep  1173s
+    [Discrete-safe seed1]   600000步 | 到达   0.0% 碰撞  0.0% 违规  2.92 紧急 27.0% Ep  1140s
+    [Discrete-safe seed1]   800000步 | 到达   0.0% 碰撞  0.0% 违规  2.87 紧急 27.4% Ep  1172s
+    [Discrete-safe seed1]  1000000步 | 到达   0.0% 碰撞  0.0% 违规  2.90 紧急 27.2% Ep  1139s
+    [Discrete-safe seed1]  1200000步 | 到达   0.0% 碰撞  0.0% 违规  3.13 紧急 28.6% Ep  1150s
+    [Discrete-safe seed1] ✅ 训练 7006s = 171 fps + 评估 359s（评估占 wall 5%；满量 3M 训练预计 4.9h/方/种子）
+      ⓘ L23 定核：评估占比高 = 单线程 eval 空转多核 → 降 NSEG / 减评估场景数比加核更直接
+
+# step4e Table III [FULL（全量）] | N_TOTAL=200 70/30 | 实际 训练 140 / 测试 60 | steps=1200000 | seeds=[1] | 均值±样本std
+# 三方同口径配方：VecNormalize(obs+reward) + ent_coef 熵退火（03 D22/D25/L21）；Continuous-safe(SAC)=Phase 3 不在此
+# ent/clip/normR 配置：ent 0.01→0.01@前0.6 / clip±10.0 / normR=False
+# 本次 run 耗时 7375s（续跑/并行场景非累计）
+
+Party          |         到达率% |         碰撞率% |         违规/局 |         紧急步% |         Ep长s | seeds
+------------------------------------------------------------------------------------------------
+Base           | （未完成）
+Rule-reward    | （未完成）
+Discrete-safe  |      0.0±0.0 |      0.0±0.0 |    3.13±0.00 |     28.6±0.0 |       1150±0 | 1
+
+✅ 完成。Table III → /root/trb/代码/../结果/table3_normR0.txt（partial → /root/trb/代码/../结果/step4e_partial_normR0.jsonl）
+⭐ 把 结果/table3.txt 发我核对是否过 Phase 1 通过门（对齐 Krasowski）。

@@ -1,0 +1,35 @@
+=== step4e [SMOKE（冒烟）] | parties=['Base', 'Rule-reward', 'Discrete-safe'] | N_TOTAL=60 test_frac=0.3 | steps=60000 seeds=[0] n_seg=2 n_envs=8 | ent_coef=0.03→0.005@前60%步 clip_reward=10(默认) norm_reward=True(默认) ===
+分散抽样：训练 42 + held-out 测试 18（互不重叠、非尾块）→ 缓存 /root/trb/scenarios …
+实际可用：训练 42/42 / 测试 18/18
+
+>>> Base (env=unshielded, colregs_weight=0.0) seed=0 训练中…
+    [Base seed0]    30000步 | 到达   0.0% 碰撞  5.6% 违规  4.61 紧急  0.0% Ep   666s
+    [Base seed0]    60000步 | 到达   0.0% 碰撞  5.6% 违规  6.06 紧急  0.0% Ep   728s
+    [Base seed0] ✅ 训练 237s = 253 fps + 评估 8s（评估占 wall 3%；满量 3M 训练预计 3.3h/方/种子）
+      ⓘ L23 定核：评估占比高 = 单线程 eval 空转多核 → 降 NSEG / 减评估场景数比加核更直接
+
+>>> Rule-reward (env=unshielded, colregs_weight=1.0) seed=0 训练中…
+    [Rule-reward seed0]    30000步 | 到达   0.0% 碰撞  5.6% 违规  4.72 紧急  0.0% Ep   621s
+    [Rule-reward seed0]    60000步 | 到达   0.0% 碰撞  5.6% 违规  8.50 紧急  0.0% Ep   957s
+    [Rule-reward seed0] ✅ 训练 235s = 255 fps + 评估 9s（评估占 wall 4%；满量 3M 训练预计 3.3h/方/种子）
+      ⓘ L23 定核：评估占比高 = 单线程 eval 空转多核 → 降 NSEG / 减评估场景数比加核更直接
+
+>>> Discrete-safe (env=shielded, colregs_weight=1.0) seed=0 训练中…
+    [Discrete-safe seed0]    30000步 | 到达   0.0% 碰撞  0.0% 违规  3.28 紧急 20.0% Ep   794s
+    [Discrete-safe seed0]    60000步 | 到达   0.0% 碰撞  0.0% 违规  0.83 紧急  1.9% Ep   774s
+    [Discrete-safe seed0] ✅ 训练 573s = 105 fps + 评估 58s（评估占 wall 9%；满量 3M 训练预计 8.0h/方/种子）
+      ⓘ L23 定核：评估占比高 = 单线程 eval 空转多核 → 降 NSEG / 减评估场景数比加核更直接
+
+# step4e Table III [SMOKE（冒烟）] | N_TOTAL=60 70/30 选取=strided跨全库(pool=2000) | 实际 训练 42 / 测试 18 | steps=60000 | seeds=[0] | 均值±样本std
+# 三方同口径配方：VecNormalize(obs+reward) + ent_coef（具体配置见下行）（03 D22/D25/L21）；Continuous-safe(SAC)=Phase 3 不在此
+# ent/clip/normR 配置：ent 0.03→0.005@前0.6 / clip±10.0 / normR=True
+# 本次 run 耗时 1142s（续跑/并行场景非累计）
+
+Party          |         到达率% |         碰撞率% |         违规/局 |         紧急步% |         Ep长s | seeds
+------------------------------------------------------------------------------------------------
+Base           |      0.0±0.0 |      5.6±0.0 |    6.06±0.00 |            – |        728±0 | 1
+Rule-reward    |      0.0±0.0 |      5.6±0.0 |    8.50±0.00 |            – |        957±0 | 1
+Discrete-safe  |      0.0±0.0 |      0.0±0.0 |    0.83±0.00 |      1.9±0.0 |        774±0 | 1
+
+✅ 完成。Table III → /root/trb/代码/../结果/table3_smoke.txt（partial → /root/trb/代码/../结果/step4e_partial_smoke.jsonl）
+⭐ 把 结果/table3.txt 发我核对是否过 Phase 1 通过门（对齐 Krasowski）。

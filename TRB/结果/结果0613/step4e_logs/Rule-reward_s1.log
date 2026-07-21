@@ -1,0 +1,29 @@
+=== step4e [FULL（全量）] | parties=['Rule-reward'] | N_TOTAL=200 test_frac=0.3 | steps=1200000 seeds=[1] n_seg=6 n_envs=8 | ent_coef=0.03→0.005@前60%步 clip_reward=10(默认) ===
+⚠️ 检测到【SMOKE】模式进度文件 step4e_partial_smoke.jsonl（非当前模式）。当前 = FULL（全量），将写 step4e_partial_a03.jsonl。
+   若你本想【续跑】那个 run：FULL 请改源码 SMOKE=False（推荐）或加 STEP4E_SMOKE=0 前缀。
+分散抽样：训练 140 + held-out 测试 60（互不重叠、非尾块）→ 缓存 /tmp/trb_scenarios_pool …
+实际可用：训练 140/140 / 测试 60/60
+
+>>> Rule-reward (env=unshielded, colregs_weight=1.0) seed=1 训练中…
+    [Rule-reward seed1]   200000步 | 到达   3.3% 碰撞  8.3% 违规  3.75 紧急  0.0% Ep  1128s
+    [Rule-reward seed1]   400000步 | 到达  30.0% 碰撞  3.3% 违规  3.53 紧急  0.0% Ep   619s
+    [Rule-reward seed1]   600000步 | 到达  71.7% 碰撞  3.3% 违规  3.97 紧急  0.0% Ep   546s
+    [Rule-reward seed1]   800000步 | 到达  88.3% 碰撞  6.7% 违规  3.72 紧急  0.0% Ep   498s
+    [Rule-reward seed1]  1000000步 | 到达  91.7% 碰撞  3.3% 违规  4.08 紧急  0.0% Ep   503s
+    [Rule-reward seed1]  1200000步 | 到达  96.7% 碰撞  3.3% 违规  4.25 紧急  0.0% Ep   497s
+    [Rule-reward seed1] ✅ 训练 2761s = 435 fps + 评估 67s（评估占 wall 2%；满量 3M 训练预计 1.9h/方/种子）
+      ⓘ L23 定核：评估占比高 = 单线程 eval 空转多核 → 降 NSEG / 减评估场景数比加核更直接
+
+# step4e Table III [FULL（全量）] | N_TOTAL=200 70/30 | 实际 训练 140 / 测试 60 | steps=1200000 | seeds=[1] | 均值±样本std
+# 三方同口径配方：VecNormalize(obs+reward) + ent_coef 熵退火（03 D22/D25/L21）；Continuous-safe(SAC)=Phase 3 不在此
+# ent/clip 配置：ent 0.03→0.005@前0.6 / clip±10.0
+# 本次 run 耗时 2843s（续跑/并行场景非累计）
+
+Party          |         到达率% |         碰撞率% |         违规/局 |         紧急步% |         Ep长s | seeds
+------------------------------------------------------------------------------------------------
+Base           | （未完成）
+Rule-reward    |     96.7±0.0 |      3.3±0.0 |    4.25±0.00 |            – |        497±0 | 1
+Discrete-safe  | （未完成）
+
+✅ 完成。Table III → /root/trb/代码/../结果/table3_a03.txt（partial → /root/trb/代码/../结果/step4e_partial_a03.jsonl）
+⭐ 把 结果/table3.txt 发我核对是否过 Phase 1 通过门（对齐 Krasowski）。

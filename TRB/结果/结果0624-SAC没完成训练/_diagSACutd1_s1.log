@@ -1,0 +1,18 @@
+=== step4e [FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）] | parties=['Continuous-safe'] | N_TOTAL=200 test_frac=0.3 | steps=5000000 seeds=[1] n_seg=20 n_envs=8 | ent_coef=0.01(恒定·关退火) clip_reward=10(默认) norm_reward=True(默认) ===
+分散抽样：训练 140 + held-out 测试 60（互不重叠、非尾块）→ 缓存 /root/trb/scenarios …
+实际可用：训练 140/140 / 测试 60/60
+📋 静态元数据 → run_metadata_diagSACutd1_s1.json（论文参数全记齐）
+
+>>> Continuous-safe (env=continuous, colregs_weight=0.0) seed=1 训练中…
+    [Continuous-safe seed1]   250000步 | 到达   0.0% 碰撞  0.0% 违规  1.13 紧急  7.3% 兜底  0.0% Ep   413s
+    [Continuous-safe seed1]   500000步 | 到达   0.0% 碰撞  0.0% 违规  2.22 紧急  4.2% 兜底  0.1% Ep   415s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed1]   750000步 | 到达   0.0% 碰撞  0.0% 违规  1.28 紧急  2.4% 兜底  0.2% Ep   334s
+    [Continuous-safe seed1]  1000000步 | 到达   0.0% 碰撞  0.0% 违规  1.18 紧急  1.0% 兜底  0.1% Ep   276s
+    [Continuous-safe seed1]  1250000步 | 到达   1.7% 碰撞  0.0% 违规  1.48 紧急  1.9% 兜底  0.1% Ep   442s
+    [Continuous-safe seed1]  1500000步 | 到达   0.0% 碰撞  0.0% 违规  0.37 紧急  0.0% 兜底  0.0% Ep   486s
+    [Continuous-safe seed1]  1750000步 | 到达   0.0% 碰撞  0.0% 违规  0.52 紧急  0.0% 兜底  0.0% Ep   552s
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+    [Continuous-safe seed1]  2000000步 | 到达   3.3% 碰撞  0.0% 违规  0.30 紧急  0.0% 兜底  0.1% Ep   612s

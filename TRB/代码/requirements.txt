@@ -1,0 +1,18 @@
+# step4e 服务器依赖（trb 环境，Python 3.10；本地实测可用版本）。
+# ⚠️ torch 不在此列：CUDA 镜像（如你的 Python3.10+CUDA11.8）base 环境多半已预装 torch → 直接用、别重装。
+#    代码已强制 device="cpu"（MLP 太小、GPU 反慢），所以 CUDA 版 torch 也 OK、GPU 闲置不碍事。
+#    （若某镜像确实没 torch，再单独：pip install torch --index-url https://download.pytorch.org/whl/cpu）
+# 装法：  pip install -r requirements.txt
+# 若装完 numpy 被别的包顶版本 → 补：pip install numpy==1.24.4，然后跑 python -B tests/test_step4e.py 自检（应 58 PASS，03 D26 加固后）。
+stable-baselines3==2.3.2
+sb3-contrib==2.3.0
+gymnasium==0.29.1
+commonocean-io==2025.1
+commonroad-io==2023.1
+commonroad-vehicle-models==3.0.2
+shapely==2.1.2
+numpy==1.24.4
+scipy==1.15.3
+osqp==1.1.1            # 连续投影盾【主】投影 QP（Continuous-safe 必需·usv_projection._solve_box_halfplane_qp）
+cvxpy==1.7.5           # 连续投影盾【碰撞最小化兜底】QP（Continuous-safe 必需·usv_projection._solve_collision_min_qp 用 solver=cp.OSQP·运行时真依赖·非仅测试）；自动带 clarabel/scs 后端但代码只用 osqp 后端
+# ↑ osqp+cvxpy 此前均漏声明 → 服务器连续臂依次 ModuleNotFoundError（2026-06-19 C3 fps 探针逐个抓出·`03` L60-续）

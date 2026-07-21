@@ -1,0 +1,4 @@
+## Contributors (alphabetic order)
+* Hanna Krasowski
+* Sebastian Maierhofer
+* Bruno Maione

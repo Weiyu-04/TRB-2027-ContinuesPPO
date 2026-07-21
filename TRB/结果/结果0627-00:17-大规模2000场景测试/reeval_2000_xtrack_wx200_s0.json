@@ -1,0 +1,24 @@
+{
+ "N": 1860,
+ "arms": [
+  "wx200"
+ ],
+ "rows": {
+  "s0_wx200": {
+   "N": 1860,
+   "arrival": 83.11827956989248,
+   "se": 0.8685606553405547,
+   "reached": 1546,
+   "nfail": 314,
+   "timeout": 45,
+   "stopped": 269,
+   "coll": 0.0,
+   "viol": 1.3758064516129032,
+   "ec_med": 45.62865174048267,
+   "near": 218,
+   "far": 96
+  }
+ },
+ "heldout_requested": 1860,
+ "heldout_downloaded": 1860
+}

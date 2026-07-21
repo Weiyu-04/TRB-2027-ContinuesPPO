@@ -1,0 +1,50 @@
+import sys
+from pathlib import Path
+
+# Add project root to Python path (must be before other imports)
+project_root = Path(__file__).parent.parent.parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+import gymnasium as gym
+
+from benchmarks.pendulum import common
+from serl_sprl.benchmarking.base import Experiment
+from serl_sprl.benchmarking.environments import EnvCreatorFactory
+from serl_sprl.envs.pendulum.pendulum import PendulumEnvConfig, PendulumProjConfig
+from serl_sprl.sb3_contrib.algorithm_configs import TD3DiffProjConfig
+
+
+def main(penalty_factor: float):
+    env_config = PendulumEnvConfig(randomize_env=True)
+    proj_config = PendulumProjConfig()
+
+    if not (env_config.id in gym.envs.registry.keys()):
+        from gymnasium.envs.registration import register
+
+        register(id=env_config.id, entry_point="serl_sprl.envs.pendulum:SimplePendulumEnv")
+
+    algorithm_config = TD3DiffProjConfig(
+        hyperparams=common.get_hyperparams_td3_diff_proj(use_penalty_critic=True, penalty_factor=penalty_factor),
+        total_timesteps=common.get_num_total_timesteps(),
+        policy_kwargs=common.get_policy_kwargs_td3(),
+    )
+    path = f"SPRL/Pendulum/TD3/PenaltyCritic/{penalty_factor}"
+    seeds = common.get_seeds_td3()
+    env_factory = EnvCreatorFactory(approach="sprl", improvement_strategy="penalty_critic", env_id=env_config.id)
+    experiment = Experiment(
+        env_factory=env_factory,
+        env_config=env_config,
+        algorithm_config=algorithm_config,
+        proj_config=proj_config,
+        seeds=seeds,
+        tag=path,
+    )  # the seeds are legacy code from previous experiments
+    experiment.run_training(tags=["SPRL", "Pendulum", "TD3", "PenaltyCritic"])
+    experiment.run_evaluation(seeds=seeds)
+
+
+if __name__ == "__main__":
+    penalty_factors = [0.1]
+    for penalty_factor in penalty_factors:
+        main(penalty_factor)

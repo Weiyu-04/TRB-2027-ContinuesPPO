@@ -1,0 +1,92 @@
+{
+ "source": "manifest 测试集(n=40·train=94)",
+ "seeds": [
+  0,
+  1,
+  2,
+  3,
+  4
+ ],
+ "n_scen": 40,
+ "takeover_r": 350.0,
+ "dock_authority": "rl_box",
+ "per_seed": {
+  "0": {
+   "base": 2,
+   "dock": 28,
+   "n": 40,
+   "base_pct": 5.0,
+   "dock_pct": 70.0,
+   "modes": {
+    "circle": [
+     38,
+     26
+    ]
+   }
+  },
+  "1": {
+   "base": 0,
+   "dock": 5,
+   "n": 40,
+   "base_pct": 0.0,
+   "dock_pct": 12.5,
+   "modes": {
+    "circle": [
+     40,
+     5
+    ]
+   }
+  },
+  "2": {
+   "base": 40,
+   "dock": 40,
+   "n": 40,
+   "base_pct": 100.0,
+   "dock_pct": 100.0,
+   "modes": {}
+  },
+  "3": {
+   "base": 27,
+   "dock": 40,
+   "n": 40,
+   "base_pct": 67.5,
+   "dock_pct": 100.0,
+   "modes": {
+    "stopshort": [
+     13,
+     13
+    ]
+   }
+  },
+  "4": {
+   "base": 38,
+   "dock": 39,
+   "n": 40,
+   "base_pct": 95.0,
+   "dock_pct": 97.5,
+   "modes": {
+    "stopshort": [
+     2,
+     2
+    ]
+   }
+  }
+ },
+ "iqm_base": 55.83,
+ "iqm_dock": 89.17,
+ "crashed_base": [
+  0,
+  1
+ ],
+ "crashed_dock": [],
+ "mode_table": {
+  "circle": {
+   "total": 78,
+   "rescued": 31
+  },
+  "stopshort": {
+   "total": 15,
+   "rescued": 15
+  }
+ }
+}
