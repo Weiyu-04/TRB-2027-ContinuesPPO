@@ -193,20 +193,60 @@ collision on the learned policy.]
 
 % =====================================================================
 \section{Discussion and Limitations}
-% [DRAFT · 把 13 条 over-claim 收紧措辞落这里 · L189 E / L191-B / L192]
+% [DRAFT · 13 条 over-claim 收紧措辞已落此处 · 依据 03 L189 E + L191-B + L192]
+% 数字来源：violation 1.13-1.8 / 崩率~20% CI[2.5,55.6] / 0-38 shared + 6.3-of-8 /
+%   接管步 27-43% 路径~20% / 油门~5x 住 RL 段 / yaw 输 1.19-1.33x / 覆盖 96.32 vs 97.90.
 \begin{itemize}
-  \item The provable tier is \emph{medium}: gap\#1 (velocity-dimension
+  \item \textbf{Provable tier is \emph{medium}.} gap\#1 (velocity-dimension
   unavoidability) is now sound, but coverage is not complete, and the empirical
   zero-collision backing is single-target until multi-vessel benchmark data exist.
-  \item We claim provable \emph{direction} compliance only per give-way step
-  ($\sim\!13$--$16\%$ of encounters), \emph{never} at every step (measured
-  violation $1.13$--$1.8$ per episode; emergency regime bypasses the constraint).
-  \item Arrival is comparable, not superior; the defensible advantages are the
-  provable direction-compliant shield (zero collision) and throttle smoothness.
-  \item Warm-start establishes escape from the bad basin, not from-scratch
-  stability; multi-parent seed-variance evidence is [PENDING].
-  \item [PENDING] multi-target empirical backing; hard-dataset stress test to make
-  the shield's value visible where the current benchmark is too easy.
+  We keep every claim hedged and \emph{never} abbreviate the shield to ``provably
+  collision-free.''
+
+  \item \textbf{Compliance is per give-way step, not every step.} We claim provable
+  \emph{direction} compliance only on give-way steps ($\sim\!13$--$16\%$ of
+  encounters), never at every step (measured violation $1.13$--$1.8$ per episode on
+  the golden run; the emergency regime structurally bypasses the constraint).
+
+  \item \textbf{Arrival is comparable, not superior.} The apparent 24-point
+  arrival win over discrete was a collapse-balancing artifact: after balancing the
+  hidden collapsed seeds across arms, arrival shows \emph{no} statistically
+  demonstrable advantage over discrete ($n=3$ per arm, sign-test $p=0.25$--$0.63$).
+  We therefore do \emph{not} list arrival as a selling point.
+
+  \item \textbf{The smoothness advantage is throttle-only and dilutes with
+  takeover.} The $\sim\!5$--$6\times$ throttle-increment advantage is structural
+  (discrete has 7 quantized throttle levels) but lives in the \emph{RL} segment; on
+  the geometric-takeover segment the two arms are a wash, so the advantage shrinks
+  as the takeover fraction grows. Yaw-increment and jerk currently \emph{lose} to
+  discrete ($\sim\!1.19$--$1.33\times$); de-jittering the yaw axis is open work.
+
+  \item \textbf{A minority-seed training-stability collapse.} A minority of seeds
+  ($\sim\!20\%$, wide CI $[2.5,55.6]$) collapse. This is training instability, not
+  scenario hardness: the shared-failure scenarios are $0/38$ unsolvable by all
+  healthy seeds, and each is solved by $6.3/8$ healthy seeds on average (a clean
+  seed-only control). Reward shaping is a \emph{high-confidence empirical} dead end
+  for the tried shaping/coefficient families, \emph{not} a proof of impossibility
+  for CMDP or non-PBRS terminal objectives.
+
+  \item \textbf{Warm-start escapes the bad basin; it is not from-scratch
+  stability.} All ten warm-started seeds derive from a single, post-hoc-selected
+  parent, so their low spread is a fine-tuning band with effective sample size
+  $\approx 1$, \emph{not} a seed-variance claim. Establishing seed-level stability
+  requires the multi-parent design [PENDING]. Warm-start also slightly lowers
+  provable-layer coverage ($96.32\%$ vs $97.90\%$), which we report and explain as
+  a composition effect.
+
+  \item \textbf{Geometric terminal takeover is a hybrid rescue, not RL learning.}
+  Where used, early geometric takeover is a deployment-time rescue of the terminal
+  docking failure (occupying $\sim\!27$--$43\%$ of steps / $\sim\!20\%$ of path for
+  collapsed seeds); the RL policy itself is not improved. We describe it as a hybrid
+  system, complementary to warm-start (which treats the full-speed-circling basin),
+  not as ``the RL learned to dock.''
+
+  \item \textbf{[PENDING]} multi-target empirical backing; a hard-dataset stress
+  test to make the shield's value visible where the current benchmark is too easy;
+  external CBF/VO Pareto baselines.
 \end{itemize}
 
 % =====================================================================
