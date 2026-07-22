@@ -207,8 +207,10 @@ def integrate_maneuver_official(ego0, segments, T, h=0.5, p=None):
 # ════════════════════════════════════════════════════════════════════════════════════════
 def classify_state(ego, obs, obs_len, obs_wid, T=120.0, h=0.5, fam_mode="full", p=None):
     """返回 dict(gap1_unavoid, gap1_tstar, clear_times{name:first_unsafe_t或None=全程清}, dist)。"""
-    assert abs(obs_wid - W_SHIP) < 1e-6, \
-        f"obs_wid={obs_wid}≠SR108 {W_SHIP}：gap#1 要 under-approx、清障要 over-approx·只有精确真值两边都 sound（须显式改口）"
+    # 🔴 他船占据 = 基准真实 shape（env 碰撞用 occupancy_at_time().shape·usv_termination:21·非假设的 SR108）。
+    #   实测本基准他船宽 ~44.35 ≠ 项目一直假设的 SR108 25.4！传【该场景真宽/真长】给 gap#1（≤真=under 边界）
+    #   与 clearance（≥真=over 边界）→ 精确真值使两个方向边界重合、两边都 sound。仅 fail-fast 挡垃圾值。
+    assert obs_wid > 0.0 and obs_len > 0.0, f"他船尺寸非法 obs_len={obs_len} obs_wid={obs_wid}"
     dist = float(np.hypot(ego[0] - obs[0], ego[1] - obs[1]))
     gap1_unavoid, tstar = False, None
     if _HAVE_OFFICIAL:
@@ -322,6 +324,11 @@ def phase_classify():
     T_SWEEP = [float(x) for x in os.environ.get("PROBE_TSWEEP", "20 30 40 60 80 120").split()]
     recs = [json.loads(l) for l in open(INP)]
     print(f"[classify] {len(recs)} 个 ρ5 态 · Tmax={Tmax} h={h} 机动族={fam_mode} · 视界扫描={T_SWEEP}", flush=True)
+    _ws = sorted(set(round(float(r["obs_wid"]), 2) for r in recs))
+    _ls = sorted(set(round(float(r["obs_len"]), 2) for r in recs))
+    print(f"  他船真实 shape：宽∈{_ws[:8]}{'…' if len(_ws) > 8 else ''}  长∈{_ls[:8]}{'…' if len(_ls) > 8 else ''}", flush=True)
+    if any(abs(w - W_SHIP) > 1e-6 for w in _ws):
+        print(f"  ⚠️ 他船宽 ≠ SR108 {W_SHIP}m → 项目'两船皆 SR108'假设不成立·gap#1 默认 obs_width=25.4 是 under-approx(sound 但保守)·本探针用真宽(两边 sound)", flush=True)
     p = _dyn.make_vessel_params(V_MAX)
     results = []
     for i, r in enumerate(recs):
