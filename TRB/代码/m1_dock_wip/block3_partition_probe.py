@@ -273,14 +273,20 @@ def phase_collect():
             ck = os.path.join(CKPT_DIR, CKPT_TMPL.format(s=s))
             if not (os.path.exists(ck + ".zip") and os.path.exists(ck + "_vecnorm.pkl")):
                 print(f"  s{s}: 缺 checkpoint → 跳过", flush=True); continue
-            bv = DummyVecEnv([lambda: ContinuousProjectionEnv(pool[0][0], pool[0][1], shield=True)])
+            # 🔴 env 配置须【逐字】= 金标训练/eval 配置（金标 run_config：shield=True/goal_cone=None/
+            #    goal_v_floor=2.0/augment_rho=False·已核 run_metadata_L1rateON_ppo_s0.json）·= 已验证 harness
+            #    closed_loop_dock.py 同款（它复现金标逐种子到达率）→ 收集的 ρ5 态才忠实、vecnorm 维才对得上。
+            def _mk(sc, pp):
+                return ContinuousProjectionEnv(sc, pp, shield=True, goal_cone_half=None,
+                                               goal_v_floor=2.0, augment_rho=False)
+            bv = DummyVecEnv([lambda: _mk(pool[0][0], pool[0][1])])
             vn = VecNormalize.load(ck + "_vecnorm.pkl", bv); vn.training = False
             if int(np.asarray(vn.obs_rms.mean).shape[0]) != int(bv.observation_space.shape[0]):
                 raise SystemExit(f"s{s}: vecnorm 维≠env 维（盾/augment 配置不匹配 checkpoint）")
             tf = make_obs_transform(vn)
             model = PPO.load(ck + ".zip", device="cpu")
             for si, (sc, pp) in enumerate(pool):
-                env = ContinuousProjectionEnv(sc, pp, shield=True)
+                env = _mk(sc, pp)
                 obs, info = env.reset(seed=0)
                 for step_i in range(200):
                     act, _ = model.predict(tf(obs), deterministic=True)
