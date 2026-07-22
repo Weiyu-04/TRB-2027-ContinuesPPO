@@ -100,4 +100,15 @@ block1 解了，**决定方向 A 成不成的重心，现在完全落到 block3*
 
 ---
 
-*（**已过独立数学复审 = block1 数学 SOUND·可推进·本轮无 over-claim**〔R_circ=几何中心/Lipschitz 引理/区间下界 逐条经代码+推演坐实〕；须补 F1-F5 前提才 self-contained：**F1 采样用解析/odeint 非 Euler**（否则 1–3m 漂移吃掉 tight）·F2 限速+执行同口径·F3 他船 occupancy over-approx·F4 用 9.5/逐场景真 v_m 非 7.10·F5 采样裕度≠keep-out 裕度。**命门已干净移交 §8-② block3 三分区实验（未决区大小·纯 eval 可测）。**）*
+## 7 · 实现级 soundness 验证（本机跑·`代码/m1_dock_wip/clearance_certificate_selfcheck.py`）
+
+数学复审过后，又做了**实现级验证**（self-contained·用已知 yp RHS+连续 v-clip+细步 RK4~1e-6·shapely 精确距离）：
+- **确定性**：A 远清障 clears=True(下界 2174 vs 真 2178·间隙 ~4m=`L·h/2` 理论值)·B 迫近撞 clears=False·C 穿模压力 3 个 h 全 False。下界全 sound。
+- **🔴 随机对抗 soundness 扫描（600 配置·命门）**：认证 clears=True **574 个·假认证(真会撞)=0**·下界从不高估真距离(min gap **+0.538m**) → **SOUND**（判据从不把真会撞的机动误判成清障）。
+- ⚠️ 这是**逻辑验证**（自包含 RHS）；**生产版三分区探针须换成官方 `usv_dynamics.step`+`_ego_rect`**（"不自己写·调官方包"铁律·须服务器 smoke）。
+
+**一句话**：block1 从"纸面 sound"到"实现里也 sound（600 对抗 0 假认证）"都过了。命门确定移到 block3（未决区·机动族覆盖·§8-② 三分区实验）。
+
+---
+
+*（**已过独立数学复审 + 实现级 soundness 验证(600对抗0假认证) = block1 数学 SOUND·可推进·本轮无 over-claim**〔R_circ=几何中心/Lipschitz 引理/区间下界 逐条经代码+推演坐实〕；须补 F1-F5 前提才 self-contained：**F1 采样用解析/odeint 非 Euler**（否则 1–3m 漂移吃掉 tight）·F2 限速+执行同口径·F3 他船 occupancy over-approx·F4 用 9.5/逐场景真 v_m 非 7.10·F5 采样裕度≠keep-out 裕度。**命门已干净移交 §8-② block3 三分区实验（未决区大小·纯 eval 可测）。**）*
