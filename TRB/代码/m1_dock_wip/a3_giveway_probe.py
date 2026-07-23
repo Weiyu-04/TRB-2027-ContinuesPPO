@@ -54,11 +54,14 @@ def _tail_distances(ts, traj, obs0, obs_len, obs_wid):
 
 def cert_v2(ts, traj, oseg, obs0, obs_len, obs_wid, segments, h, H):
     """修正证书。返回 dict(certified_perm, clears_H, straight_tail, past_cpa, first_unsafe_t)。
-    certified_perm = clears_H ∧ straight_tail ∧ past_cpa（=引理1 sound 永久清障充分条件·仅直行尾）。"""
+    certified_perm = clears_H ∧ straight_tail ∧ past_cpa（=引理1 sound 永久清障充分条件·仅【恒速】直行尾）。"""
+    assert obs_len > 0.0 and obs_wid > 0.0, f"他船尺寸非法 obs_len={obs_len} obs_wid={obs_wid}"   # F5·防线
     prof = clearance_profile(ts, traj, obs0, obs_len, obs_wid, h, oseg)   # 修正版 Lipschitz（已复审 SOUND）
     fut = prof["first_unsafe_t"]
     clears_H = (fut is None) or (fut > H)
-    straight_tail = abs(segments[-1][1]) < 1e-9                           # 末段 ω=0
+    # 🔴 F1(CRITICAL 修)：引理1 凸性前提=【恒速】平移 → 尾段须 ω=0 【且 a=0】。
+    #   仅查 ω=0 会放行加速尾(抛物线路径·g 非凸·"过CPA⟹永久增"假·实测二阶差−1.14)。
+    straight_tail = abs(segments[-1][1]) < 1e-9 and abs(segments[-1][0]) < 1e-9   # 末段 ω=0 且 a=0
     ds = _tail_distances(ts, traj, obs0, obs_len, obs_wid)
     t_tail = sum(d for a, w, d in segments[:-1] if d is not None)         # 尾段起始时刻
     tail_idx = np.where(ts >= t_tail - 1e-9)[0]
@@ -97,6 +100,17 @@ def _compliant_omega_sign(give_way_dir):
     if give_way_dir == "left":
         return +1
     return 0
+
+
+def _range_rate(ego, obs):
+    """中心距变化率 ṙ=(p_rel·v_rel)/‖p_rel‖。>0=分离(closing rate 反号)。F2·门1c 独立闭合信号(从速度直算·不复用证书 past_cpa)。"""
+    p_rel = np.array([ego[0] - obs[0], ego[1] - obs[1]])
+    n = float(np.hypot(p_rel[0], p_rel[1]))
+    if n < 1e-9:
+        return 0.0
+    v_e = ego[3] * np.array([math.cos(ego[2]), math.sin(ego[2])])
+    v_o = obs[3] * np.array([math.cos(obs[2]), math.sin(obs[2])])
+    return float(p_rel @ (v_e - v_o) / n)
 
 
 def _tail_after(segments, dt):
@@ -151,12 +165,17 @@ def gate_state(rec, H, h, p):
     obs2 = [obs[0] + obs[3]*math.cos(obs[2])*DT, obs[1] + obs[3]*math.sin(obs[2])*DT, obs[2], obs[3]]
     tail = _tail_after(segs, DT)
     ts2, traj2, oseg2 = B3.integrate_maneuver_official(ego2, tail, H, h, p)
-    c1a = cert_v2(ts2, traj2, oseg2, obs2, olen, owid, tail, h, H)          # 全视界 H
+    c1a = cert_v2(ts2, traj2, oseg2, obs2, olen, owid, tail, h, H)          # 1a·全视界 H·同尾永久 certify
     ts2b, traj2b, oseg2b = B3.integrate_maneuver_official(ego2, tail, H - DT, h, p)
-    c1b = cert_v2(ts2b, traj2b, oseg2b, obs2, olen, owid, tail, h, H - DT)  # 收缩视界 H−Δ
+    c1b = cert_v2(ts2b, traj2b, oseg2b, obs2, olen, owid, tail, h, H - DT)  # 1b·收缩视界 H−Δ
     out["g1a"] = c1a["certified_perm"]
-    out["g1b"] = c1b["clears_H"]
-    out["g1c"] = bool(c1a["straight_tail"] and c1a["past_cpa"])
+    # 🔴 F2(HIGH 修·门1三查正交化·防伪三角互证)：
+    #   1b 用【certified_perm】(缩视界下 past_cpa 窗口变短·argmin 未必仍内点·不被 1a 蕴含)·非 clears_H。
+    out["g1b"] = c1b["certified_perm"]
+    #   1c 用【独立闭合率】：后继尾末态中心 ṙ>0(分离)·从速度直算·不复用 c1a 的 past_cpa 布尔。
+    tH = float(ts2[-1])
+    obsH = [obs2[0] + obs2[3]*math.cos(obs2[2])*tH, obs2[1] + obs2[3]*math.sin(obs2[2])*tH, obs2[2], obs2[3]]
+    out["g1c"] = _range_rate(list(traj2[-1]), obsH) > 0.0
     # 门2：合规方向 certified backup 存在？（让路态才判）
     sign = _compliant_omega_sign(gw)
     if sign != 0:
@@ -249,6 +268,7 @@ def phase_gates():
 
     RHO_NAME = {1: "stand-on", 2: "head-on", 3: "crossing", 4: "overtake", 5: "emergency"}
     by_rho = {}
+    allres = []   # (seed, scn_idx, step, rho, res)·供相遇聚合（F4·防 per-step 双计）
     for i, r in enumerate(recs):
         res = gate_state(r, H, h, p)
         rho = res["rho"]; d = by_rho.setdefault(rho, dict(n=0, inA=0, g1a=0, g1b=0, g1c=0, cb=0, cb_tot=0, genuine=0))
@@ -259,17 +279,51 @@ def phase_gates():
             d["g1a"] += int(res.get("g1a", False)); d["g1b"] += int(res.get("g1b", False)); d["g1c"] += int(res.get("g1c", False))
         if res.get("compliant_backup") is not None:
             d["cb_tot"] += 1; d["cb"] += int(res["compliant_backup"])
+        allres.append((r.get("seed"), r.get("scn_idx"), r.get("step"), rho, res))
         if (i + 1) % 100 == 0:
             print(f"  ...{i+1}/{len(recs)}", flush=True)
 
-    print("\n===== A3 门报告（按 ρ 分层）=====")
+    print("\n===== A3 门报告 A · 【per-step】按 ρ 分层 =====")
     print(f"  {'ρ':>10} | {'n':>5} {'真对撞%':>7} {'A-成员%':>7} | 门1: {'1a同尾%':>7} {'1b缩视%':>7} {'1c闭合%':>7} | 门2:{'合规backup%':>11}")
     for rho in sorted(by_rho):
         d = by_rho[rho]; nA = max(1, d["inA"]); N = max(1, d["n"])
         cb = f"{100*d['cb']/max(1,d['cb_tot']):.1f}({d['cb_tot']})" if d["cb_tot"] else "n/a"
         print(f"  {RHO_NAME.get(rho, rho):>10} | {d['n']:>5} {100*d['genuine']/N:>6.1f} {100*d['inA']/N:>6.1f} | "
               f"     {100*d['g1a']/nA:>6.1f} {100*d['g1b']/nA:>6.1f} {100*d['g1c']/nA:>6.1f} | {cb:>11}")
-    print("\n🔴 go/no-go 判读：")
+
+    # ── F4·【per-encounter】聚合（项目口径 encounter 级·同 block3 phase_classify）──
+    #   相遇 = 同 (seed,scn_idx) 内 step 连续的一段。相遇级门通过 = 该相遇【全部 A-成员步】均通过。
+    enc = {}
+    for seed, scn, step, rho, res in allres:
+        enc.setdefault((seed, scn), []).append((step, rho, res))
+    enc_stat = {}
+    for key, steps in enc.items():
+        steps.sort(key=lambda x: (x[0] if x[0] is not None else 0))
+        runs = []; cur = [steps[0]]
+        for a, b in zip(steps, steps[1:]):
+            if b[0] is not None and a[0] is not None and b[0] == a[0] + 1:
+                cur.append(b)
+            else:
+                runs.append(cur); cur = [b]
+        runs.append(cur)
+        for run in runs:
+            rho_run = run[0][1]   # 相遇主 ρ（首步）
+            amembers = [rs for _, _, rs in run if rs["in_A"]]
+            st = enc_stat.setdefault(rho_run, dict(n_enc=0, enc_all_inA=0, enc_g1a=0, enc_g1b=0, enc_g1c=0))
+            st["n_enc"] += 1
+            if amembers:
+                st["enc_all_inA"] += 1
+                st["enc_g1a"] += int(all(rs.get("g1a", False) for rs in amembers))
+                st["enc_g1b"] += int(all(rs.get("g1b", False) for rs in amembers))
+                st["enc_g1c"] += int(all(rs.get("g1c", False) for rs in amembers))
+    print("\n===== A3 门报告 B · 【per-encounter】(相遇级·全 A-成员步均过才记过) =====")
+    print(f"  {'ρ':>10} | {'相遇数':>6} {'有A成员相遇':>10} | {'1a全过%':>7} {'1b全过%':>7} {'1c全过%':>7}")
+    for rho in sorted(enc_stat):
+        s = enc_stat[rho]; na = max(1, s["enc_all_inA"])
+        print(f"  {RHO_NAME.get(rho, rho):>10} | {s['n_enc']:>6} {s['enc_all_inA']:>10} | "
+              f"{100*s['enc_g1a']/na:>6.1f} {100*s['enc_g1b']/na:>6.1f} {100*s['enc_g1c']/na:>6.1f}")
+
+    print("\n🔴 go/no-go 判读（以 per-encounter 为准·per-step 供诊断）：")
     print("   · 门1 三机制(1a/1b/1c) 让路态 ρ2/3/4 均 ≥99% → 修正命题4机制真分布坐实 = 可证明前向不变有底。")
     print("   · 门2 合规backup% ≥85-90%(head-on≥95%) → A∩U_colregs 大概率非空·可证明合规且无碰；低于→扩残余冲突集诚实刻画。")
     print("   · A-成员% = 盾真实态落可证明集 A 的率；A 外态(unavoidable/undecided)落 emergency 兜底=诚实在集外。")
