@@ -1,0 +1,15 @@
+Phase4 递归可行性探针 · 合成真对撞 n=120 · 分类视界 T=120.0
+
+  [Tc=40s] avoidable 态 n=75 → 后继再分类:
+     仍 avoidable(不变式保持): 75 (100.0%)
+     变 undecided:            0
+     变 unavoidable(最坏·真掉出): 0
+
+  [Tc=60s] avoidable 态 n=75 → 后继再分类:
+     仍 avoidable(不变式保持): 75 (100.0%)
+     变 undecided:            0
+     变 unavoidable(最坏·真掉出): 0
+
+  用时 117s
+  判读：仍avoidable≈100% → 可清障集≈前向不变 → 递归可行 → Phase4 终端约束有底；
+        若大量变 unavoid → 走一步就进死局 → 朴素可清障集非不变集 → 需收缩视界/funnel。
