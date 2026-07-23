@@ -1,0 +1,813 @@
+{
+  "summary": "Independent adversarial review of TRB 2026-07-22~23 window: block1 false-cert fix, gap#1 soundness, undecided 21-27%, is_emergency over-trigger, strategic call",
+  "agentCount": 23,
+  "logs": [],
+  "result": {
+    "finders": [
+      {
+        "key": "MATH",
+        "verdicts": [
+          {
+            "claim": "清障判据修正版 L_seg = max(|v_k|,|v_{k+1}|)+a_max·h + |ω_seg|·R_circ + |v_m| 在生产口径动力学(步内 v 冲负/overshoot、10s 边界钳)下是子区间 |d'(t)| 的合法上界，区间下界 (d_k+d_{k+1}−L·h)/2 sound，造不出修正版假认证。",
+            "verdict": "SOLID",
+            "confidence": "high",
+            "evidence": "亲手推+亲跑三脚本。(1)区间引理:端点Lipschitz⇒min_[t_k,t_{k+1}]d≥(d_k+d_{k+1}−Lh)/2 当且仅当 L≥sup|d'|。(2)v项关键推导:子区间内a恒定(段界对齐h、h整除10s),v(t)=v_k+∫a,|∫a|≤a_max·h,故|v(t)|≤|v_k|+a_max·h≤max(|v_k|,|v_{k+1}|)+a_max·h——与是否10s钳、采样点是钳后值无关,+a_max·h恰好兜住钳前overshoot(即便a在子区变号仍成立)。(3)ω项:R_circ=0.5·hypot(175,25.4)=88.4=外接圆半径,船体任点到中心距≤R_circ,转动点速≤|ω|R_circ;他船CV项|v_m|。三者和⇒L_seg≥sup|d'|=|v|+|ω|R_circ+|v_m|。lip_check.py:8000子区间0违反,worst emp|d'|/L_seg=0.967(最紧是直线高速平移项非overshoot项)。adv_clearance3.py:60合成真撞态×22机动族394次clears检验、见193反向v机动、细网格SAT真值0假认证。adv_clearance2.py:三种子×400随机态0假认证且我的重实现与探针clearance_profile逐个一致。",
+            "key_risk": "本机用RK4重建生产动力学,与官方usv_dynamics.step的odeint若在v边界处理有我未察差异(vessel_dynamics_yp内部隐藏钳制)则真值轨迹可能偏离;但源码称官方RHS=[cosθv,sinθv,ω,a]、v不在动力学内钳(只探针循环10s钳),与我一致。shapely.distance近触数值误差理论上让端点d_k略高报,但两侧同用一采样,影响极小。"
+          },
+          {
+            "claim": "gap#1 证书 imminent_unavoidable_certificate 中 R_box 过近似 ego 全可达中心集，a_eff/b_lon/b_lat/L_lat 推导 sound，传入 obs_width=真宽不破坏 soundness，造不出 gap#1 假阳(说不可避但实可避)。",
+            "verdict": "SOLID",
+            "confidence": "high",
+            "evidence": "亲手推+亲跑gap1_audit.py。(1)可达中心偏差c(t)−c_e(t)=∫∫c̈,‖c̈‖=√(a²+(vω)²)≤a_eff=√(a_max²+(v_bnd·w_max)²),双积分⇒|偏差|≤½a_eff·t²;v_bnd=11.9=9.5+0.24·10是|v|合法上界(env每10s钳回[0,9.5],步内至多±2.4,反向仅达−2.4<11.9)。纵分量≤½a_eff t²=b_lon;横向由转向几何|横移|≤∫v_bnd|sin(θ−θ_e)|≤L_lat(两分支核对无误)。两界同时成立⇒真可达中心∈box(侧向被L_lat收紧不破坏,因真集本满足两界)。(2)r_insc=½·25.4内切盘⊆船体任朝向⇒中心∈O⊕disk(r_insc)⟹内切盘触O⟹船体触O⟹真撞(under-approx ego shape是sound方向)。(3)单时刻4角全含⇒全可达此刻撞⇒每轨迹撞。粗t网格(241点/0.5s)只会漏fire=sound。(4)obs_width=真宽是obs_width≤真宽前置的边界:O(t)=真障碍⇒含即真撞sound(传>真宽才unsound,探针传精确真宽)。实测:135300个随机生产控制真可达中心全部落R_box内(0越界);44个fire态取40个×1500随机机动细网格SAT搜0能避(0假阳);avoider搜索经能力校验(10个可避真撞态7/10找到avoider,证非假阴)。",
+            "key_risk": "soundness有两硬前置:①obs_width≤真宽 ②单CV障碍per-pair。探针传精确真宽=sound边界,但只要调用方传>真宽(或env实际碰撞shape非记录的(obs_len,obs_wid)矩形而是外接圆/膨胀形)就假阳。本机无vesselmodels,跑的是我按源码重实现的numpy逻辑,未跑官方函数本体;若官方predict_state_cv/内部有我未复现差异则结论可能偏。可达集越界测试用随机控制非最坏控制,靠解析证明兜底。"
+          }
+        ],
+        "verifies": [
+          {
+            "target_claim": "修正版清障判据 L_seg = max(|v_k|,|v_{k+1}|)+a_max·h + |ω_seg|·R_circ + |v_m| 在生产口径动力学下是子区间 |d'(t)| 的合法上界；区间下界 (d_k+d_{k+1}−L·h)/2 sound；造不出修正版假认证。裁决 SOLID(信心 high)。",
+            "refuted": false,
+            "finding": "独立重建生产口径动力学(官方 RHS f=[cosθv,sinθv,ω,a]，步内 v 不钳，仅 10s 边界 clip[0,9.5])，解析常控积分(与 scipy.quad 吻合 1e-13；RK4 dt=0.01 与真积分吻合 3e-15)，直接喂探针本身 clearance_profile，检验核心不变量 ilb[j] ≤ 真 min_[t_j,t_{j+1}] d(t)(违反即等价可造假认证)。采样点与子区间真值同源。真距用自写向量化 rect-rect 距离(对 shapely 3000 例 max 误差 8.5e-14)，每个近违约候选子区间用 6000 点解析超细复算取真 tmin(分辨率~0.002m)。(1)硬打两个曾击穿旧判据的口径:v 近0满减速冲负+转向(REVERSE)、v 近9.5满加速整10s窗冲到11.9再钳(OVERSHOOT)，2000+ case×4 seed，含转向/两段。全 SOUND:worst ilb−true_tmin=−0.015m，假认证=0。最紧恰是 OVERSHOOT 子区间[39.5,40](v_k=11.78→钳后9.5)——证实 +a_max·h 从钳前采样点精确兜住11.9峰速;反向 v 由|v|处理。(2)负控制坐实探测器有效:把 v 项换回旧带符号 max(无 a_max·h)，harness 立即报 UNSOUND——90假认证、worst +0.65m，全落 reverse-v+转向(v_k=−2.16,ω=0.03)即文档 CRITICAL 失效模式。(3)读源码确认官方 step 的 RHS 不在动力学内钳 v，与重建一致，无隐藏钳。数学上 |d'|≤(|v|+|ω|R_circ)+|v_m| 是闭点相对速度三角不等式硬界，R_circ=88.4 外接圆半径过界;区间下界为标准 Lipschitz 引理。找不到反例、无未跑口径、推导无洞。脚本 /tmp/claude-0/-home-user-TRB-2027-ContinuesPPO/c66f9aab-d514-56eb-b3c3-8a5123b55141/scratchpad/z_batch.py 与 z_negctrl.py。",
+            "corrected_verdict": "SOLID"
+          },
+          {
+            "target_claim": "gap#1 证书 imminent_unavoidable_certificate: R_box 过近似 ego 可达中心集, a_eff/b_lon/b_lat/L_lat sound, obs_width=真宽不破坏 soundness, 造不出假阳。裁决 SOLID。",
+            "refuted": false,
+            "finding": "独立重建证书 numpy 逻辑, 从源码确认 predict_state_cv 精确线性CV、env 默认 clip_velocity=True 使步内|v|≤11.9。三路证伪全失败: 攻击A bang-bang 极端控制探边界, 可达中心 0 逃出 R_box, 横向紧界 L_lat 最坏占用 0.8336<1.0; 攻击B 忠实 clip RK4 + 旋转矩形 SAT 碰撞全程120s, 90机动族+极端控制+每态1500随机(共6.6万)全 0 avoider; 数学核验双积分纵界/横界闭式/内切盘欠近似/凸4角/粗网格只漏不假阳/真宽前置均成立。无法造出假阳。",
+            "corrected_verdict": "SOLID"
+          }
+        ]
+      },
+      {
+        "key": "CLAIM3",
+        "verdicts": [
+          {
+            "claim": "对抗基线 1363 个 ρ5 态里真对撞(keep-course kc≤0)=15(1.1%)、~97.6%(1330)是 keep-course 不做机动已安全的假紧急；合成 300 全真对撞",
+            "verdict": "SOLID",
+            "confidence": "high",
+            "evidence": "本机独立重写 keep-course(向量化 OBB 最小船体距,SAT 相交+顶点-边距,未 import 探针、未用 vesselmodels;在 scn8 整段+近态上与 shapely rect.distance 逐态吻合到 |Δ|=0.000,见 scratchpad/adv_kc.py)复算:ADV 15 kc≤0(1.10%)/19 近擦(0<kc≤57)/1329 far(97.51%);SYN 300/300 kc≤0(100%)。与窗口 15(1.1%)/1330(97.6%) 仅差 1(阈值边界/dt 舍入)。180s 横轴复算 far 仍 97.4%,数字不是视界产物。",
+            "key_risk": "keep-course 定义(ego 恒速恒向 vs obs CV、T=120、dt=0.5、船体 175×25.4)是窗口设定;若真对撞应含 dt 内插的连续时间检查而非 0.5s 采样,极窄擦碰可能漏记,但方向只会让 kc≤0 更多、不改 97.5% far-safe 量级。"
+          },
+          {
+            "claim": "金标 423 态 0 真冲突(L196),且 keep-course 最近 10 态净空 57-210m",
+            "verdict": "WRONG",
+            "confidence": "high",
+            "evidence": "本机复算:金标 2 个 kc≤0(文件 idx119/122 = scn8 step38/41,shapely 交叉验证=0.00 非 OBB 假象)+3 个近擦(scn8 step43=16.8m、step45=35.1m、scn12 step26=43.3m)。scn8 是一次长视界会遇(steps 11-51,kc 剖面 333→0→182→0→16.8→35→57→85),真最近净空=0 而非 57。L196 最近10态57-210m/0真冲突 确是欠采样错:kc≈0 核在 idx119-124,任何 ~120 子采样都易漏掉核、只抓到 kc=57 外沿。定性罕见仍成立(2/423=0.47%,本质 1 次会遇+1 次擦碰),对 headline 的 materiality 低,但把 0 当事实写进论文=可被审稿人重采样直接证伪。",
+            "key_risk": "未跑真 is_emergency(无 vesselmodels),无法 100% 排除这 2 态是采集流水线因 Requirement-2 维持规则纳入的会遇末段而非当步触发;但 kc≤0(keep-course 会撞)这个事实与它是否当步触发无关,事实订正成立。"
+          },
+          {
+            "claim": "is_emergency 大幅过触发、这些是假紧急/远场假警报(把 97.5% 标为 is_emergency 的过度触发缺陷)",
+            "verdict": "OVERCLAIM",
+            "confidence": "high",
+            "evidence": "建模不对称是真的且方向明确:is_emergency 把他船当可对抗机动的点质量——reach_radius_pm(180)=733m(a_pm_max=0.045、v_pm_max=10)+他船外接圆(~118m)+本船(~88m)≈940m 膨胀可达盘、180s 视界;keep-course 只当被动 CV 矩形。本机复算证横轴不是主因(120s→180s 的 CV far-safe 仅 97.5%→97.4%),差异几乎全来自对抗盘 vs CV 这一威胁模型差。故 97.5% 在 CV 下不撞 是 SOLID 数字,但过触发/假紧急 这个贬义标签是拿弱的 CV 基准去审判一个按设计就该保守的 sound 安全谓词(保守=永不漏真紧急=soundness 本分)。诚实框法应是 紧急态≠即将碰撞:~98% 紧急态在标称 CV 下无碰撞,故 55-60% 紧急步占比不可读作碰撞风险频率——是不对称性披露,不是谓词坏了/过触发。若论文写过触发反削弱 soundness 卖点。",
+            "key_risk": "过触发 若窗口只当内部口语、论文实际写的是保守长视界预测→紧急态≠碰撞(L196 措辞其实偏这方向),则判 OVERCLAIM 可能过重——争议在标签用词而非数字,materiality 取决于论文最终措辞。"
+          },
+          {
+            "claim": "对抗基线真对撞只 15 支撑真冲突罕见(per-state 计数)",
+            "verdict": "SOLID",
+            "confidence": "high",
+            "evidence": "罕见成立且被强化:15 个 kc≤0 只来自 2 次会遇(scn21×8 步+scn30×7 步,均 seed=-1),非 15 次独立冲突。按项目自定 encounter 级口径(L195/L197 教训明确要 per-encounter 记数),真冲突=2 次会遇;per-step 的 15 虚高(正是窗口 L195 自己点名的 per-step 双计数)。金标 0.47%、合成为人工构造。综合本单障碍基准真冲突确罕见,结论稳。",
+            "key_risk": "罕见 是相对本基准(好策略+盾早介入+单障碍 CV)的性质,不可外推到多障碍/对抗鲁棒;窗口 L197 已 hedge,若论文把罕见当普适性质则 overclaim。"
+          }
+        ],
+        "verifies": [
+          {
+            "target_claim": "对抗基线 1363 个 ρ5 态: 真对撞(keep-course kc≤0)=15(1.1%)、~97.6%(1330)是 keep-course 不做机动已安全的假紧急；合成 300 全真对撞。裁决 SOLID(high)。",
+            "refuted": false,
+            "finding": "用与探针和主复审都不同的第三种独立方法(EXACT 连续时间: keep-course 下双矩形定向平移→d(t)凸→Minkowski 配置空间障碍+相对中心线段距离, 零采样误差, shapely, scratchpad/exact_kc.py)复算: ADV T=120 得 15 kc≤0(1.10%)/19 近擦/1329 far(97.51%), SYN 300/300(100%), 与被审逐整数吻合。被审自认最可能错处(0.5s 网格漏薄擦)被证伪: exact 连续时间仍是 15, 且第15个碰撞值=0.0 与次值 4.44m 之间有干净间隔, 无边界态翻转。横轴稳健: far% 在 T=120/180/300/600 均 94-98%, 真对撞仅 1.10→2.35%。另外独立逐字重写 is_emergency(scratchpad/emg_check.py, 不 import vesselmodels)证实\"假紧急\"框架: 触发态中 97.48% keep-course 安全。exact vs 暴力 dt=0.02 交叉校验 80 态 max|Δ|=0.0014m, 排除同源 bug 巧合。分母干净(1363 全 source=emergency)。仅发现 15↔16 / 1329↔1330 的单位边界抖动, 落在被审自述 hedge 内, 不改 ~1%/~97.6%/100% 结论。未能找到任何反例或跑错口径。",
+            "corrected_verdict": "SOLID"
+          },
+          {
+            "target_claim": "被审 judged L196's \"金标423态0真冲突, keep-course最近10态净空57-210m\" as WRONG (high confidence), on grounds it found 2 states with kc≤0 (idx119=scn8 step38, idx122=scn8 step41) = \"真冲突, 真最近净空=0 而非57\", plus 3 near-misses.",
+            "refuted": true,
+            "finding": "Reproduced被审's raw fact: full-sampling 423 gold states at T=120/dt=0.5 gives exactly 2 kc≤0 (idx119 step38, idx122 step41), shapely-confirmed intersection. BUT decisively showed these are 120s-horizon ghost-obstacle GRAZING artifacts, not material conflicts: (a) obstacles are 1903m/1421m away at the current state; kc=0 only at t=116.5s/84.0s under pure double-CV extrapolation. (b) Under the project's OWN encounter horizon (40-60s, mandated by L195 HIGH finding 03:L4029 'ghost CV obstacle' caveat + probe L490 '相遇视界≈40-60s'), both clear by 251-1058m — idx119 kc=1058m@40s/743m@60s, idx122 kc=568m@40s/251m@60s. (c) Penetration is grazing: max overlap 38.5 m² for idx119 (0.9% of ego area, essentially a tangent touch) / 316 m² idx122. L196's substantive finding survives fully intact: probe classifies all 423 incl these 2 as 100% avoidable, 0 unavoidable, 0 undecided, gap#1 fires 0% — no hard state for方向A. A t=116s/1.9km-out grazing IS a far-field false emergency, matching L196's thesis. 被审 used keep_course_min_dist default T=120 and read kc≤0 literally while ignoring its own project's documented 120s-horizon artifact, then stamped a thesis-correct ⭐⭐⭐ finding WRONG-high-confidence despite admitting materiality is low.",
+            "corrected_verdict": "OVERCLAIM"
+          },
+          {
+            "target_claim": "is_emergency 大幅过触发·这些是假紧急/远场假警报（97.5-97.6% 的 ρ5 态 keep-course 已安全）——窗口 L196/L197 的裁决",
+            "refuted": true,
+            "finding": "亲跑证伪 OVERCLAIM 裁决。(1) 跑 recompute_kc.py：对抗 1363 态→1330(97.58%) keep-course 安全、15(1.10%) 真撞，与探针原函数 mismatch=0/max|Δ|=0.0；金标 98.82%；数字与窗口声称逐位吻合=SOLID。(2) 从 usv_colregs.py 源码独立重建 is_emergency(asym.py/emg_check.py/wcheck.py)：两数据集上 IE=False∧keep-course撞 = 0（从不漏检 CV 碰撞），触发态中位距 835m(adv)/2647m(gold)，reach_radius_pm(180)=733m+r_obs118+ego88≈940m 对抗盘来自 Table II 文献界(a_pm=0.045,v_pm=10)非拟合真障碍——故该谓词是严格 over-approx 的 sound 远场预测，'保守'非'坏'。(3) 关键：窗口 L196/L197 原文本身就已给出对抗审所谓的'诚实框法'——明写'保守过触发是真发现·非 bug'、'紧急态占55-60%须重新框(多数远场预测·非真险)'、'is_emergency≠真险'，与对抗审提议的'紧急态≠即将碰撞·不可读作碰撞风险频率'实质等同。OVERCLAIM 裁决把'过触发/假紧急'读成'谓词有缺陷'，但窗口已显式否认(非 bug)且正是用此发现来避免夸大碰撞频率=诚实用法；'过触发/保守'对一个 97.6% CV-假阳的 sound 谓词是公道的运行性描述，与 soundness 不冲突。对抗审自己也承认 materiality 取决于论文未写措辞——故 high 信心 OVERCLAIM 不成立。补充观察：即便用 obs_width=None 保守盘，瞬时 is_emergency 也只 fire 54%/41%，说明 ρ5 是状态机latch标签(须 is_emergency_resolved 才解)，'过触发'部分来自latch而非仅盘——但这只强化'紧急态≠碰撞'的结论，不改判。",
+            "corrected_verdict": "SOLID"
+          },
+          {
+            "target_claim": "对抗基线真对撞只 15 支撑真冲突罕见 (per-state 计数);被审裁决 SOLID(high),称按 per-encounter 口径重记为 2 次会遇后罕见成立且【被强化】。",
+            "refuted": true,
+            "finding": "独立复算(exact_kc,T=120,已对暴力 dt=0.02 交叉验证)证实事实核对:恰 15 个 kc≤0 态,来自恰 2 个会遇(scn21 的 8 步 + scn30 的 7 步,均 seed=-1);对抗集共 33 个 distinct 会遇。但被审的核心支撑论证方向错了:罕见是【率】不是绝对数,按 per-encounter 重记必须同时缩分母(1363 态→33 会遇):per-state=15/1363=1.10%,per-encounter=2/33=6.06%,率反而【升 5.5 倍】。所谓 per-encounter 口径\"强化罕见\"是把 15→2 当强化却偷偷丢掉分母从 1363→33——它从没把 2 除以 33。诚实率 6.06%(会遇)/5.0%(2/40 场景)对避碰基准并不明显\"罕见\"。且 1363 分母是 is_emergency 过触发态(L196/L197 自证 2.6km 中位就报警),per-state 1.1% 近乎分母虚高的自证命题;结构上 scn30 的 keep-course 净距在相邻步 0→101m→0→93m→0 来回跳(主动操舵快照),连\"15\"这个 per-state 数本身都是刀刃瞬时属性、不稳。底层现象(多数紧急态是远场假警)为真且被审对外推有 hedge,但 SOLID/high 建立在一个方向反了的\"强化\"论证 + 择优挑最像罕见的口径之上=overclaim,不是 SOLID。",
+            "corrected_verdict": "OVERCLAIM"
+          }
+        ]
+      },
+      {
+        "key": "CLAIM2",
+        "verdicts": [
+          {
+            "claim": "合成真对撞 n=300 上 undecided ~21%（20.7-21.3%）这个点估计",
+            "verdict": "SOLID",
+            "confidence": "high",
+            "evidence": "我用与窗口完全独立写的RK4积分器(adv_soundness.py)跑synthetic n=150：gap#1 14.7%/avoid 63.3%/undec 22.0%，与窗口full300.out(21.3%)、doc(20.7%)、reclassify重建(20.0%@n=200)三方独立吻合。且我亲测clearance判据0假清(95个avoid态认证机动dt=0.02细采真距全>0)、gap#1 0假不可避(22态密搜躲不掉)——分区在本批经验sound，故21%是可信数(非假认证撑起来的)。窗口曾承认CRITICAL假认证已修，我独立复测确认修生效。",
+            "key_risk": "只测了n=150-300的synthetic一个分布；soundness验证是经验采样(dt=0.02/密控有限集)非形式证明，某个极端控制或极薄穿模可能漏检使avoid虚高/undec虚低。"
+          },
+          {
+            "claim": "undecided(两sound充分条件都没覆盖)是真硬骨头的度量，21-27%刻画方向A解不了的比例",
+            "verdict": "OVERCLAIM",
+            "confidence": "high",
+            "evidence": "方向分析+实测：因clearance/gap#1都是sound但不完备的充分条件(under-claim)，undecided必然把其实可解但没证出的态也算进去→undecided是真不可解集的【上界/高估】非下界。故21-27%若soundness成立就是方向A至少覆盖73-80%的保守floor(可靠性有利方向)，我已实证soundness(0假清/0假不可避)。但把undec当方向A的问题是双向误导：truemin_decomp(n=200)示undec里80%是真物理天花板(密搜也撞、gap#1只是证不出)非方向A弱点；真正可修族弱仅占undec~20%即真对撞的~4-5%。所以~1/4方向A解不了混淆了证书不完备与场景本就不可避。",
+            "key_risk": "上界性质完全依赖soundness；若clearance在未采到控制/穿模上有假清，方向翻转成低估。我的soundness只在n=150经验成立。"
+          },
+          {
+            "claim": "对抗基线真对撞子集 undecided 26.7%，支撑区间上端27%",
+            "verdict": "OVERCLAIM",
+            "confidence": "high",
+            "evidence": "refute_2127.out：对抗真对撞子集仅15个(占1363个ρ5的1.1%)，undec=4/15=26.7%，Wilson95 CI[10.9%,52.0%]——CI跨度41pp几乎无信息量。27%这个区间上端整个建立在4/15的二项噪声上。诚实表述应是synthetic~21%(CI 17-26%)；对抗n=15太小无法定位。把21-27%当稳健区间报等于借了个噪声端点。",
+            "key_risk": "若未来在更大对抗真对撞样本上undec仍落26-27%则此端点回填为真；n=15不能排除这点，只能说当前无支撑。"
+          },
+          {
+            "claim": "L197-B：密搜130控制发现未决里96%是场景天花板、仅4%机动族弱",
+            "verdict": "WRONG",
+            "confidence": "high",
+            "evidence": "主复审独立密控真距搜索直接证伪：truemin_decomp n=200得undec 40态中8可修/32天花板=80%天花板/20%族弱；refute_ceiling n=100得87%天花板/13%族弱。两个独立跑都不是96%。窗口96%(=26/27)是单次经验搜索的乐观端，独立更密搜索一致发现13-20%的undec其实真能避(族太弱可修)非天花板。窗口L197-B自己也标了经验上界·可复核。gap#1完备度仅~47%(32天花板里只证出~15)。",
+            "key_risk": "可避判定用有限密控集+dt=0.02，若某天花板态实际有更巧控制能避则可修比例更高、天花板更低——即96%只会更错不会更对；反向风险低。"
+          },
+          {
+            "claim": "21-27% 可作为方向A未决率的可推广估计",
+            "verdict": "OVERCLAIM",
+            "confidence": "high",
+            "evidence": "三重杀伤：①synthetic态是gen_synthetic_conflicts自构造对撞几何(按碰撞点回溯放)非真基准采样分布，且分kind差异大(head_on undec28%/cross_port12%)→总数随几何配比漂移；②真基准里真对撞极罕见(金标ρ5真对撞0%[L196]，对抗1.1%)，21-27%测的是构造分布非部署会遇到的；③undec含族artifact——加浓22→104族undec 20%→17.5%，密搜示framework无关地板~16-17%故21%偏高。窗口L197-D已明确hedge这四点，故带hedge时claim诚实；若被下游读成可推广数则WRONG。",
+            "key_risk": "可推广性差本身不否定方向A不完整的定性结论；若论文只用它做存在~1/4未决残区的定性诚实刻画(非定量承诺)，则可推广性不构成致命伤。"
+          }
+        ],
+        "verifies": [
+          {
+            "target_claim": "合成真对撞 n=300 上 undecided ~21%(20.7-21.3%) 这个点估计, 裁决 SOLID(信心 high)",
+            "refuted": true,
+            "finding": "我用完全独立管线(官方常控 RK4+10s 钳 + 逐字复制的 sound 清障判据 + gap#1)在全 n=300 上跑: 用探针的 22-机动窗口族精确复现 undec=64/300=21.3%(与 full300.out 完全一致)。但把机动族换成一个同样合法、仅略加密的 bang-bang 族(160 成员, 补上窗口族漏掉的 5-10s 短转向时长), undec 掉到 59/300=19.7%, 落在声称的 20.7-21.3% 带【之外】。被翻掉的 5 个态经 dt=0.02 细采真距验证全是真可避(true_min=2.0-5.2m>0), 认证机动都是平凡的\"短转再回正\"(ω=±0.03 转 5s/10s, 或减速转 25-30s)——窗口族只有 {20,40,60}s 转向时长, 纯属覆盖缺口非场景天花板。且被审自己引的 reclass200.out 里紧挨着的加浓族行是 17.5%(被审只报了窗口族的 20.0% 行、忽略了同文件的 17.5%)。被审所谓\"4 个独立复算吻合\"(full300/doc/reclass-window/adv_soundness)全用同一个 22-机动窗口族——它们的一致只验证了积分器/算术(从来不是疑点), 没验证\"21%\"作为 undecided 估计的稳健性。sound 判据 0 假清=这些翻掉的态是真可避, 直接反驳 L197-B\"~95% 天花板\"叙事与\"21%是可信数\"。",
+            "corrected_verdict": "OVERCLAIM"
+          },
+          {
+            "target_claim": "undecided(两 sound 充分条件都没覆盖)是真硬骨头的度量，21-27% 刻画方向 A 解不了的比例；裁决方给 OVERCLAIM(信心 high)。",
+            "refuted": true,
+            "finding": "我独立跑了两个脚本复算。(1) reclassify.py n=120：机动族从 22 加浓到 104(5x) 后 undecided 仅 23.3%→21.7%(降 1.6pp)=undecided 对机动族基本不敏感→非'族太弱'伪影。(2) decomp_fast.py n=300+153 密搜：undecided=22.3%(复现 21-27%)，其中 81% 密搜也避不了(经验天花板)、19% 可修——与被审自报 80%/20% 吻合。据此 refute OVERCLAIM 三处：①裁决拿'80% 是物理天花板'当'称其真硬骨头=overclaim'的依据，但这一事实恰恰【证实】了'真硬骨头的度量'(5 个 undecided 里 4 个经验不可避)——裁决把自己的证据用反了；②claim 已明确把 undecided 定义为'两 sound 充分条件都没覆盖'(=框架判定覆盖缺口)并用'度量'措辞，22.3% 是框架判不了的【精确】测度(非上界/高估)，裁决说它'高估真不可解集'是偷换了目标集(把'判不了'换成'物理不可避');③'物理天花板≠方向A的问题'是错的:命题3/gap#1/A-ii 恰恰以不可避态为靶做认证，而 gap#1 只在 ~40% 非可避态触发(13.7% of ~36%)，剩多数留 undecided(项目 L197-B 自认 gap#1 只证出 ~43%)——这些物理天花板-未认证态正是方向A的认证缺口，属于'判不了'。唯一软点:'解不了'字面可被误读为'避不了'(真可修仅 ~4.3%)而非'判不了/证不了'，但 claim 括号与'度量'已锚定准确读法，项目自己(L197)也已叮嘱别升格措辞=小措辞瑕疵，不足以把整条判成 OVERCLAIM。",
+            "corrected_verdict": "SOLID"
+          },
+          {
+            "target_claim": "对抗基线真对撞子集 undecided 26.7%,支撑区间上端27%(裁决为 OVERCLAIM/high)",
+            "refuted": true,
+            "finding": "独立复算(自写纯几何 keep-course 直线 CV 双船, dt=0.1, 不复用上窗口代码)确认对抗真对撞子集恰为 n=15 (idx 602-610,883-894), undec=4/15=26.7%, Wilson95[10.9,52.0] —— 裁决事实层无误。但裁决核心解读被证伪:它称\"27%上端整个建立在4/15二项噪声上/借了个噪声端点\",此为假。合成真对撞子集 n=300(20倍样本) undec=21.3% Wilson95[17.1,26.3] bootstrap95[16.7,26.0],即~26%上端由大样本独立佐证;论文\"27%\"仅高出合成Wilson上界(26.3)与对抗点(26.7) 0.4-0.7pp=舍入级,并非\"整个建立在4/15上\"。第二漏洞:源文本L197-D②已显式自 hedge\"对抗真对撞n=15小样本26.7%噪声大\",L197-A把范围框为\"~21-27%\"=[合成点21.3,对抗点26.7]的描述区间;overclaim须是伪装确定性,而源恰恰披露了裁决指控其隐藏的不确定性。裁决者自拟\"诚实版(合成~21%,CI17-26%)\"与论文\"~21-27%\"仅在上端差~1pp,非实质性夸大。裁决方向上正确(对抗单点26.7%确噪声大),但忽略n=300对~26%上端的佐证+源已显式小样本免责,遂把一个被佐证且已披露的描述区间打成OVERCLAIM/high=过苛。",
+            "corrected_verdict": "SOLID"
+          },
+          {
+            "target_claim": "L197-B：密搜130控制发现未决里96%是场景天花板、仅4%机动族弱（被审对它下 WRONG/high）",
+            "refuted": true,
+            "finding": "我写 fals_strict.py（n=200）对每个 window-family sound-undecided 态跑密控搜索，同一控制既算 coarse(0.2s采样,复刻truemin_decomp) 又算 strict(dt=0.02 RK4·每步0.02s≈19cm采样) 真船体距。目的是证伪本次裁决赖以成立的独立跑——即验证那 20% \"可修\" 是不是采样穿模伪影，如果是则真 ceiling 更接近窗口的 96%，裁决就崩。结果:8 个可避态 coarse==strict 完全一致(13.57/5.25/4.72/3.91/3.63/2.08/1.93/1.33m),全是真净空非伪影。我又亲跑 refute_ceiling.py n=200(其自带 dt=0.02 薄净空复核)拿到完整未捕获的终值:undec 40(20%)·阈值>0/>1m 均 8可避(20%)/32天花板(80%)。三个独立脚本(truemin_decomp 32/8、refute_ceiling 32/8、我的 fals_strict 32/8)一致。=> 我对裁决的证伪(可避是伪影→96%其实对)失败:裁决的事实内核(96%被高估、真值~80%天花板/20%可修)稳健成立。但裁决的严重度标签过头:①方向仍成立(80%=绝大多数是天花板,claim 实质不假,只是量级夸大=OVERCLAIM 而非 WRONG);②窗口 L197-B 已自标 96% 为\"经验上界·非形式证明·新窗口可复核\",且现实正是往它预警的方向(下修)走=可修正的乐观点估非虚假断言;③口径未对齐:窗口在 80 态得 27 undec(33.75%),独立全池 20%,而 <400m 近距子集 undec≈32%(→~26≈窗口27)——若窗口那 80 态是更硬的近距子集,其天花板%本就该高于全池 80%,部分解释 96-vs-80,而 WRONG/high 未认这个 apples-to-oranges 缺口。",
+            "corrected_verdict": "OVERCLAIM"
+          },
+          {
+            "target_claim": "\"21-27% 可作为方向A未决率的可推广估计\"（被裁 OVERCLAIM·信心high）",
+            "refuted": false,
+            "finding": "本机 RK4(dt=0.1·与官方 odeint~1e-8)独立重建分类流水线，全 300 合成真对撞 + 15 对抗真对撞态复算。三条证伪线都反而坐实 OVERCLAIM：①按 kind 分解 undec=head_on 28.2%/overtake 24.7%/cross_star 17.7%/cross_port 12.5%（agent 的 head_on28%/cross_port12% 精确吻合），总 21.3% 是随 gen_synthetic_conflicts 任意保留配比加权的均值→不可推广；②读生成器(探针L164)证实合成态是碰撞点回溯+全是任意均匀采样范围(v_e4-9.5/t_c15-70/抖±40)，与任何部署遭遇分布无关；③\"27%\"上界=对抗 4/15=26.7%，二项95%CI[7.8,55.1]%，且 adv 真对撞仅15/1363(1.1%)，纯 n=15 噪声。**但我抓到 OVERCLAIM 第三条支撑腿的事实错误**：agent 称\"加浓22→104族 undec 20%→17.5%、framework无关地板~16-17%、故21%偏高\"——我复算加浓 23.3%→21.7%(仅1.6pp)、全300窗口族=21.3%，**根本没有16-17%地板**，undec 对机动族加浓稳健(与 L197-B 密搜96%真天花板一致)，即\"21%被族artifact抬高\"是错的。此错误不推翻裁决：OVERCLAIM 靠①②③的可推广性失败站得住，我的订正只让\"真存在稳健~21%未决残区\"这一有效内核更实——正是 OVERCLAIM(有效发现被夸成'可推广')的定义。非 SOLID(可推广性确实垮)、非 WRONG(存在稳健真内核)。裁决站得住，仅其一条证据须订正。",
+            "corrected_verdict": "OVERCLAIM"
+          }
+        ]
+      },
+      {
+        "key": "STRATEGY",
+        "verdicts": [
+          {
+            "claim": "真冲突在本基准罕见·is_emergency大幅过触发（对抗基线ρ5 97.6%假紧急/1.1%真对撞·金标≈0）——这是整条战略链的经验基石",
+            "verdict": "SOLID",
+            "confidence": "high",
+            "evidence": "我独立跑 recompute_kc.py（自写旋转矩形+直线外推·与探针原函数交叉验证 mismatch=0/max|Δ|=0）：adv 15/1363(1.10%)真对撞、1330(97.58%)假紧急、中位中心距903m；golden 2/423真对撞、中位2605m；synthetic 300/300构造真对撞。窗口 L197 声称的 15/1330/1363 逐个精确吻合。基石成立·且因只采 ρ5 态·全步分布真险只会更稀→鲁棒。",
+            "key_risk": "kc<=0 用的碰撞判据=船体矩形距离<=0（120s CV外推·dt=0.5）·若官方碰撞判据更宽松（含安全域/膨胀）则'真对撞'会更多·1.1%是下限而非唯一口径；但方向盘上不改结论量级。"
+          },
+          {
+            "claim": "方向A（可证明恢复层）practical价值低",
+            "verdict": "OVERCLAIM",
+            "confidence": "medium",
+            "evidence": "此结论只由【单障碍+好策略】导出·而窗口自己同一段就承认'多障碍才是真冲突/真不可避的舞台'——即在真正的目标regime里价值可能高·却先判了'低'=过早自我设限（攻击a成立）。反证：同批数据里对抗基线（差控制器·45%到达/2碰撞）就有15个真对撞态、gap#1在真对撞上fire 14-20%（非空集）→换差控制器/换多障碍真险立刻出现。'价值低'正确作用域='当前单障碍∩好策略上恢复层'·被表述成一般结论。",
+            "key_risk": "有两条不依赖'罕见'的独立理由确实压低恢复层价值：(i)L197-B密搜 ~95%未决=物理天花板·恢复层躲不掉只能界严重度·真价值在上游早避开；(ii)1.5周deadline工程量不够。若这两条成立·则即便攻击a对·'本次投稿别押方向A'的决策仍稳——是推理过早·非决策错。"
+          },
+          {
+            "claim": "在deadline(~8月初·约1.5周)+已有料(可证明层章节/金标IQM98·0碰撞/热启动治崩)下·以 demonstration+诚实刻画为主线是对的",
+            "verdict": "SOLID",
+            "confidence": "medium",
+            "evidence": "作为【本次投稿的deadline决策】稳：方向A需探针+执行接管+治OOD反噬(L192-I)+烧卡·1.5周赌不硬deadline；而demo主线红线已成型（trb2027_main.tex Abstract/Contributions已写·诚实作用域全守）。TRB Presentation非NeurIPS/CDC·门槛匹配。这是'该投什么'的正确路由。",
+            "key_risk": "'主线'与'唯一线'之别：若因此把方向A/多障碍从期刊版也降优先·则可能低投了真正的贡献regime。决策对·别让它固化成永久放弃。"
+          },
+          {
+            "claim": "demonstration-only 够撑一篇·不会被审稿人判'薄/A+B缝合'（三重交集空白够卖点）",
+            "verdict": "UNCERTAIN",
+            "confidence": "medium",
+            "evidence": "真实风险（攻击b成立）：命题1=初等引理·命题2=by-construction同义反复·命题3/gap#1唯一原创种子但概念=Fraichard 2004 ICS的sound新实例且是检测器非控制器；盾本体=Markgraf投影适配+标准COLREGs FSM=正是导师批的A+B。新经验发现（is_emergency过触发/真险罕见/per-态背书）偏【负结果刻画】而非新能力demonstration。窗口用'TRB Presentation够发'当挡箭牌·但这句本身是L195复审提的·未被独立验证过审稿门槛。",
+            "key_risk": "可能低估TRB Presentation实际门槛（接受率/审稿严格度未查证）；也可能'首次填三重交集'确实足够。真正能救'薄'的是把is_emergency过触发（基准的emergency旗=2.6km中位假警报生成器）做成可复用方法学发现·而非只当hedge。"
+          },
+          {
+            "claim": "is_emergency过触发+真冲突罕见 对论文是【利好诚实料】",
+            "verdict": "OVERCLAIM",
+            "confidence": "medium",
+            "evidence": "窗口只看到上面（per-态可证明背书+诚实刻画）·漏了它是【双刃】（攻击c的真锋刃·窗口未grapple）：若部署的好策略几乎从不进真冲突、keep-course 97.6%已安全·怀疑型审稿人会问'那这个可证明避碰盾到底在防什么'→直接削弱'far-field单步no-collision保证'这条贡献的motivation（在本就不会撞的态上保证不撞=近乎vacuous）。",
+            "key_risk": "有部分解药：头条=可证明【方向合规】盾（COLREGs要求give-way即使不迫近也要早而充分转向）·方向合规价值不依赖真险罕见。若论文严格以方向合规领衔（standing铁律已如此定）·motivation大体保住·被削的只是碰撞保证子claim。所以是'框架若领错则WRONG·领对则仅局部削弱'。"
+          },
+          {
+            "claim": "多障碍才是真冲突/真不可避的舞台=最强broadener",
+            "verdict": "UNCERTAIN",
+            "confidence": "medium",
+            "evidence": "零多障碍数据支撑·纯假设。几何上合理（多船→可躲一船撞另一船→真不可避常见）·但被当近事实陈述。且它要改盾N障碍+多船数据=烧卡·与1.5周deadline冲突→作为投稿前动作不可行·只能是期刊/下一版扩展。",
+            "key_risk": "'最强broadener'也可能过乐观：多障碍下问题可能反被'上游早避开'消解（同L197-B逻辑）·真不可避未必常见到撑起一个可证明恢复层的贡献。须真数据判·别未测先封'最强'。"
+          },
+          {
+            "claim": "（我的平衡建议）deadline前不该烧卡·方向A/多障碍留作扩展",
+            "verdict": "SOLID",
+            "confidence": "high",
+            "evidence": "TRB Presentation摘要不需要新多障碍结果；方向A/多障碍都需烧卡+工程（探针+执行接管+N障碍盾+多船数据）·1.5周内既不可靠也无必要·且烧卡必user拍板+screen（本项目SIGHUP丢9run前科）。demo主线所有料已在手（golden IQM98/0碰撞·可证明层章节·热启动·三源探针诚实刻画）。",
+            "key_risk": "若摘要接受后到full paper deadline仍有窗口·则应立即启动多障碍（真正能反驳'薄'的broadener）——'现在不烧'不等于'一直不烧'·别把deadline决策误读成方向A死刑。"
+          }
+        ],
+        "verifies": [
+          {
+            "target_claim": "真冲突在本基准罕见·is_emergency大幅过触发（对抗基线ρ5 97.6%假紧急/1.1%真对撞·金标≈0），此为整条战略链的经验基石。原裁决 SOLID(high)。",
+            "refuted": false,
+            "finding": "我独立重跑并攻了四条口径，全部没撬开，反而堵死了被审自认的两个软肋。(1) 复现：自写旋转矩形+CV外推，adv 15/1363(1.10%)真对撞、1330(97.58%)假紧急、中位903m；golden 2/423、中位2605m——逐个精确吻合。(2) dt漏采：把keep-course步长从0.5加密到0.05(2400步/态)，adv真对撞仍=15、golden仍=2，零变化→无穿模低估，\"1.1%可能是下限因dt粗\"这条不成立。(3) 安全域膨胀(被审自认最可能错处)：亲读env真实碰撞判据usv_termination.py:185，是裸船体矩形intersects、无任何safety-domain/膨胀，与kc<=0判据完全同口径→\"官方判据更宽松会推高真对撞\"是空担忧、堵死在claim有利方向。(4) 用论文自己的威胁模型反打：独立重建usv_colregs.is_emergency(集合可达·他船点质量可机动·可达盘r=½·0.045·t²)，adv仅46.7%/golden仅35.7%在其自身定义下重触发，且中位态903m/2605m——直接算reach_radius_pm(180)=733m、加两船外接圆总包络~940m、单靠机动盘要覆盖903m需200s>180s视界→中位ρ5态即便他船满机动也物理够不着ego。故\"真险罕见\"连在reachability威胁模型下都成立，不是CV假设的artefact。唯一未闭合的是env真实碰撞用他船【录制(可能弯曲)轨迹】而kc用CV外推，snapshot数据无法复算未来轨迹——但这是窗口已显式披露的边界(单障碍CV假设)，且中位态的940m物理reach上限说明它撼不动\"罕见\"的量级；\"大幅过触发/假紧急\"是对一个sound保守可达判据的loaded措辞，但窗口自己L196已注明\"非bug·保守过触发是真发现\"。没有找到能翻转量级的反例或漏跑口径。",
+            "corrected_verdict": "SOLID"
+          },
+          {
+            "target_claim": "方向A（可证明恢复层）practical价值低 —— 被审给的裁决是 OVERCLAIM（信心medium），理由是该结论只由单障碍+好策略导出、在真正目标regime（多障碍）里价值可能高却被过早判低。",
+            "refuted": true,
+            "finding": "我本机独立重跑：(1) recompute_kc.py（独立旋转矩形 keep-course）复现 adversarial 15/1363 真对撞(1.1%)、1330 假紧急(97.6%)、golden 0.47%，与探针 mismatch=0，'真冲突罕见'为真。(2) 直接跑 OVERCLAIM 自己的核心证据——对 15 个'差控制器'真对撞态做官方动力学 RK4+10s钳+sound clearance 三分类：8 可恢复 / 3 gap#1不可避 / 4 未决，对 4 未决做密搜(FD~90机动)解出 0 个→全是物理天花板。即差控制器regime也是 53% 可恢复 / 47% 物理上根本救不了。gap#1 fire 恰恰=已认证不可避=恢复层无法恢复之处，OVERCLAIM 把它当'真险'其实反证价值。关键：窗口原文每次说'价值低'都自带作用域(L196'在当前单障碍+好策略上·其价值只在多障碍/对抗鲁棒'、L197'本基准罕见'+'多障碍才是真冲突舞台=最强broadener'、L197-B'在好策略上价值有限')——它从未把多障碍目标regime判低，反而明确保留为最高价值扩展。OVERCLAIM'过早自我设限/表述成一般结论'是对原文的误读。'practical价值'=恢复层给已部署(好策略+盾·本基准已0碰撞)系统的边际安全增益≈0，作用域正确、三条独立证据(罕见/95%天花板/gap#1只在不可避处fire)收敛支撑。裁决自认的兜底(天花板+deadline)恰恰是同向支撑不是反驳。故 OVERCLAIM 不成立。",
+            "corrected_verdict": "SOLID"
+          },
+          {
+            "target_claim": "在 ~1.5周 abstract deadline 下,以 demonstration + 诚实刻画为投稿主线是对的(裁决 SOLID/medium)。",
+            "refuted": false,
+            "finding": "亲自复核后裁决站得住,但找到证据层一处实质高估(不足以推翻结论)。已跑/已推:(1) 读 trb2027_main.tex 坐实\"诚实红线已成型\"为真——Abstract 明写 do not claim provable collision freedom,Limitations 8 条 hedge 全守(arrival comparable-not-superior、yaw/jerk 输离散、崩率20%CI[2.5,55.6]、warm-start 有效n≈1、takeover 非RL学会),支持被审方。(2) 本机复算 423 金标 ρ5 态 hull-hull 距:median 2427m/min 125m/0 碰撞,obs 尺寸 len206-292 wid31-49(非SR108),与 L196 一致,数据真实无 false-cert 污染。(3) 找到的裂缝:被审用来路由的对比\"方向A烧卡 vs demo红线已成型(暗示 demo 是廉价/就绪路)\"被论文自身注释直接证否——trb2027_main.tex L143 原文\"大量 PENDING = 待烧卡\",8 个 PENDING 覆盖整个经验核心(头条四臂钱图、0碰撞 over[PENDING]、violation 配对检验、三个未实现外部基线 APF/VO-ORCA/CBF-QP、多父种子研究——后者 L194 记录已 SIGHUP 崩过一次全9run 死于4.5M);\"热启动治崩\"按论文自己 Limitations 是 n≈1 单父轶事非坐实料。故两条路都烧卡,demo 胜在风险低而非成本低,被审的二分法高估了 demo 就绪度。(4) 为何不推翻:deadline 是 abstract(~8月初),demo abstract 已起草且诚实,其宣称结果(金标0碰撞/~5×油门)多已存在可诚实入摘;方向A结果不存在且探针 L195-197 已证其本基准实用价值≈0(gap#1 金标 fire<0.5%、~95% undecided 是无控制器可避的真天花板态)。把 abstract 路由到 demo+诚实 vs 一个研究赌博,是正确决策。裂缝收紧了论证但没打断结论。",
+            "corrected_verdict": "SOLID"
+          },
+          {
+            "target_claim": "被审 agent 对\"demonstration-only 够撑一篇 TRB·不会被审稿人判'薄/A+B缝合'\"下的裁决 UNCERTAIN(信心medium)，其论证:攻击b成立(命题1初等/命题2 by-construction/命题3=gap#1 是唯一原创种子但概念=Fraichard ICS·是检测器非控制器/盾本体=Markgraf投影+标准COLREGs FSM=导师批的A+B/新经验发现偏负结果刻画)，但因 TRB Presentation 门槛未查证而 hedge 到 UNCERTAIN。",
+            "refuted": false,
+            "finding": "我从两路证伪均失败，反而佐证被审。路1(裁决枢纽=双方都标未验的 TRB Presentation 门槛)：查 TRB 官方作者/审稿页+历史数据——TRB 年会投稿须【全文同行评审】(明确拒绝纯摘要)、1-10 打分、Accept/Reject for presentation、有 desk-reject 判据、接受率从 72%(1986)降到 <40%(1999)且\"持续降低\"。这【推翻了窗口\"TRB Presentation=橡皮图章·薄无所谓\"的承重前提】(正是被审怀疑的那句 L195 未独立验证的挡箭牌)，但 TRB 评审轴=清晰度+交通相关性+soundness 而非顶会新颖性，故'A+B缝合'在此确实是弱得多的杀手——净结果=真混合，恰是 UNCERTAIN 编码的东西，验证支持被审而非推翻。路2(技术实质)：读码坐实被审无夸大——imminent_unavoidable_certificate 自注\"纯分析·绝不改盾控制·不被 safe_action 调用\"=检测器非控制器(准);03 的 L197-B 反而【强化】被审悲观:gap#1 只形式证出经验不可避态的~14-43%,真冲突仅 1.1%(对抗)/0%(金标)→部署策略从不在真冲突上触发可证明机制。升 SOLID 失败(<40%接受率=真选择性·不能说'薄一定过');升 OVERCLAIM 也失败(接受率数据陈旧粗糙·海事委员会方差大·证据不足以把 UNCERTAIN 硬转成'claim高估可行性'·且被审本已偏怀疑)。两方向都在被审点名的那条轴上悬而未决=UNCERTAIN 站得住。未找到裁决漏洞。",
+            "corrected_verdict": "UNCERTAIN"
+          },
+          {
+            "target_claim": "被审裁决 OVERCLAIM(medium)：'is_emergency过触发+真冲突罕见'是双刃、未被窗口grapple，会把far-field单步no-collision保证削成近乎vacuous、削弱motivation，故'利好诚实料'属over-claim。",
+            "refuted": true,
+            "finding": "本机独立复算三份原始态(shapely真尺寸keep-course over 120s)：adv 15/1363=1.1%真冲突(98.9%假紧急·比窗口97.6%更极端)、golden 2/423=0.5%、synthetic 300/300=构造真撞；is_emergency触发中位2605m(golden)/903m(adv)——过触发+真险罕见的finding为真且诚实。关键：裁决未去核对.tex framing。实读 trb2027_main.tex L64/L75/L79——头条novelty是交集='连续动作∩可证明*方向*合规∩COLREGs'，非碰撞自由；sec L28开篇即声明'not a claim of provable collision freedom'，L114-115把far-field no-collision显式降格为'充分条件·非invariance·O(1)快路径'(从未当tight/常绑定卖)，L285整节'Honest positioning'，L338已讨论对抗基线上盾fire。裁决自己的escape-hatch('若严格以方向合规领衔→motivation保住·仅碰撞子claim局部削')在真论文里【已被满足】——它没打开论文核对自己的条件，按它自身逻辑只能得'局部削弱'而非medium OVERCLAIM。且prevention-paradox：sound ∀-target保证的价值在worst-case/OOD尾部，同一finding的对抗半边(15真冲突·gap#1 fire 13.7-20%·2碰撞·L197C非空靶)恰好回答'盾防什么'=更差/OOD策略，双刃自钝。'窗口未grapple'亦假(L196/L197双面框+Honest-Positioning整节)。",
+            "corrected_verdict": "SOLID"
+          },
+          {
+            "target_claim": "多障碍才是真冲突/真不可避的舞台=最强broadener（L197-D 战略含义句）",
+            "refuted": true,
+            "finding": "本机重建官方动力学(RK4 dt=0.1,10s钳v)独立复算三个承重数：①对抗基线部署真对撞率 15/1363=1.10%、金标~2/423——部署态真冲突确实罕见；②但单障碍合成真对撞集(n=80)里经验不可避=gap#1(9)+密搜天花板(17)=26/80=32.5%——单障碍几何已经\"大量\"制造真不可避,gap#1只证出其中35%。这三个数全来自现有单障碍数据,直接击穿被审前提\"没多障碍数据就判不了\"。据此:(a)\"多障碍才是真不可避的舞台\"被单障碍32.5%经验不可避直接证伪——不需要多障碍就有真不可避;(b)被审所采信的\"几何上合理→真不可避常见\"论证被推翻:几何32.5%塌到部署1.1%=~30倍抑制,说明部署率由上游早避开主导(同样作用于多障碍),几何可用性不预测部署冲突率;(c)\"最强broadener\"这个最高级忽略了一个有实测支撑的竞争broadener——证书在单障碍上就只覆盖~35%经验不可避,补全它无需多障碍数据/不烧卡。被审自己已观察到该句\"被当近事实陈述\"(=overclaim的观察),却把裁决归到UNCERTAIN(对称无知)。证据并非对称:现有单障碍数据系统性地不利于其\"才是...舞台=最强\"的排他+最高级措辞。残余真正不可测的只是多障碍特有的\"躲A撞B\"钳形效应(支持对前瞻赌注加hedge),但救不了这句已陈述的强断言。",
+            "corrected_verdict": "OVERCLAIM"
+          },
+          {
+            "target_claim": "deadline前不该烧卡·方向A/多障碍留作扩展 (裁决 SOLID/high)",
+            "refuted": false,
+            "finding": "本机独立复算三源态数据(recompute_kc.py·与探针几何 mismatch=0)确认三条支柱premise成立:对抗基线真对撞15/1363=1.1%、合成300/300真对撞、假认证bug已真修(反向复例 t=9.1s 真撞·旧signed-v L给clears=True假认证+0.133m·修正|v|+a_max·h L给clears=False -0.845m且是合法Lipschitz上界5.50≥经验3.31)。故\"三源探针诚实刻画\"\"demo料在手\"premise可信。唯一挖到的实错:L196声称金标ρ5\"0%真对撞/没有一个真冲突\"·我全算423态发现2态(0.47%)keep-course真撞(它们只抽了120态)——但0.47%≈0仍属罕见·且该修正是加强而非削弱\"方向A在好策略上practical价值低\"的战略结论。战略主张的可验证内核(SIGHUP丢9run前科=烧卡真险/1.5周工程量真大/真冲突真罕见→方向A当前价值真低)三腿独立成立·且claim自身对唯一真风险(摘要接受后窗口应启动多障碍)已正确hedge。最强证伪角度(把'最强broadener'多障碍降为扩展是应对导师'薄'的scope赌博)属推测·依赖未核实的TRB Presentation投稿要求·且被claim自带hedge覆盖·不能推翻'现在不烧'这一狭义可验证内核。未找到决定性反例。",
+            "corrected_verdict": "SOLID"
+          }
+        ]
+      }
+    ],
+    "critic": {
+      "summary": "独立复算三份数据后发现一个前面两轮都漏掉的口径污染：合成\"真对撞\"300态里 56 态(18.7%)在 t=0 就已经撞上（shapely 船体距=0），属于\"已经撞了没得避\"的退化态。把它们剔掉后，gap#1 的\"不可避\"从 13.7% 塌到 clean 子集的 1.2%，未决从 21.3% 变 18.9%。这直接推翻主复审给 L197-C（gap#1 在真冲突上非空 13.7-20% = A-ii 有真靶）打的 SOLID——那 41 个 fire 里 ~38 个是已撞态贡献的，真正\"迫近但尚未撞\"的态 gap#1 只 fire ~1.2%，A-ii 的靶近乎空。另外三点再校正：① 金标那 2 个\"真对撞\"发生在 CV 外推 t=84.5/117s、初始 1.4-1.9km，是远场 CV 外推产物非迫近冲突，主复审判\"金标0真冲突=WRONG\"数字对但把实质意义夸大了；② \"真冲突1.1%罕见\"靠的是 33 个相遇里仅 2 个有撞、且 per-state 被单相遇最多 164 态的相关性稀释，样本薄；③ gap#1 的 n_grid=241 分辨率经 0.5/0.1/0.01s 三档验证不漏 t*，是被误担心的非问题（MATH gap#1 SOLID 站得住）。能写进论文的硬料：is_emergency 远场过触发（金标中位 2.6km 触发、gap#1 金标 fire 0%）。绝不能写：gap#1 在硬态上 13.7% 非空、合成 20.7% 未决、金标有 2 个真冲突——三者都被退化态/远场外推/构造几何污染。",
+      "verdicts": [
+        {
+          "claim": "L197-C：gap#1 在真冲突上非空（合成 13.7% / 对抗 20% fire）→ A-ii 有界严重度在硬态上有真靶（主复审判 SOLID）",
+          "verdict": "OVERCLAIM",
+          "confidence": "high",
+          "evidence": "我独立复现 gap#1（纯 numpy，与生产逐位一致，41/300 fire）。再算每态 t=0 船体距 d0：56/300(18.7%) 在 t=0 已 d0=0（已撞）。用窗口忠实族重跑分区并按 d0 分组（gaps3.py 背景跑完）：已撞56态 unavoid 67.9%、clean244态 unavoid 仅 1.2%。即 41 个 unavoid fire 里约 38 个来自已经撞上的退化态，真正'迫近但尚未撞'的态 gap#1 只 fire ~1.2%。对抗真对撞 15 态里 5 态 tc=0.0 同样含已撞态。gap#1'非空'几乎全是已撞态的 vacuous fire，A-ii 的靶近乎空。",
+          "key_risk": "已撞态的 gap#1 输出本身仍是'正确证书'（该态确实不可避），可辩称非 bug 只是没意义；若审稿人认为 A-ii 的靶应含已撞态则 13.7% 可辩护。但作为'恢复层要解的迫近硬态'，t=0 已撞不是有效靶。"
+        },
+        {
+          "claim": "【新 gap】合成 300 个'真对撞'态里 18.7%(56) 在 t=0 已撞（退化态），污染三分区所有桶；窗口/主复审都未察觉",
+          "verdict": "WRONG",
+          "confidence": "high",
+          "evidence": "gen_synthetic_conflicts 只筛 keep_course 全程 [0,120s] 有 kc<=0，不排除 t=0 初始重叠。实算 d0<=0 的有 56 态(18.7%)，碰撞时刻直方图 t=0:56/0-10s:45/10-30s:105/30-60s:94。分组分区：已撞56态给 unavoid 67.9%+undec 32.1%（avoid 0%），clean244态 unavoid 1.2%+avoid 79.9%+undec 18.9%。头条'13.7% 不可避/21.3% 未决'被这批已撞态严重扭曲——unavoid 主要是它们撑的。L197-B 说'未决96%是天花板'也部分是'已经撞了当然避不了'的 trivially-true。",
+          "key_risk": "shapely distance=0 含'恰好相切'（零裕度但未真重叠），56 里可能有若干只是相切非重叠，'已撞'措辞略强；但零裕度态用于避碰基准同样退化。剔除后 undec 只从 21.3→18.9%（变化温和），不可避的塌缩才是主效应。"
+        },
+        {
+          "claim": "主复审：金标 423 态其实有 2 个真对撞（窗口说 0 → 判 WRONG）——这 2 个的性质",
+          "verdict": "OVERCLAIM",
+          "confidence": "high",
+          "evidence": "我算这 2 个 kc<=0 态的碰撞时刻=t=84.5s 和 t=117.0s（CV 外推近 2 分钟），初始中心距=1903m 和 1421m。它们不是迫近冲突，是把两船恒速外推 84-117s 才'相撞'的远场产物——正是论文自己标注'CV 假设不可靠'的区间。窗口'金标0真迫近冲突'的实质结论成立；主复审的 WRONG 数字对（kc<=0 确有2态、且窗口'最近10态净空57-210m'也确实错，实测最近10态 kc=[0,0,16.8,35.1,43.3,57...]），但把'2个真对撞'当有实质意义的反驳是夸大。",
+          "key_risk": "若这 2 个场景的真实录制时长确实 >117s 且他船真按 CV 走，则 t=117s 相撞是真冲突，我的'远场外推产物'定性就偏软。本机无法读场景时长核实，只能从 1.4-1.9km 初距+论文自标 CV 不可靠推断。"
+        },
+        {
+          "claim": "L197-B/CLAIM3：对抗基线'真冲突1.1%(15/1363)、真冲突罕见'的证据强度",
+          "verdict": "OVERCLAIM",
+          "confidence": "high",
+          "evidence": "1363 态仅来自 33 个相遇(scn_idx)，每相遇 5-164 态（中位20，单相遇最多164态）。15 个真对撞态全来自 2 个不同相遇。per-state 1.1% 被单相遇长相关串严重稀释（一个 164 态的假紧急相遇就把分母灌大）。相遇级真冲突率=2/33≈6%，且 33 个相遇是极薄样本。'真冲突罕见'在 per-state 口径成立但被相关性放大，作为普适结论证据薄。主复审已把 per-state 计数判 OVERCLAIM，我用相遇聚类硬数(2/33、单相遇164态)坐实其机制。",
+          "key_risk": "若论文报的'紧急态占55-60%'本就是 per-step 口径，则 per-state 97.6% 假紧急/1.1% 真撞是自洽同口径，denominator 不算错；'罕见'的薄弱只在'能否推广到基准整体'层面，不影响 per-step 叙事本身。"
+        },
+        {
+          "claim": "【被误担心的非问题·反向澄清】gap#1 的 n_grid=241（0.5s 网格）可能漏掉窄窗口的 t*，导致漏判不可避、虚增未决",
+          "verdict": "SOLID",
+          "confidence": "high",
+          "evidence": "在合成300态上以 n_grid=241(0.5s)/1201(0.1s)/12001(0.01s) 三档跑 gap#1，fire 数完全相同=41/300。原因：可达框随 t 按 ½a_eff·t² 增长，containment（R_box⊆他船膨胀体）成立的时间窗足够宽，0.5s 网格不会跨过。n_grid=241 分辨率不漏 t*，是被误担心的项，MATH 线 gap#1 SOLID 在此维度站得住。",
+          "key_risk": "只在合成分布上验；若真基准存在极高相对速度+极大他船使 containment 窗口 <0.5s 的极端几何，理论上仍可能漏，但本三份数据（他船 v≤6.9、宽≤44m）未出现，且这只会漏判不可避（保守/sound），不破坏 soundness。"
+        }
+      ]
+    }
+  },
+  "workflowProgress": [
+    {
+      "type": "workflow_phase",
+      "index": 1,
+      "title": "独立复核"
+    },
+    {
+      "type": "workflow_phase",
+      "index": 2,
+      "title": "对抗证伪"
+    },
+    {
+      "type": "workflow_phase",
+      "index": 3,
+      "title": "完备性批评"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 1,
+      "label": "finder:MATH",
+      "phaseIndex": 1,
+      "phaseTitle": "独立复核",
+      "agentId": "a81556bbd58e2077a",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784787834945,
+      "queuedAt": 1784787831955,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "两件都独立重推+fuzz,均 sound、未造出反例。清障判据:修正版 L…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784789482204,
+      "tokens": 132318,
+      "toolCalls": 32,
+      "durationMs": 1647259,
+      "resultPreview": "{\"verdicts\":[{\"claim\":\"清障判据修正版 L_seg = max(|v_k|,|v_{k+1}|)+a_max·h + |ω_seg|·R_circ + |v_m| 在生产口径动力学(步内 v 冲负/overshoot、10s 边界钳)下是子区间 |d'(t)| 的合法上界，区间下界 (d_k+d_{k+1}−L·h)/2 sound，造不出修正版假认证。\",\"verdict\":\"SOLID\",\"confidence\":\"high\",\"evidence\":\"亲手推+亲跑三脚本。(1)区间引理:端点Lipschitz⇒min_[t_k,t_{k+1}]d≥(d_k+d_{k+1}−Lh)/2 当且仅当 L≥sup|d'|。(2)v项关键推导:子区间内a恒定(段界对齐h、h整除10s),v(t)=v_k+∫a,|∫a|≤a_max·h,故|v(t)|≤|v_k|+a_max…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 2,
+      "label": "finder:CLAIM3",
+      "phaseIndex": 1,
+      "phaseTitle": "独立复核",
+      "agentId": "a835f69e6cc66ab44",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784787834731,
+      "queuedAt": 1784787831956,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "独立复审声称③(is_emergency 大幅过触发·真冲突罕见)。本机从零…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784788462643,
+      "tokens": 91492,
+      "toolCalls": 21,
+      "durationMs": 627911,
+      "resultPreview": "{\"verdicts\":[{\"claim\":\"对抗基线 1363 个 ρ5 态里真对撞(keep-course kc≤0)=15(1.1%)、~97.6%(1330)是 keep-course 不做机动已安全的假紧急；合成 300 全真对撞\",\"verdict\":\"SOLID\",\"confidence\":\"high\",\"evidence\":\"本机独立重写 keep-course(向量化 OBB 最小船体距,SAT 相交+顶点-边距,未 import 探针、未用 vesselmodels;在 scn8 整段+近态上与 shapely rect.distance 逐态吻合到 |Δ|=0.000,见 scratchpad/adv_kc.py)复算:ADV 15 kc≤0(1.10%)/19 近擦(0<kc≤57)/1329 far(97.51%);SYN 300/300 kc≤0(100%)。与…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 3,
+      "label": "finder:CLAIM2",
+      "phaseIndex": 1,
+      "phaseTitle": "独立复核",
+      "agentId": "a215e6fd846540d3c",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784788466146,
+      "queuedAt": 1784787831956,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "审\"方向A未决21-27%\"。我用完全独立RK4积分器(官方f+10s钳)重跑…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784789043200,
+      "tokens": 103420,
+      "toolCalls": 14,
+      "durationMs": 577053,
+      "resultPreview": "{\"verdicts\":[{\"claim\":\"合成真对撞 n=300 上 undecided ~21%（20.7-21.3%）这个点估计\",\"verdict\":\"SOLID\",\"confidence\":\"high\",\"evidence\":\"我用与窗口完全独立写的RK4积分器(adv_soundness.py)跑synthetic n=150：gap#1 14.7%/avoid 63.3%/undec 22.0%，与窗口full300.out(21.3%)、doc(20.7%)、reclassify重建(20.0%@n=200)三方独立吻合。且我亲测clearance判据0假清(95个avoid态认证机动dt=0.02细采真距全>0)、gap#1 0假不可避(22态密搜躲不掉)——分区在本批经验sound，故21%是可信数(非假认证撑起来的)。窗口曾承认CRITICAL假认证已修，我独立复测…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 4,
+      "label": "finder:STRATEGY",
+      "phaseIndex": 1,
+      "phaseTitle": "独立复核",
+      "agentId": "aebada8359dbe1af7",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784789046962,
+      "queuedAt": 1784787831956,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "经验基石独立复算成立（我跑 recompute_kc.py 与探针 mismatch=…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784789297451,
+      "tokens": 70045,
+      "toolCalls": 11,
+      "durationMs": 250489,
+      "resultPreview": "{\"verdicts\":[{\"claim\":\"真冲突在本基准罕见·is_emergency大幅过触发（对抗基线ρ5 97.6%假紧急/1.1%真对撞·金标≈0）——这是整条战略链的经验基石\",\"verdict\":\"SOLID\",\"confidence\":\"high\",\"evidence\":\"我独立跑 recompute_kc.py（自写旋转矩形+直线外推·与探针原函数交叉验证 mismatch=0/max|Δ|=0）：adv 15/1363(1.10%)真对撞、1330(97.58%)假紧急、中位中心距903m；golden 2/423真对撞、中位2605m；synthetic 300/300构造真对撞。窗口 L197 声称的 15/1330/1363 逐个精确吻合。基石成立·且因只采 ρ5 态·全步分布真险只会更稀→鲁棒。\",\"key_risk\":\"kc<=0 用的碰撞判据=船体矩形距离…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 5,
+      "label": "refute:CLAIM3",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "ab6247f7fd3d89d82",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784789301492,
+      "queuedAt": 1784788464216,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "对抗基线 1363 个 ρ5 态: 真对撞(keep-course kc≤0)=15(1.1%)、…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784789635233,
+      "tokens": 72926,
+      "toolCalls": 14,
+      "durationMs": 333741,
+      "resultPreview": "{\"target_claim\":\"对抗基线 1363 个 ρ5 态: 真对撞(keep-course kc≤0)=15(1.1%)、~97.6%(1330)是 keep-course 不做机动已安全的假紧急；合成 300 全真对撞。裁决 SOLID(high)。\",\"refuted\":false,\"finding\":\"用与探针和主复审都不同的第三种独立方法(EXACT 连续时间: keep-course 下双矩形定向平移→d(t)凸→Minkowski 配置空间障碍+相对中心线段距离, 零采样误差, shapely, scratchpad/exact_kc.py)复算: ADV T=120 得 15 kc≤0(1.10%)/19 近擦/1329 far(97.51%), SYN 300/300(100%), 与被审逐整数吻合。被审自认最可能错处(0.5s 网格漏薄擦)被证伪: exact …"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 6,
+      "label": "refute:CLAIM3",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a46ce9498213ac0c9",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784789485850,
+      "queuedAt": 1784788464216,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "被审 judged L196's \"金标423态0真冲突, keep-course最近10态净…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784789818217,
+      "tokens": 84478,
+      "toolCalls": 11,
+      "durationMs": 332367,
+      "resultPreview": "{\"target_claim\":\"被审 judged L196's \\\"金标423态0真冲突, keep-course最近10态净空57-210m\\\" as WRONG (high confidence), on grounds it found 2 states with kc≤0 (idx119=scn8 step38, idx122=scn8 step41) = \\\"真冲突, 真最近净空=0 而非57\\\", plus 3 near-misses.\",\"refuted\":true,\"finding\":\"Reproduced被审's raw fact: full-sampling 423 gold states at T=120/dt=0.5 gives exactly 2 kc≤0 (idx119 step38, idx122 step41), shapely-confirmed in…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 7,
+      "label": "refute:CLAIM3",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a010e8446874e9424",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784789639625,
+      "queuedAt": 1784788464216,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "is_emergency 大幅过触发·这些是假紧急/远场假警报（97.5-97.6%…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784790054295,
+      "tokens": 76108,
+      "toolCalls": 12,
+      "durationMs": 414670,
+      "resultPreview": "{\"target_claim\":\"is_emergency 大幅过触发·这些是假紧急/远场假警报（97.5-97.6% 的 ρ5 态 keep-course 已安全）——窗口 L196/L197 的裁决\",\"refuted\":true,\"finding\":\"亲跑证伪 OVERCLAIM 裁决。(1) 跑 recompute_kc.py：对抗 1363 态→1330(97.58%) keep-course 安全、15(1.10%) 真撞，与探针原函数 mismatch=0/max|Δ|=0.0；金标 98.82%；数字与窗口声称逐位吻合=SOLID。(2) 从 usv_colregs.py 源码独立重建 is_emergency(asym.py/emg_check.py/wcheck.py)：两数据集上 IE=False∧keep-course撞 = 0（从不漏检 CV 碰撞），触发态中位距…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 8,
+      "label": "refute:CLAIM3",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "ab418a1848b1d8713",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784789822341,
+      "queuedAt": 1784788464216,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "对抗基线真对撞只 15 支撑真冲突罕见 (per-state 计数);被审裁…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784790027734,
+      "tokens": 49637,
+      "toolCalls": 8,
+      "durationMs": 205392,
+      "resultPreview": "{\"target_claim\":\"对抗基线真对撞只 15 支撑真冲突罕见 (per-state 计数);被审裁决 SOLID(high),称按 per-encounter 口径重记为 2 次会遇后罕见成立且【被强化】。\",\"refuted\":true,\"finding\":\"独立复算(exact_kc,T=120,已对暴力 dt=0.02 交叉验证)证实事实核对:恰 15 个 kc≤0 态,来自恰 2 个会遇(scn21 的 8 步 + scn30 的 7 步,均 seed=-1);对抗集共 33 个 distinct 会遇。但被审的核心支撑论证方向错了:罕见是【率】不是绝对数,按 per-encounter 重记必须同时缩分母(1363 态→33 会遇):per-state=15/1363=1.10%,per-encounter=2/33=6.06%,率反而【升 5.5 倍】。所谓 per…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 9,
+      "label": "refute:CLAIM2",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a27563cfd3d46c589",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784790032579,
+      "queuedAt": 1784789044955,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "合成真对撞 n=300 上 undecided ~21%(20.7-21.3%) 这个点估计, …",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784790743854,
+      "tokens": 95107,
+      "toolCalls": 18,
+      "durationMs": 711274,
+      "resultPreview": "{\"target_claim\":\"合成真对撞 n=300 上 undecided ~21%(20.7-21.3%) 这个点估计, 裁决 SOLID(信心 high)\",\"refuted\":true,\"finding\":\"我用完全独立管线(官方常控 RK4+10s 钳 + 逐字复制的 sound 清障判据 + gap#1)在全 n=300 上跑: 用探针的 22-机动窗口族精确复现 undec=64/300=21.3%(与 full300.out 完全一致)。但把机动族换成一个同样合法、仅略加密的 bang-bang 族(160 成员, 补上窗口族漏掉的 5-10s 短转向时长), undec 掉到 59/300=19.7%, 落在声称的 20.7-21.3% 带【之外】。被翻掉的 5 个态经 dt=0.02 细采真距验证全是真可避(true_min=2.0-5.2m>0), 认证机动都是平…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 10,
+      "label": "refute:CLAIM2",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a151739499e7f2758",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784790058641,
+      "queuedAt": 1784789044955,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "undecided(两 sound 充分条件都没覆盖)是真硬骨头的度量，21-27…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784790695366,
+      "tokens": 85045,
+      "toolCalls": 14,
+      "durationMs": 636725,
+      "resultPreview": "{\"target_claim\":\"undecided(两 sound 充分条件都没覆盖)是真硬骨头的度量，21-27% 刻画方向 A 解不了的比例；裁决方给 OVERCLAIM(信心 high)。\",\"refuted\":true,\"finding\":\"我独立跑了两个脚本复算。(1) reclassify.py n=120：机动族从 22 加浓到 104(5x) 后 undecided 仅 23.3%→21.7%(降 1.6pp)=undecided 对机动族基本不敏感→非'族太弱'伪影。(2) decomp_fast.py n=300+153 密搜：undecided=22.3%(复现 21-27%)，其中 81% 密搜也避不了(经验天花板)、19% 可修——与被审自报 80%/20% 吻合。据此 refute OVERCLAIM 三处：①裁决拿'80% 是物理天花板'当'称其真硬骨头=o…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 11,
+      "label": "refute:CLAIM2",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "af7eac2fcf147dbbd",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784790699799,
+      "queuedAt": 1784789044955,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "对抗基线真对撞子集 undecided 26.7%,支撑区间上端27%(裁决为 O…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784791045981,
+      "tokens": 56650,
+      "toolCalls": 10,
+      "durationMs": 346182,
+      "resultPreview": "{\"target_claim\":\"对抗基线真对撞子集 undecided 26.7%,支撑区间上端27%(裁决为 OVERCLAIM/high)\",\"refuted\":true,\"finding\":\"独立复算(自写纯几何 keep-course 直线 CV 双船, dt=0.1, 不复用上窗口代码)确认对抗真对撞子集恰为 n=15 (idx 602-610,883-894), undec=4/15=26.7%, Wilson95[10.9,52.0] —— 裁决事实层无误。但裁决核心解读被证伪:它称\\\"27%上端整个建立在4/15二项噪声上/借了个噪声端点\\\",此为假。合成真对撞子集 n=300(20倍样本) undec=21.3% Wilson95[17.1,26.3] bootstrap95[16.7,26.0],即~26%上端由大样本独立佐证;论文\\\"27%\\\"仅高出合成Wilson…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 12,
+      "label": "refute:CLAIM2",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a1d5900da95b8a453",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784790747463,
+      "queuedAt": 1784789044955,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "L197-B：密搜130控制发现未决里96%是场景天花板、仅4%机动族弱…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784791574643,
+      "tokens": 90163,
+      "toolCalls": 18,
+      "durationMs": 827180,
+      "resultPreview": "{\"target_claim\":\"L197-B：密搜130控制发现未决里96%是场景天花板、仅4%机动族弱（被审对它下 WRONG/high）\",\"refuted\":true,\"finding\":\"我写 fals_strict.py（n=200）对每个 window-family sound-undecided 态跑密控搜索，同一控制既算 coarse(0.2s采样,复刻truemin_decomp) 又算 strict(dt=0.02 RK4·每步0.02s≈19cm采样) 真船体距。目的是证伪本次裁决赖以成立的独立跑——即验证那 20% \\\"可修\\\" 是不是采样穿模伪影，如果是则真 ceiling 更接近窗口的 96%，裁决就崩。结果:8 个可避态 coarse==strict 完全一致(13.57/5.25/4.72/3.91/3.63/2.08/1.93/1.33m),全是真净空非…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 13,
+      "label": "refute:CLAIM2",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a5554fe5a7b0fe7a0",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784791049898,
+      "queuedAt": 1784789044955,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "\"21-27% 可作为方向A未决率的可推广估计\"（被裁 OVERCLAIM·信心…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784792664973,
+      "tokens": 73821,
+      "toolCalls": 25,
+      "durationMs": 1615075,
+      "resultPreview": "{\"target_claim\":\"\\\"21-27% 可作为方向A未决率的可推广估计\\\"（被裁 OVERCLAIM·信心high）\",\"refuted\":false,\"finding\":\"本机 RK4(dt=0.1·与官方 odeint~1e-8)独立重建分类流水线，全 300 合成真对撞 + 15 对抗真对撞态复算。三条证伪线都反而坐实 OVERCLAIM：①按 kind 分解 undec=head_on 28.2%/overtake 24.7%/cross_star 17.7%/cross_port 12.5%（agent 的 head_on28%/cross_port12% 精确吻合），总 21.3% 是随 gen_synthetic_conflicts 任意保留配比加权的均值→不可推广；②读生成器(探针L164)证实合成态是碰撞点回溯+全是任意均匀采样范围(v_e4-9.5/t_c1…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 14,
+      "label": "refute:STRATEGY",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a0c6e35e46602adbb",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784791579065,
+      "queuedAt": 1784789299292,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "真冲突在本基准罕见·is_emergency大幅过触发（对抗基线ρ5 97.6%…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784792137237,
+      "tokens": 101727,
+      "toolCalls": 18,
+      "durationMs": 558171,
+      "resultPreview": "{\"target_claim\":\"真冲突在本基准罕见·is_emergency大幅过触发（对抗基线ρ5 97.6%假紧急/1.1%真对撞·金标≈0），此为整条战略链的经验基石。原裁决 SOLID(high)。\",\"refuted\":false,\"finding\":\"我独立重跑并攻了四条口径，全部没撬开，反而堵死了被审自认的两个软肋。(1) 复现：自写旋转矩形+CV外推，adv 15/1363(1.10%)真对撞、1330(97.58%)假紧急、中位903m；golden 2/423、中位2605m——逐个精确吻合。(2) dt漏采：把keep-course步长从0.5加密到0.05(2400步/态)，adv真对撞仍=15、golden仍=2，零变化→无穿模低估，\\\"1.1%可能是下限因dt粗\\\"这条不成立。(3) 安全域膨胀(被审自认最可能错处)：亲读env真实碰撞判据usv_termin…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 15,
+      "label": "refute:STRATEGY",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a43a9d2bef18562b6",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784792141096,
+      "queuedAt": 1784789299292,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "方向A（可证明恢复层）practical价值低 —— 被审给的裁决是 OVER…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784792464550,
+      "tokens": 65671,
+      "toolCalls": 10,
+      "durationMs": 323454,
+      "resultPreview": "{\"target_claim\":\"方向A（可证明恢复层）practical价值低 —— 被审给的裁决是 OVERCLAIM（信心medium），理由是该结论只由单障碍+好策略导出、在真正目标regime（多障碍）里价值可能高却被过早判低。\",\"refuted\":true,\"finding\":\"我本机独立重跑：(1) recompute_kc.py（独立旋转矩形 keep-course）复现 adversarial 15/1363 真对撞(1.1%)、1330 假紧急(97.6%)、golden 0.47%，与探针 mismatch=0，'真冲突罕见'为真。(2) 直接跑 OVERCLAIM 自己的核心证据——对 15 个'差控制器'真对撞态做官方动力学 RK4+10s钳+sound clearance 三分类：8 可恢复 / 3 gap#1不可避 / 4 未决，对 4 未决做密搜(FD~9…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 16,
+      "label": "refute:STRATEGY",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a9896cc3e20939dbd",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784792468518,
+      "queuedAt": 1784789299292,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "在 ~1.5周 abstract deadline 下,以 demonstration + 诚实刻画…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784792718258,
+      "tokens": 68531,
+      "toolCalls": 7,
+      "durationMs": 249740,
+      "resultPreview": "{\"target_claim\":\"在 ~1.5周 abstract deadline 下,以 demonstration + 诚实刻画为投稿主线是对的(裁决 SOLID/medium)。\",\"refuted\":false,\"finding\":\"亲自复核后裁决站得住,但找到证据层一处实质高估(不足以推翻结论)。已跑/已推:(1) 读 trb2027_main.tex 坐实\\\"诚实红线已成型\\\"为真——Abstract 明写 do not claim provable collision freedom,Limitations 8 条 hedge 全守(arrival comparable-not-superior、yaw/jerk 输离散、崩率20%CI[2.5,55.6]、warm-start 有效n≈1、takeover 非RL学会),支持被审方。(2) 本机复算 423 金标 ρ5 态…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 17,
+      "label": "refute:STRATEGY",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a176dbfd3aa176ecd",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784792677441,
+      "queuedAt": 1784789299292,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "被审 agent 对\"demonstration-only 够撑一篇 TRB·不会被审稿人…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784792890198,
+      "tokens": 56248,
+      "toolCalls": 9,
+      "durationMs": 212757,
+      "resultPreview": "{\"target_claim\":\"被审 agent 对\\\"demonstration-only 够撑一篇 TRB·不会被审稿人判'薄/A+B缝合'\\\"下的裁决 UNCERTAIN(信心medium)，其论证:攻击b成立(命题1初等/命题2 by-construction/命题3=gap#1 是唯一原创种子但概念=Fraichard ICS·是检测器非控制器/盾本体=Markgraf投影+标准COLREGs FSM=导师批的A+B/新经验发现偏负结果刻画)，但因 TRB Presentation 门槛未查证而 hedge 到 UNCERTAIN。\",\"refuted\":false,\"finding\":\"我从两路证伪均失败，反而佐证被审。路1(裁决枢纽=双方都标未验的 TRB Presentation 门槛)：查 TRB 官方作者/审稿页+历史数据——TRB 年会投稿须【全文同行评审】(明确拒…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 18,
+      "label": "refute:STRATEGY",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a515458e7bd4065cc",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784792725245,
+      "queuedAt": 1784789299292,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "被审裁决 OVERCLAIM(medium)：'is_emergency过触发+真冲突罕见'…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784792991225,
+      "tokens": 55894,
+      "toolCalls": 11,
+      "durationMs": 265980,
+      "resultPreview": "{\"target_claim\":\"被审裁决 OVERCLAIM(medium)：'is_emergency过触发+真冲突罕见'是双刃、未被窗口grapple，会把far-field单步no-collision保证削成近乎vacuous、削弱motivation，故'利好诚实料'属over-claim。\",\"refuted\":true,\"finding\":\"本机独立复算三份原始态(shapely真尺寸keep-course over 120s)：adv 15/1363=1.1%真冲突(98.9%假紧急·比窗口97.6%更极端)、golden 2/423=0.5%、synthetic 300/300=构造真撞；is_emergency触发中位2605m(golden)/903m(adv)——过触发+真险罕见的finding为真且诚实。关键：裁决未去核对.tex framing。实读 trb20…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 19,
+      "label": "refute:STRATEGY",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "aeccf3bed2af33bc2",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784792894392,
+      "queuedAt": 1784789299293,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "多障碍才是真冲突/真不可避的舞台=最强broadener（L197-D 战略…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784793303750,
+      "tokens": 80463,
+      "toolCalls": 10,
+      "durationMs": 409358,
+      "resultPreview": "{\"target_claim\":\"多障碍才是真冲突/真不可避的舞台=最强broadener（L197-D 战略含义句）\",\"refuted\":true,\"finding\":\"本机重建官方动力学(RK4 dt=0.1,10s钳v)独立复算三个承重数：①对抗基线部署真对撞率 15/1363=1.10%、金标~2/423——部署态真冲突确实罕见；②但单障碍合成真对撞集(n=80)里经验不可避=gap#1(9)+密搜天花板(17)=26/80=32.5%——单障碍几何已经\\\"大量\\\"制造真不可避,gap#1只证出其中35%。这三个数全来自现有单障碍数据,直接击穿被审前提\\\"没多障碍数据就判不了\\\"。据此:(a)\\\"多障碍才是真不可避的舞台\\\"被单障碍32.5%经验不可避直接证伪——不需要多障碍就有真不可避;(b)被审所采信的\\\"几何上合理→真不可避常见\\\"论证被推翻:几何32.5%塌到部署1.1%…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 20,
+      "label": "refute:STRATEGY",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a79ef4d4097b55c06",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784792994924,
+      "queuedAt": 1784789299293,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "deadline前不该烧卡·方向A/多障碍留作扩展 (裁决 SOLID/high)",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784793200160,
+      "tokens": 52340,
+      "toolCalls": 6,
+      "durationMs": 205235,
+      "resultPreview": "{\"target_claim\":\"deadline前不该烧卡·方向A/多障碍留作扩展 (裁决 SOLID/high)\",\"refuted\":false,\"finding\":\"本机独立复算三源态数据(recompute_kc.py·与探针几何 mismatch=0)确认三条支柱premise成立:对抗基线真对撞15/1363=1.1%、合成300/300真对撞、假认证bug已真修(反向复例 t=9.1s 真撞·旧signed-v L给clears=True假认证+0.133m·修正|v|+a_max·h L给clears=False -0.845m且是合法Lipschitz上界5.50≥经验3.31)。故\\\"三源探针诚实刻画\\\"\\\"demo料在手\\\"premise可信。唯一挖到的实错:L196声称金标ρ5\\\"0%真对撞/没有一个真冲突\\\"·我全算423态发现2态(0.47%)keep-cou…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 21,
+      "label": "refute:MATH",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a5ff939b731b872cc",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784793209377,
+      "queuedAt": 1784789484257,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "修正版清障判据 L_seg = max(|v_k|,|v_{k+1}|)+a_max·h + |ω_se…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784795493612,
+      "tokens": 140092,
+      "toolCalls": 49,
+      "durationMs": 2284234,
+      "resultPreview": "{\"target_claim\":\"修正版清障判据 L_seg = max(|v_k|,|v_{k+1}|)+a_max·h + |ω_seg|·R_circ + |v_m| 在生产口径动力学下是子区间 |d'(t)| 的合法上界；区间下界 (d_k+d_{k+1}−L·h)/2 sound；造不出修正版假认证。裁决 SOLID(信心 high)。\",\"refuted\":false,\"finding\":\"独立重建生产口径动力学(官方 RHS f=[cosθv,sinθv,ω,a]，步内 v 不钳，仅 10s 边界 clip[0,9.5])，解析常控积分(与 scipy.quad 吻合 1e-13；RK4 dt=0.01 与真积分吻合 3e-15)，直接喂探针本身 clearance_profile，检验核心不变量 ilb[j] ≤ 真 min_[t_j,t_{j+1}] d(t)(违反即等价…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 22,
+      "label": "refute:MATH",
+      "phaseIndex": 2,
+      "phaseTitle": "对抗证伪",
+      "agentId": "a42e8b6d58ca465f9",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784793307543,
+      "queuedAt": 1784789484257,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "gap#1 证书 imminent_unavoidable_certificate: R_box 过近似 e…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784794994273,
+      "tokens": 92437,
+      "toolCalls": 22,
+      "durationMs": 1686730,
+      "resultPreview": "{\"target_claim\":\"gap#1 证书 imminent_unavoidable_certificate: R_box 过近似 ego 可达中心集, a_eff/b_lon/b_lat/L_lat sound, obs_width=真宽不破坏 soundness, 造不出假阳。裁决 SOLID。\",\"refuted\":false,\"finding\":\"独立重建证书 numpy 逻辑, 从源码确认 predict_state_cv 精确线性CV、env 默认 clip_velocity=True 使步内|v|≤11.9。三路证伪全失败: 攻击A bang-bang 极端控制探边界, 可达中心 0 逃出 R_box, 横向紧界 L_lat 最坏占用 0.8336<1.0; 攻击B 忠实 clip RK4 + 旋转矩形 SAT 碰撞全程120s, 90机动族+极端控制+每态1500随…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 23,
+      "label": "completeness-critic",
+      "phaseIndex": 3,
+      "phaseTitle": "完备性批评",
+      "agentId": "a61e1be3d72b723bf",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784795498169,
+      "queuedAt": 1784795495554,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "独立复算三份数据后发现一个前面两轮都漏掉的口径污染：合成\"真…",
+      "promptPreview": "你在对一个海事避碰 RL 项目(TRB 2027 投稿)做【独立对抗复审】。上一个工作窗口(2026-07-22~23)自己承认它的探针曾被对抗审抓出一个 CRITICAL 假认证。**绝不信它任何\"把握\"·别 rubber-stamp·尽量证伪**。\n本机环境：python3 有 numpy/scipy/shapely，但【没有 vesselmodels】(装不了)。对常控 (a,ω) 的官方 yp 动力学 f=[cosθ·v, sinθ·v, ω, a] 解析可积，用 RK4/欧拉 dt≤0.1 与官方 odeint 误差~1e-8，可本机重建。\n关键文件(用 Read 读)：\n- 探针: /home/user/TRB-2027-ContinuesPPO/TRB/代码/m1_dock_wip/block3_partition_probe.py (清障判据 clearance_profi…",
+      "lastProgressAt": 1784796126953,
+      "tokens": 77165,
+      "toolCalls": 16,
+      "durationMs": 628784,
+      "resultPreview": "{\"summary\":\"独立复算三份数据后发现一个前面两轮都漏掉的口径污染：合成\\\"真对撞\\\"300态里 56 态(18.7%)在 t=0 就已经撞上（shapely 船体距=0），属于\\\"已经撞了没得避\\\"的退化态。把它们剔掉后，gap#1 的\\\"不可避\\\"从 13.7% 塌到 clean 子集的 1.2%，未决从 21.3% 变 18.9%。这直接推翻主复审给 L197-C（gap#1 在真冲突上非空 13.7-20% = A-ii 有真靶）打的 SOLID——那 41 个 fire 里 ~38 个是已撞态贡献的，真正\\\"迫近但尚未撞\\\"的态 gap#1 只 fire ~1.2%，A-ii 的靶近乎空。另外三点再校正：① 金标那 2 个\\\"真对撞\\\"发生在 CV 外推 t=84.5/117s、初始 1.4-1.9km，是远场 CV 外推产物非迫近冲突，主复审判\\\"金标0真冲突=WRON…"
+    }
+  ],
+  "totalTokens": 1871778,
+  "totalToolCalls": 366
+}
