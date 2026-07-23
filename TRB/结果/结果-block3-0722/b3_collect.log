@@ -1,0 +1,15 @@
+[collect] 场景源=manifest 测试集(n=40) 种子=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9] → /root/trb/结果-block3-0722/block3_rho5_states.jsonl
+  ⚠️ 群体=【本策略确定性部署】遇到的 ρ5（偏易·欠采迫近硬态）·非 worst-case·判读须披露（Attack 2b）
+  s0: 累计 ρ5 态 10
+  s1: 累计 ρ5 态 54
+  s2: 累计 ρ5 态 87
+  s3: 累计 ρ5 态 145
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  s4: 累计 ρ5 态 188
+  s5: 累计 ρ5 态 209
+  s6: 累计 ρ5 态 307
+  s7: 累计 ρ5 态 339
+  s8: 累计 ρ5 态 411
+  s9: 累计 ρ5 态 423
+[collect] done · ρ5 态总数=423 → /root/trb/结果-block3-0722/block3_rho5_states.jsonl
