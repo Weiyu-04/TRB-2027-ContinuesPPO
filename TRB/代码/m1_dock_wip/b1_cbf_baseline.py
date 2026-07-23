@@ -180,12 +180,64 @@ def phase_run():
     print(f"[run B1] CBF-QP variant={VARIANT} α=({A1},{A2}) · 场景 n={len(pool)} 种子={SEEDS} → {OUT}", flush=True)
     print("  ⚠️ u_nom=盾策略确定性动作(同口径对照)·裸船体碰撞(步内细积分)·报 QP 不可行率·绝不 claim 0", flush=True)
 
+    # 🔴 公平对比契约：CBF-QP 动作【替换】盾投影 → 用 shield=False env（施原动作·不投影·usv_continuous_shield:199 已验）跑闭环。
+    #   ⚠️⚠️【须论文诚实标·对抗审重点】混淆：本策略在【我们的盾下】训练(SE-RL)·拿去 shield=False+CBF 滤波·
+    #     策略看到无盾态=分布外·CBF 有 home-field 劣势(我们盾有优势)。这是安全滤波对比的已知局限·
+    #     论文须写"策略在本盾下训练·CBF 作 drop-in 滤波评估·此混淆下 CBF 碰撞率是【上界】"·或另训中立策略(烧卡)去混淆。
+    #   碰撞=env 决策步 shapely 相交(term·同我们盾 eval 口径·真录制障碍占据)。COLREGs 合规=几何算(shield=False 无状态机)。
     def _mk(sc, pp):
-        return ContinuousProjectionEnv(sc, pp, shield=True, goal_cone_half=None, goal_v_floor=2.0, augment_rho=False)
-    # ⚠️ 关键契约(须服务器验)：本 --run 用 env 提供 ego/obs 真态·但【用 CBF-QP 的 u 替换盾的投影】跑闭环——
-    #   须确认 ContinuousProjectionEnv 能接受外部原始动作并【绕过其自身投影】(shield=False 分支或 raw step)·否则是"盾上叠CBF"非公平对照。
-    #   → 预检项：核 env 是否有 raw/no-shield step 接口喂 CBF 动作。此处留 NotImplemented 待接线+对抗审。
-    raise SystemExit("[run B1] 占位：须先接 env raw-action 接口(绕过盾投影)喂 CBF-QP 动作·见上契约·接线后对抗审再跑")
+        return ContinuousProjectionEnv(sc, pp, shield=False, goal_cone_half=None, goal_v_floor=2.0, augment_rho=False)
+
+    n_ep = 0; n_col = 0; n_arr = 0; infeas_steps = 0; tot_steps = 0
+    with open(OUT, "w") as fo:
+        for s in SEEDS:
+            ck = os.path.join(CKPT_DIR, CKPT_TMPL.format(s=s))
+            if not (os.path.exists(ck + ".zip") and os.path.exists(ck + "_vecnorm.pkl")):
+                print(f"  s{s}: 缺 ckpt → 跳过", flush=True); continue
+            bv = DummyVecEnv([lambda: _mk(pool[0][0], pool[0][1])])
+            vn = VecNormalize.load(ck + "_vecnorm.pkl", bv); vn.training = False
+            tf = make_obs_transform(vn); model = PPO.load(ck + ".zip", device="cpu")
+            for si, (sc, pp) in enumerate(pool):
+                env = _mk(sc, pp); obs, info = env.reset(seed=0)
+                n_ep += 1; collided = arrived = False
+                for step_i in range(200):
+                    u_nom, _ = model.predict(tf(obs), deterministic=True)   # 策略原动作(混淆见上)
+                    ev, ov = env._ego_vs(), env._obs_vs()
+                    if ov is not None:
+                        ob = env._obstacles[0] if env._obstacles else None
+                        owid = float(ob.obstacle_shape.width) if ob is not None else W_SHIP
+                        olen = float(env._obs_length)
+                        d_safe = _circum(L_SHIP, W_SHIP) + _circum(olen, owid)
+                        ego = [float(ev.position[0]), float(ev.position[1]), float(ev.orientation), float(ev.velocity)]
+                        obs_s = [float(ov.position[0]), float(ov.position[1]), float(ov.orientation), float(ov.velocity)]
+                        # --run 用【策略原动作 u_nom】作 nominal(策略本身会转向合规·CBF 只补碰撞安全=drop-in 滤波)。
+                        #   ⚠️ colregs-nominal 偏置是 --synth(无策略)专用·不在 --run 用(会丢策略意图)。
+                        #   真论文若要 barrier 级 COLREGs-CBF 变体·须引已发表公式另实现(future·非本 nominal 偏置)。
+                        g, b = hocbf_constraint(ego, obs_s, d_safe, A1, A2)
+                        u_cbf, feas = qp_project(np.asarray(u_nom, float), g, b, (-A_MAX, A_MAX, -W_MAX, W_MAX))
+                        if not feas:
+                            infeas_steps += 1
+                            beta = relbearing(ego, obs_s)
+                            u_cbf = np.array([-A_MAX, -W_MAX if beta > 0 else W_MAX])
+                        act = np.asarray(u_cbf, float)
+                    else:
+                        act = np.asarray(u_nom, float)
+                    tot_steps += 1
+                    obs, _r, term, trunc, info = env.step(act)
+                    flags = info.get("flags", {})                      # 内层 usv_env:277 = {collision,goal,area,stopped,time}
+                    if flags.get("collision"):
+                        collided = True
+                    if flags.get("goal"):
+                        arrived = True
+                    if term or trunc:
+                        break
+                n_col += int(collided); n_arr += int(arrived)
+                fo.write(json.dumps(dict(seed=s, scn_idx=si, collided=collided, arrived=arrived)) + "\n")
+            fo.flush()
+            print(f"  s{s}: 累计 ep={n_ep} 碰撞={n_col} 到达={n_arr} QP不可行步={infeas_steps}/{tot_steps}", flush=True)
+    cr = 100*n_col/max(1, n_ep); ar = 100*n_arr/max(1, n_ep); ir = 100*infeas_steps/max(1, tot_steps)
+    print(f"[run B1] done · variant={VARIANT} · ep={n_ep} · 碰撞率={cr:.2f}%({n_col}) · 到达率={ar:.2f}% · QP不可行步率={ir:.2f}% → {OUT}", flush=True)
+    print("  ⚠️ 碰撞率是【混淆上界】(策略本盾下训练·CBF drop-in)·绝不 claim 0·须对照我们盾同场景碰撞率·论文标混淆。", flush=True)
 
 
 def phase_selftest():
