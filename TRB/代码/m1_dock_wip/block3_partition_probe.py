@@ -143,6 +143,50 @@ def clearance_lower_bound(ts, traj, obs0, obs_len, obs_wid, h, omega_seg=None, h
                 first_unsafe_t=fut)
 
 
+def keep_course_min_dist(ego, obs, obs_len, obs_wid, T=120.0, dt=0.5):
+    """keep-course（ego 恒速恒向 vs 他船 CV）全程船体最小距离·纯几何（两 CV 矩形·无积分·无 vesselmodels）。
+    <=0 = 真对撞航向（=方向 A 该解的真冲突）；>0 = 不做机动也安全（L196 揭示金标 ρ5 全落这类=假紧急）。"""
+    ve = float(ego[3]); eh = (math.cos(ego[2]), math.sin(ego[2]))
+    vm = float(obs[3]); oh = (math.cos(obs[2]), math.sin(obs[2]))
+    n = int(round(T / dt)); best = 1e18
+    for k in range(n + 1):
+        t = k * dt
+        ec = (ego[0] + ve * eh[0] * t, ego[1] + ve * eh[1] * t)
+        oc = (obs[0] + vm * oh[0] * t, obs[1] + vm * oh[1] * t)
+        d = _ego_rect(ec, ego[2], L_SHIP, W_SHIP).distance(_ego_rect(oc, obs[2], obs_len, obs_wid))
+        if d < best:
+            best = d
+        if best <= 0.0:
+            return 0.0
+    return float(best)
+
+
+def gen_synthetic_conflicts(n_target, rng, dims=None):
+    """生成【真对撞】(ego,obs) 硬态：ego 原点朝 +x·速度 v_e；他船按碰撞点回溯放（head-on/crossing/overtake）。
+    只保留 keep-course 真撞（min<=0）→ 保证是真冲突（方向 A 该解的硬态·非 L196 那种假紧急）。dims=(len,wid) None→采基准范围。"""
+    recs = []
+    tries = 0
+    while len(recs) < n_target and tries < n_target * 80:
+        tries += 1
+        v_e = float(rng.uniform(4.0, V_MAX))
+        kind = str(rng.choice(["head_on", "cross_port", "cross_star", "overtake"]))
+        v_m = float(rng.uniform(2.0, V_MAX))
+        if kind == "head_on":      th_m = math.pi + float(rng.uniform(-0.3, 0.3))
+        elif kind == "cross_port": th_m = -math.pi / 2 + float(rng.uniform(-0.4, 0.4))
+        elif kind == "cross_star": th_m = math.pi / 2 + float(rng.uniform(-0.4, 0.4))
+        else:                      th_m = 0.0 + float(rng.uniform(-0.2, 0.2))   # overtake：同向·ego 追慢船
+        om = (math.cos(th_m), math.sin(th_m))
+        t_c = float(rng.uniform(15.0, 70.0))                    # 碰撞时刻
+        jt = float(rng.uniform(-40.0, 40.0))                    # 碰撞点沿 ego 航向抖动
+        cp = (v_e * t_c + jt, 0.0)                              # 碰撞点（ego 前方附近）
+        p_m = (cp[0] - om[0] * v_m * t_c, cp[1] - om[1] * v_m * t_c)   # 他船回溯初位
+        olen, owid = dims if dims else (float(rng.uniform(175.0, 260.0)), float(rng.uniform(25.4, 44.0)))
+        ego = [0.0, 0.0, 0.0, v_e]; obs = [p_m[0], p_m[1], th_m, v_m]
+        if keep_course_min_dist(ego, obs, olen, owid) <= 0.0:   # 真对撞才留
+            recs.append(dict(kind=kind, ego=ego, obs=obs, obs_len=olen, obs_wid=owid))
+    return recs
+
+
 # ════════════════════════════════════════════════════════════════════════════════════════
 # 核心 2 · 机动族（8 bang-bang·L139/L141 + 转到清就回正[Attack 5·不兜圈] + 可选两段）
 # ════════════════════════════════════════════════════════════════════════════════════════
@@ -243,6 +287,88 @@ def partition_at(res, T_cap):
 # 阶段 A · 收集（服务器·rollout 真基准·收 ρ5 态 + step_idx）
 # ════════════════════════════════════════════════════════════════════════════════════════
 def phase_collect():
+    """SRC 分流：golden(金标策略·L196=假紧急) / adversarial(纯几何基线过盾·真硬态) / synthetic(合成真对撞·本机可跑)。"""
+    src = os.environ.get("SRC", "golden").lower()
+    print(f"[collect] SRC={src}", flush=True)
+    if src == "synthetic":
+        _collect_synthetic()
+    elif src == "adversarial":
+        _collect_adversarial()
+    elif src == "golden":
+        _collect_golden()
+    else:
+        raise SystemExit(f"未知 SRC={src}（golden/adversarial/synthetic）")
+
+
+def _collect_synthetic():
+    """合成真对撞硬态（纯几何·不需 vesselmodels·本机可跑）→ jsonl。每态独立 scn_idx（=独立相遇）。"""
+    N = int(os.environ.get("SYNTH_N", "400"))
+    seed = int(os.environ.get("SYNTH_SEED", "20260722"))
+    OUT = os.environ.get("OUT_JSONL", "block3_synthetic_states.jsonl")
+    _d = os.environ.get("SYNTH_DIMS", "")                       # "len,wid" 固定尺寸；空=采基准范围
+    dims = tuple(float(x) for x in _d.split(",")) if _d else None
+    rng = np.random.default_rng(seed)
+    recs = gen_synthetic_conflicts(N, rng, dims)
+    with open(OUT, "w") as fo:
+        for i, r in enumerate(recs):
+            fo.write(json.dumps(dict(seed=-1, scn="synthetic", scn_idx=i, step=0,
+                     ego=r["ego"], obs=r["obs"], obs_len=r["obs_len"], obs_wid=r["obs_wid"],
+                     source="synthetic", kind=r["kind"])) + "\n")
+    kinds = {}
+    for r in recs:
+        kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
+    print(f"[collect synthetic] {len(recs)} 真对撞态（keep-course 全真撞）→ {OUT} · 类型 {kinds}", flush=True)
+
+
+def _collect_adversarial():
+    """对抗基线（纯几何 dock_controller_v4 全程过盾·test1_pure_baseline 同款）·收 ρ5 真硬态。需 env。"""
+    assert _HAVE_OFFICIAL, f"--collect adversarial 需 env（{_IMPORT_ERR}）"
+    from trb_env.usv_continuous_shield import ContinuousProjectionEnv
+    from trb_env.usv_scenarios import load_scenario_pool
+    from trb_env.usv_env import A_NORMAL_OMEGA_MAX, A_NORMAL_ACCEL_MAX
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import dock_controller_v4 as DC
+    from run_step4e import load_manifest_split
+    MANIFEST = os.environ["STEP4E_MANIFEST"]
+    OUT = os.environ.get("OUT_JSONL", "block3_adversarial_states.jsonl")
+    V_RUN = float(os.environ.get("BASE_VRUN", "2.6"))
+    bdir = os.environ.get("STEP4E_BALANCED_DIR") or os.path.dirname(os.path.abspath(MANIFEST))
+    _tr, test_paths, _i = load_manifest_split(MANIFEST, bdir)
+    pool = load_scenario_pool(test_paths)
+    WMAX, AMAX = A_NORMAL_OMEGA_MAX, A_NORMAL_ACCEL_MAX
+    print(f"[collect adversarial] 纯几何基线过盾·{len(pool)} 场景·v_run={V_RUN} → {OUT}", flush=True)
+
+    def _mk(sc, pp):
+        return ContinuousProjectionEnv(sc, pp, shield=True, goal_cone_half=None, goal_v_floor=2.0, augment_rho=False)
+    n_rho5 = 0
+    with open(OUT, "w") as fo:
+        for si, (sc, pp) in enumerate(pool):
+            env = _mk(sc, pp); obs, info = env.reset(seed=0)
+            for step_i in range(200):
+                ego = env._ego_vs(); gg = env.env.goal_center
+                try:
+                    theta_g = 0.5 * (env.env.goal.orientation.start + env.env.goal.orientation.end)
+                except Exception:
+                    theta_g = 0.0
+                st = [ego.position[0], ego.position[1], ego.orientation, float(getattr(ego, "velocity", 0.0))]
+                act = DC.dock_controller(st, (gg[0], gg[1]), theta_g=theta_g, wmax=WMAX, v_run=V_RUN)
+                act = np.array([float(np.clip(act[0], -AMAX, AMAX)), act[1]])
+                ev, ov = env._ego_vs(), env._obs_vs()
+                ob = env._obstacles[0] if env._obstacles else None
+                owid = float(ob.obstacle_shape.width) if ob is not None else W_SHIP
+                olen = float(env._obs_length)
+                obs, _r, term, trunc, info = env.step(np.asarray(act, float))
+                if info.get("rho") == RHO_EMERGENCY and ov is not None:
+                    fo.write(json.dumps(dict(seed=-1, scn=os.path.basename(str(sc)), scn_idx=si, step=step_i,
+                        ego=[float(ev.position[0]), float(ev.position[1]), float(ev.orientation), float(ev.velocity)],
+                        obs=[float(ov.position[0]), float(ov.position[1]), float(ov.orientation), float(ov.velocity)],
+                        obs_len=olen, obs_wid=owid, source=info.get("source"))) + "\n")
+                    n_rho5 += 1
+            fo.flush()
+    print(f"[collect adversarial] done · ρ5 态={n_rho5} → {OUT}", flush=True)
+
+
+def _collect_golden():
     assert _HAVE_OFFICIAL, f"--collect 需 vesselmodels/env（本机缺：{_IMPORT_ERR}）→ 服务器跑"
     import glob as _glob
     from stable_baselines3 import PPO
@@ -334,20 +460,34 @@ def phase_classify():
     for i, r in enumerate(recs):
         res = classify_state(r["ego"], r["obs"], r["obs_len"], r["obs_wid"], T=Tmax, h=h, fam_mode=fam_mode, p=p)
         res["_rec"] = r
+        res["kc"] = keep_course_min_dist(r["ego"], r["obs"], r["obs_len"], r["obs_wid"])   # 不做机动最小净空
         results.append(res)
         if (i + 1) % 100 == 0:
             print(f"  ...{i+1}/{len(recs)}", flush=True)
     N = max(1, len(results))
 
-    # ── 1) 🔴 T 视界扫描（Attack 5·核心输出·别把单个 T 当结论）──────────────────────────
-    print("\n===== T 视界扫描（per-step·未决对视界的敏感度 = 视界артефакт vs 真命门）=====")
-    print(f"  {'T(s)':>5} | {'unavoid%':>9} {'avoid%':>8} {'undec%':>8}")
-    for Tc in T_SWEEP:
-        c = {"unavoidable": 0, "avoidable": 0, "undecided": 0}
-        for res in results:
-            c[partition_at(res, Tc)] += 1
-        print(f"  {Tc:>5.0f} | {100*c['unavoidable']/N:>8.1f} {100*c['avoidable']/N:>7.1f} {100*c['undecided']/N:>7.1f}")
-    print("  ⓘ 相遇视界≈t_cpa（他船过顶后 CV 无碰）；undec 随 T 缩而塌 = 视界артефакт非真未决（判读取相遇视界·非 120s）。")
+    # ── 0) 🔴 冲突严重度分桶（L196 命门：多数 ρ5 是"假紧急"·keep-course 不做机动已安全→隔离真冲突）──
+    genuine = [r for r in results if r["kc"] <= 0.0]           # 真对撞航向 = 方向 A 该解的硬态
+    nearmiss = [r for r in results if 0.0 < r["kc"] <= 50.0]
+    farsafe = [r for r in results if r["kc"] > 50.0]
+    print(f"\n===== 冲突严重度（keep-course=不做机动的全程最小净空）=====")
+    print(f"  真对撞(kc≤0)={len(genuine)}({100*len(genuine)/N:.1f}%) · 擦边(0-50m)={len(nearmiss)} · 假紧急(>50m 不做也安全)={len(farsafe)}({100*len(farsafe)/N:.1f}%)")
+    if not genuine:
+        print("  ⚠️🔴 无真对撞态 → 本群体【测不了方向 A】（=L196 金标同款）·须换硬源 SRC=adversarial/synthetic")
+
+    # ── 1) 🔴 T 视界扫描（Attack 5）· 全 population + 【真对撞子集】(真答案落在这里) ──────────
+    for label, subset in [("全 population", results), ("真对撞子集(kc≤0)", genuine), ("真对撞+擦边(kc≤50)", genuine + nearmiss)]:
+        if not subset:
+            continue
+        m = len(subset)
+        print(f"\n----- T 视界扫描 · {label}（n={m}）-----")
+        print(f"  {'T(s)':>5} | {'unavoid%':>9} {'avoid%':>8} {'undec%':>8}")
+        for Tc in T_SWEEP:
+            c = {"unavoidable": 0, "avoidable": 0, "undecided": 0}
+            for res in subset:
+                c[partition_at(res, Tc)] += 1
+            print(f"  {Tc:>5.0f} | {100*c['unavoidable']/m:>8.1f} {100*c['avoidable']/m:>7.1f} {100*c['undecided']/m:>7.1f}")
+    print("  ⓘ 【真对撞子集】的 undec/unavoid 才是方向 A 命门数；undec 随 T 缩到相遇视界(≈40-60s)仍大=真命门·即塌=视界артефакт。")
 
     # ── 2) 按【相遇】聚合（Attack 2a·项目口径 encounter 级）─────────────────────────────
     #   相遇 = 同 (seed,scn_idx) 内 step 连续的一段 ρ5。相遇"未决"= 该段任一步未决。
@@ -402,9 +542,11 @@ def phase_classify():
     for k, v in sorted(by_clear.items(), key=lambda x: -x[1])[:12]:
         print(f"  {k:>28}: {v}")
     print("\n🔴 go/no-go 判读（别照抄单数）：")
-    print("   · 看 T 视界扫描：undec 随 T 缩到相遇视界(≈40-60s)后仍大 → 真命门；随 T 缩即塌 → 120s 是视界артефакт。")
-    print("   · 按相遇 undec% 才是 encounter 级口径（项目标准）。gap#1 近空 → 砍 A-ii。")
-    print("   · 群体=本策略部署分布(偏易·Attack 2b)：真 go 还须核 block2 执行接管(L192-I OOD 反噬)+多障碍不合成——本探针只量单障碍 CV。")
+    print("   · 🎯 真答案 = 【真对撞子集(kc≤0)】的分区：unavoid+avoid 高·undec 小 → 方向 A 有底(能可证明处理硬态)；")
+    print("     undec 大(随 T 缩到相遇视界仍大) → 机动族覆盖不到 → 方向 A 弱 / 退 demonstration。")
+    print("   · 若真对撞子集=0(如 SRC=golden L196)：本群体测不了方向 A·换 SRC=adversarial/synthetic。")
+    print("   · gap#1 触发率近空 → 砍 A-ii 有界严重度。按相遇 undec% = encounter 级口径。")
+    print("   · 边界：单障碍 CV·真 go 还须核 block2 执行接管(L192-I OOD 反噬)+多障碍不合成。")
 
 
 # ════════════════════════════════════════════════════════════════════════════════════════
