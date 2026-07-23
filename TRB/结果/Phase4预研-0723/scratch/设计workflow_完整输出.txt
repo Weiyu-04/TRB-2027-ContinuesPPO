@@ -1,0 +1,436 @@
+{
+  "summary": "Design a tractable QP terminal constraint (U_term) that keeps the shielded policy in the avoidable set; adversarially review Prop 4; spec the real-state probe + CBF baseline",
+  "agentCount": 11,
+  "logs": [],
+  "result": {
+    "designs": [
+      {
+        "approach": "CBF-barrier over the CLEARANCE VALUE FUNCTION (not a hand-crafted barrier). h(x)=certified clearance margin of the best family maneuver; {h>=0}=A_M EXACTLY (it is not an approximation of A — it IS the family-relative clearable set, the same oracle block3 uses). DT-CBF h(F(s,u))>=(1-alpha)h(s) gives forward invariance of A. Central obstacle: h has no closed form (max-min over an integrated bang-bang family) so h(F(s,u)) is not directly a function of u. Reduction via Prop4 tail: at step k we already hold the best maneuver m* (found when certifying s in A) and its tail m'; lower-bound h(F(s,u)) >= Phi(u)=min_t clearance of the FIXED tail m' launched from F(s,u), and enforce Phi(u)>=(1-alpha)h(s). QP-compatible via per-sampled-time separating-hyperplane linearization — exactly the existing collision_free_constraint trick, just repeated over tail times instead of one step. The 'margin-to-unavoidable' candidate (gap#1 distance) is REJECTED: {far from unavoidable} is a SUPERSET of A (contains the undecided region), so its superlevel set is NOT subset of A — wrong direction for soundness. Only the clearance value function is a sound inner indicator of A.",
+        "judge": {
+          "approach": "U_term = DT-CBF over the certified clearance value function h(x)=max_{m in M} min_t ilb(x,m,t). {h>=0}=A_M exactly. QP reduction: fix warm-started tail m' (Prop4 recursion), lower-bound h(F(s,u))>=Phi(u)=min-clearance of m' launched from F(s,u), linearize p_e^tail(u) via 2-pt FD Jacobians into per-tail-time separating-hyperplane rows g_j.u<=h_j, add L-inf box trust region + kappa curvature margin, append give-way row. Pure convex QP, OSQP-ready, <1ms.",
+          "score_soundness": 2,
+          "score_tractability": 4,
+          "score_rl_freedom": 2,
+          "score_colregs": 4,
+          "score_cost": 4,
+          "fatal_flaw": "SOUNDNESS OF THE TRACTABLE FORM IS NOT PROVEN — it rests on an EMPIRICAL kappa. Layer-1 (h exact, {h>=0}=A_M) is genuinely sound, but the QP-compatible constraint is the object that actually runs, and the proposal's own Q3 shows it is UNSOUND over the box (567 over-estimating cells, ~51%/89m median linearization error). Soundness is restored ONLY by a curvature/trust-region margin kappa that is 'cached/tabulated vs geometry' — i.e. measured, not bounded. A CBF certificate whose validity depends on an un-certified empirical margin is NOT a proof; it swaps the current empirical one-step-lookahead margin for another empirical margin, which DEFEATS the entire Phase-4 goal (经验→可证明前向不变). To make kappa rigorous you need a certified Lipschitz/2nd-order remainder bound on the FD Jacobian J_j over a 30-80-step bang-bang tail — never derived, and over that horizon it is loose enough to shrink feasibility to ~=u0*. SECONDARY (compounding, itself soundness-relevant): the lower bound h(F)>=Phi(u) needs the tail m' to be a member of the family M that DEFINES h; but the finite family (reclassify.py L100-102: turn durations {20,40,60}) is NOT tail-closed — a turn40 tail is a 30s turn, not in M. So the verified object (finite-family h, '0/40 mismatch') and the enforced object (fixed-tail Phi) are DIFFERENT; Prop4 L14 vs L24-26 has the same gap (certifies s'∈A via m'∉M). Reparable only by redefining M as continuous/tail-closed AND re-verifying, which the '{h>=0}=A 0/40' evidence does not cover. THIRD: RL-freedom collapses to ~=u0* (the certified escape) exactly at the near-∂A states the shield exists for — in those states it stops being RL and becomes the template controller.",
+          "verdict": "weak",
+          "note": "Not dead: Layer-1 scalar h + alpha-graceful-decay invariance is a genuinely clean, publishable ANALYSIS framing, and COLREGs integration is clean (one give-way half-space, convex polygon preserved, 85% nonempty, empty→existing fallback ladder — no new machinery, no COLREGs∩CBF empty-set risk beyond what already routes to Node 4). QP is genuinely convex and cheap (non-convex max-min removed by fixing m'; convexity is real, not a hidden SOCP once the box trust region is used instead of the 2-norm kappa term). But as an INDEPENDENT, cheaper, provable mechanism it fails: once forced into QP form it collapses to 'linearized clearance constraints along a fixed certified escape inside an empirically-margined trust region' = the fixed-compliant-template thread, and its sole distinctive gain (scalar alpha certificate) is dominated by the very curvature margin that also breaks its soundness. The proposal's OWN honest verdict already concedes this. RECOMMENDATION: adopt CBF-barrier ONLY as the writeup/analysis layer (scalar h, alpha-invariance proof) ON TOP of the template-constraint implementation; do NOT pitch it as a separate provable mechanism, and do NOT claim 'provable forward invariance' until kappa is replaced by a certified remainder bound and M is made tail-closed with re-verification on TRUE give-way states (current evidence is synthetic)."
+        }
+      },
+      {
+        "approach": "backup-maneuver 终端约束=以\"当前 certified 备份清障机动 m* 的首步 u0\"为中心的信赖域,叠 O(1) 事后再认证兜住 soundness。构造直接落在 Prop4 的尾巴论证上:s∈A 带 certified m*=(u0,u1,...),U_term(s):={u: 把首步换成 u、后接 m* 尾巴 m*_tail 的拼接机动仍全程 certified 清障}。u=u0 时拼接=原认证轨迹(尾巴不变)⟹ 平凡在集内 ⟹ U_term≠∅ ⟹ QP 恒可行。分两层:①QP内联=u0 的信赖域盒(便宜、给RL凸可行域);②事后=对QP选出的 u* 只重认证【那一条】拼接机动(1次证书,非整族搜索),失败则缩盒/退回u0。funnel library(多备份并盒)恢复RL自由度;备份首步选合规方向解COLREGs交集。本机在合成态上跑了两个脚本证形状/自由度/soundness边界。",
+        "judge": {
+          "approach": "backup-maneuver 终端约束 U_term=以 certified 备份首步 u0 为中心的信赖域盒(内联凸)+ O(1) 事后重认证拼接机动兜 soundness + funnel 多备份并盒恢复 RL 自由度",
+          "score_soundness": 4,
+          "score_tractability": 5,
+          "score_rl_freedom": 2,
+          "score_colregs": 4,
+          "score_cost": 5,
+          "fatal_flaw": "none（无 soundness 致命洞）。构造是 Prop4 尾巴论证的正确实例：u0 平凡在集内⟹U_term≠∅⟹QP恒可行；每步落点由【block1 sound 证书重认证拼接 u*⊕m*_tail】把关，过则 F(s,u*)∈A、否则退 u0（u0 恒 sound），归纳前向不变——逻辑闭合，验证脚本口径(RK4 vs odeint~1e-8、gap#1 复制)可信。但两处必须钉死否则退化为静默不安全：①全部 soundness 锚在 verify-after，内联盒 κ=1 实测 3/5 不 sound(proposer 已诚实承认)——盒是纯启发式、与真 U_term 差距(κ上界)未算，任何图省事砍掉事后重认证=静默放行(risk①落实即致命)；②feasibility 恒成立要求 QP 用信赖域盒【替换】而非【叠加】现有 Jacobian-线性化 disk 单步无碰半平面(L560 d_safe=R_ego+R_obs 外接圆、比矩形证书保守得多)——若二者取交，u0 满足矩形证书却可能违反 disk 线性半平面⟹u0 被排除⟹\"恒可行\"破。草案未明确 replace/augment，此处含糊即软肋。",
+          "note": "杀策略风险(rl_freedom=2 主因，非致命但最弱)：单备份盒中位~35%、紧态 9.5%、a 轴信赖域半宽=0(加速轴被冻)、cross_port 即便 funnel 仍卡~16%；funnel 是必需件非可选。更深：margin 侵蚀(RL 用满自由度→δ*单调缩→盒塌→依赖 δ*阈值 re-plan，re-plan 本身可能找不到高 margin 备份)使策略在繁忙态被钉到备份附近——即\"越难避碰 RL 越无自由\"，与安全语义一致但也意味【RL 贡献在最需要它的硬态里退化为\"执行 certified 备份\"】，削弱\"可证明+RL 自由\"这个卖点。COLREGs：靠选合规首步备份使 u0∈U_colregs，交集仍=盒∩半平面(QP 不变)，6/6 非空且吻合方向弹性预研，残余~5%(唯一清障方向与规则相反/stand-on in-extremis)诚实落兜底梯——处理干净。凸性无问题：内联=盒∩半平面凸、funnel 并集拆 K 个 2 变量小 QP 取最优(非解非凸)、椭圆 SOCP 用内接盒避开。代价摊销后省~20×，解析 Jacobian 可离线。继承性红线(全未验、真 go/no-go)：全合成单 CV·真让路态 ρ2/3/4 未收·多障碍 A=各清障集之交(不合成更弱)·机动他船破 CV 则 verify-after 的 CV 外推错→certified\"清\"为假→真撞。verdict=recommend 但附硬条件：(a)显式规定 QP 用盒替换旧 disk 半平面并复验 u0 恒可行；(b)soundness 只准锚 verify-after+u0 退回、代码层禁止 inline-only 分支；(c)先上真让路态探针复核门1门2+自由度，此为真 go/no-go 再谈落地。",
+          "verdict": "recommend"
+        }
+      },
+      {
+        "approach": "U_term「gap1-complement+」= 双层。真正承载 soundness 的是【固定模板充分清障检查】：只要后继 F(s,u) 有一个模板机动 m_fix 被 block1 SOUND 证书判全程清障，则 F(s,u)∈A（有见证），u∈U_term。gap#1 补集(¬迫近不可避)是【必要非充分】的便宜前置否决 + 诊断层——因 clears⟹¬gap1(两 SOUND 证书不可矛盾·实测 0 矛盾)，gap#1 项对\"收进来的 u 集合\"逻辑冗余，其价值=当它 fire 时秒拒(免跑 clears 积分)+ 区分\"后继不可避(去 A-ii/emergency)\"vs\"后继未决\"。故本方案 sound 内近似 = 固定模板 clears；gap#1 只做剪枝/标注。实测(合成 18 个 A 内态·grid|u|=15·H=80s)：小模板集(7 个·⊆定义 A 的族) soundness 违反 0、RL 保留 81.1%、递归可行断裂 1/18；富模板配匹配真值族 保留升 88.7%、断裂仍 1/18。",
+        "judge": {
+          "approach": "U_term「gap1-complement+」双层：soundness 承载=固定合规模板 T_fix 的 block1 SOUND 清障证书（∃m_fix∈T_fix: C(F(s,u),m_fix)=1 ⟹ 后继∈A ⟹ u∈U_term_cheap 是 U_term 的 sound 内近似）；gap#1 补集作便宜前置否决+诊断（对收进集合逻辑冗余）。落地=(A) 后验 oracle+veto（推荐·SOUND drop-in）或 (B) clears 链式线性化半平面塞 QP（近似 land-inside·须 oracle 复核）。",
+          "score_soundness": 4,
+          "score_tractability": 4,
+          "score_rl_freedom": 3,
+          "score_colregs": 4,
+          "score_cost": 4,
+          "fatal_flaw": "执行机制与不变性 claim 脱节（未被自认风险覆盖·被误框成 RL 自由度问题）。集合级 soundness 确实成立：u∈U_term_cheap⟹后继∈A_M 的记账在 T_fix⊆M 纪律下airtight（enriched 归 0 违反坐实），gap#1 冗余判断、clears⟹¬gap1 也对。但唯一 SOUND 的落地（路径 A：oracle+veto）**不维持前向不变**：Prop4 推论要\"受盾轨迹∀t 停 A 内\"必须【每步执行 U_term 的一个成员】(land-inside)。路径 A 只对【无终端约束 QP 的最优 u*】跑 keep_terminal，u* 落 U_term_cheap 外时 veto→Node 4（relaxed/emergency/collision_min）——而 Node 4 输出【从不复核】是否∈U_term（现有 _terminal_feasible 架构 L366-367 已如此·ρ5→True 是平凡兜底、D13 明标\"经验非 provably\"）。故 U_term 非空(∃u₀)≠执行的动作∈U_term：闭环可在\"QP 最优恰好终端不可行\"的 A-边缘态直接掉出 A。于是\"provable 前向不变无碰\"退化回它本要取代的【经验一步前瞻】——只在\"盾从不 bail\"这一经验条件下成立，而这非可证。要真拿到 claim 必须 veto 时替换成【certified U_term 成员 u₀】(而非 Node 4)，这是比\"投影到最近可行 u\"更硬的动作切、且改变 Node 4 兜底语义；路径 B(land-inside)本可补，但它是非凸线性化近似、失败仍回同一 veto→Node 4，继承同一 bail。次级：永久无碰还压在【经验未证的引理1(有限视界闭合)】上，A_H⊆A_∞ 未证。",
+          "verdict": "viable",
+          "note": "分轴：soundness=4（内近似记账真成立·M 一致性/gap#1 冗余/证书 SOUND 都对；扣分因永久无碰依赖经验引理1）。tractability=4（oracle 单 u 毫秒·1 gap1+K clears·drop-in 替 _terminal_feasible）。rl_freedom=3（合成保留 81.1–88.7% 不算过杀，但杀伤集中 A 边缘临界态·且 veto→Node4 是硬动作切、U_term_cheap 非凸可能不连通=无\"投影到最近\"）。colregs=4（模板取合规方向·交集⟺方向弹性 85%·残余~5% 诚实走 Node4 标违规·与预研一致；扣分因全合成、真让路态 ρ2/3/4 未验=真 go/no-go）。cost=4（廉价·模板时序可预算·shapely 换解析可提速）。修复路线明确：(1) veto 失败时兜底改为搜 T_fix 首控得 certified u₀ 落 A(而非 Node4)，才对得起前向不变 claim；(2) 论文须把 A 的机动族 M 钉死三处一致；(3) 引理1 补证或明标经验；(4) 真让路态探针复核。核心（sound 便宜成员 oracle）可用，故 viable 非 dead，但【如现written 的 veto→Node4 不能诚实升级 claim 到\"provable 前向不变\"】——这点必须对审稿人挑明或先改机制。"
+        }
+      },
+      {
+        "approach": "离线预计算「采样数据(10s-hold)reach-avoid 值函数 V」于障碍系相对态 z=[rx,ry,ψ,v](他船 CV → 从 8D 世界态降到 4D 状态 + 参数 ov,L_obs,W_obs)。A={z:V(z)≥ε},U_term(s)={u:V(F(s,u))≥ε}。把「∃清障机动」的在线成员判定(现跑机动族≈ms)换成一次 10s 前向积分 + 一次 4D 表插值(≈µs,~1000×)。关键选型:不用连续时间 HJ,而用【离散时间 10s-hold sampled-data DP】——它的决策步语义与投影盾逐位一致,顺带把连续 HJ 会留的 sampled-data 缺口焊死,且 DP 不动点=最大 10s-hold 控制不变子集 → 命题4 递归可行性变成推论(不再需要「机动尾巴」论证)。实证已过:降维不变性 40/40、成员 sound 假接受 0/120、U_term 假接受 1/625(=ε 必须>0 的证据)。",
+        "judge": {
+          "approach": "离线预计算 sampled-data(10s-hold) reach-avoid 值函数 V 于障碍系 4D 相对态 z=[rx,ry,ψ,v]（他船 CV 降维），A_inner={V≥ε}，U_term(s)={u:min(步内净空,V(F(s,u)))≥ε}；在线把\"∃清障机动\"成员判定从跑机动族(ms)换成一次10s前向积分+一次4D插值(µs)。QP兼容走 A(解后 V-gate 替换 _terminal_feasible)+C(11×11采样投影)，避开非凸QP。COLREGs 用 V_all/V_give 两表求交，残余显式升级 Rule 17。",
+          "score_soundness": 2,
+          "score_tractability": 4,
+          "score_rl_freedom": 3,
+          "score_colregs": 4,
+          "score_cost": 4,
+          "fatal_flaw": "旗舰主张\"DP不动点=最大10s-hold控制不变子集⟹命题4递归可行=推论、不再需要机动尾巴论证\"未被实现兑现——致命性=overclaim(非unsafe bug)，但正是差异化Krasowski/CBF的那块。三条硬洞(读 uterm_reachavoid.py 实证)：\n\n【洞1·核心·杀\"可证明\"论点】DP 是固定 N=6 一遍扫、终端 V_N=d(z)(逐点净空)、无收敛判据(L106-120)。reach-avoid 值迭代单调递减，故{V^(6)≥ε}⊇真不变集(可能更大)：一个态可\"60s安全\"但非永久安全。{V≥ε}是控制不变集，仅当①值迭代真收敛 V_6=V_5，或②终端集{d≥ε}本身不变——两者都没查，d(z)不是不变终端集。⟹U_term(s)={u:V(F)≥ε}用单表在 s∈A_inner 可为空(F落{V^(5)≥ε}≠{V^(6)≥ε})⟹\"QP恒可行/永不fallback\"推论不成立。前向不变仍压在同一条经验\"会遇视界闭合\"(引理1)上——机动尾巴论证被换成了一个未言明的收敛义务，不是被消除。焊死采样缺口≠焊死有限视界缺口，后者原样继承。\n\n【洞2·false-accept·ε>0 一上真分布就暴露】ε 声称≈L_V·Δ_grid 且 L_V≈v_max+ov 每格(单步)，但漏了 N 步复合 ψ 灵敏度(~v·T≈570 m/rad)。表 ψ 网格 45°/格，单格内 V 真值可差~448m；线性插非凹 V 在凹陷处高估→假接受。\"0/120 sound、1/625@ε=0\"能过，仅因 gen_slice_conflicts 抽的是平滑良性几何、没打进对抗格——sound 是\"合成分布上经验成立\"、非\"构造成立\"。真 sound 的 ε 在 ψ 向要数百 m→A_inner 被打爆(正是方案淡化的维诅咒)。\n\n【洞3·temporal·V 非真欠估】步内净空 dmin 用 0.5s 原始采样最小值(L50)，非 reclassify.first_unsafe_t 的 sound Lipschitz 下界 (d_k+d_{k+1}−L·h)/2，漏采样间下陷~3.6m⟹\"V 欠估真净空\"不成立。\n\n【次·参数维】\"ov 保守取整\"对非单调 V 无定义(方案自认 V 对 ov 非单调)：sound 需对 ov bracket 取 min 或减 L_ov·Δov(又一层 ε 膨胀)。L/W 向上取整确 sound(更大他船严格压 d)，ov 是洞。\n\n安全未破：option-A 的 V-gate 只做拒绝、只要 V 欠估就永不假放行→不会撞；破的是\"可证明前向不变/递归可行\"这个论文卖点。可修：门在收敛不动点/不变终端集(引理1\"过顶+分离\"域)上、非 d(z)；dmin 换 Lipschitz 下界；ψ 加密+改 N 步 L_V；ov 用 bracket-min。",
+          "verdict": "viable",
+          "note": "分维依据：soundness=2(工程方向对、option-A 拒绝滤器安全，但值函数/不变集\"可证明\"性被 overclaim——DP 实现只给出\"合成分布上 ε=0 经验 sound\"，非构造 sound；三条 false-accept/非不变洞)。tractability=4(在线 µs、drop-in 替 _terminal_feasible；离线重、但 embarrassingly parallel，参数网格是威胁非阻断)。rl_freedom=3(68%/90% 均合成+ε=0；ego 当 88.4m 圆盘+9 bang-bang 大幅压 A，可靠更细网格/SAT 距离换回；真让路态未测)。colregs=4(V_all/V_give 双表求交+残余显式 Rule 17，全案最干净、诚实、对齐草稿§33-36)。cost=4(~1000× 真省、常控 yp 闭式可积、参数间并行)。go/no-go 顺序：先补收敛判据(V_6==V_5)或换不变终端集把命题4坐实，再上真让路态(ρ2/3/4)纯 eval 复测 ε>0 下 sound/覆盖/接受率。当前证据全在合成分布，别在论文写\"provably 前向不变\"直到洞1修+真态过。"
+        }
+      }
+    ],
+    "prop4": [
+      {
+        "verdicts": [
+          {
+            "location": "引理1 (L16-19)",
+            "issue": "引理陈述对【任意 certified 机动 m】断言\"d>0直到H ⟹ d>0对所有t>H\"，但该结论只对【直行尾巴】(ω=0且v恒定)成立。机动族含8个纯bang-bang成员(ω≠0恒转)——恒转ego开环画圈会绕回撞\"已开走的CV他船\"，某时刻闭合率<0不蕴含此后永远分离。证明草注承认\"'转到清就回正'成员末段直行\"，但引理主体没带这个前提。",
+            "verdict": "OVERCLAIM",
+            "evidence": "本机跑reclassify: 纯转向成员(a=0,ω=±0.03)在3个合成态上【清[0,40]s但first_unsafe_t=43/53.5/57s(∈(40,120])】——清短视界后又撞，直接反驳'清H⟹永久清'对转向尾巴。且block3/reclassify注释自述ω_max开环转120s兜317m大圈绕回撞幽灵CV他船。凸性论证(两刚体CV相对直线运动→距离凸→过最小点后单增)只在ego朝向固定时成立。",
+            "fixable": true
+          },
+          {
+            "location": "引理1 视界H取值 (L18) + 命题4步3 (L25) 的 H→H−Δ 闭合",
+            "issue": "A_H成员谓词'视界H覆盖会遇'含糊，与引理1真正需要的谓词不等价。引理1要成立须:机动有直行尾巴且从t_s≤H−margin起分离(过顶带裕度)。而'转到清就回正'成员t1∈{20,40,60}s，当H=40时t1=60的成员在[0,40]内根本没回正=纯转向→引理不适用；论文却把H~40-60与t1到60并列，自相张力。步3用'H−Δ仍覆盖已更近会遇'补，但A_H的成员定义没把'过顶时刻t_pass≤H−margin+直行尾'写进不变量，所以尾巴certified于[0,H−Δ]≠s'∈A_H。",
+            "verdict": "OVERCLAIM",
+            "evidence": "递归可行性探针用【固定T=40/60在s和s'两端都重新全量分类】，并未收缩到H−Δ、也未验证'同一尾巴+引理1过顶闭合'这条证明机制。真正前向不变的集合是 A*={∃直行尾机动·过顶t_pass≤H−margin·清[0,H]}，草稿的A_H是其松弛超集。核心洞察在A*上能站住(每步t_pass减Δ、裕度H−t_pass守恒)，但须把margin+直行尾焊进定义。",
+            "fixable": true
+          },
+          {
+            "location": "推论 (L29-31): U_term≠∅ ⟹ QP恒可行",
+            "issue": "投影QP的可行域是 U_term ∩ U_box ∩ U_colregs(让路ω硬半空间)，不是U_term单独。推论只证U_term(s)∋u₀非空就断言'QP恒可行'，丢掉了U_colregs。certified机动的u₀可能左转而COLREGs要右转→u₀∉U_colregs→交集空→QP不可行。且命题4只证A前向不变，未证A∩U_colregs前向不变(让路方向随ρ转移会翻转，尾巴u₁未必仍合规)——合规可清障集的递归可行性是未证的。",
+            "verdict": "OVERCLAIM",
+            "evidence": "草稿自己§COLREGs(L35-36)承认残余~5%'唯一清障方向vs要求相反'+ stand-on in-extremis'保向即撞'=合规动作即撞。这些正是QP在U_term≠∅时仍不可行的反例。'恒可行'作为全称命题被论文自身的残余冲突集证伪。修法:把推论明确限到 A∩U_colregs≠∅ 的作用域，或单独证合规集不变性。",
+            "fixable": true
+          },
+          {
+            "location": "推论 (L29): U_term:={u:F(s,u)∈A} 作QP终端硬约束",
+            "issue": "推论从'数学集U_term非空(命题4给出)'跳到'加了终端硬约束的QP恒可行且可解'，隐含假设U_term能表达成可解的QP约束。但U_term成员判定='∃清障机动 from F(s,u)'=对每个候选u跑整个机动族+非凸清障证书的存在量词，非凸/不可直接入QP。可算内近似Û_term⊆U_term在U_term≠∅时可能为空→QP不可行→归纳链断。非空性(精确集)≠可实现QP的可行性。",
+            "verdict": "OVERCLAIM",
+            "evidence": "草稿待办(L41)与预研结论(点3)自列'U_term(s)的可算内近似...尚未设计'为OPEN。推论在正文却以'QP恒可行'既成事实叙述，偷渡了这个OPEN。修法:显式hedge——'若存在保非空性的可算内近似'。这是命题4能否落成真盾的真命门，不是纯写作。",
+            "fixable": true
+          },
+          {
+            "location": "命题4 (L26) + 预研门1: 递归可行性75/75=100%",
+            "issue": "'100%'被当作命题4证明机制(同一尾巴+引理1过顶闭合)的坐实，但探针实际测的是【在s'用全新全量族在固定完整视界T重新certify】，既不隔离'同一尾巴'、也不收缩到H−Δ、更没测引理1的过顶单调闭合。它支持'A事实上近似前向不变'(经任意成员)，但不验证证明所依赖的那条闭合论证。且全程合成分布、非真让路态。",
+            "verdict": "UNCERTAIN",
+            "evidence": "reclassify/预研均声明合成态·非真基准·预研级。探针classify在s和s'两端用同一T全量分类(reclassify L152-153)，与命题4'尾巴certified于[0,H−Δ]'是不同的测试。经验100%与证明严密是两回事——须补'同尾巴+H−Δ'定向探针+真ρ2/3/4态复核(草稿L40自列为真go/no-go)。",
+            "fixable": true
+          },
+          {
+            "location": "作用域: A边界 vs gap#1完备度~47%",
+            "issue": "查A是否继承gap#1的保守。结论:不继承。partition逻辑是——gap#1只判定'unavoidable'类；'avoidable'(=A成员)由清障证书独立判定，与gap#1无关(partition_at: gap1_unavoid→unavoidable; else 清障证书clears→avoidable)。A的保守来自有限bang-bang族+Lipschitz下界(是真avoidable集的sound下近似，undecided里的真可避态被排除)，gap#1的47%完备度是另一个集合的量，与A边界正交。命题4的A不变性证明也不需要任何完备性。",
+            "verdict": "SOLID",
+            "evidence": "block3 partition_at(L276-283)与reclassify partition(L134-138):avoidable判定纯由清障证书first_unsafe_t决定，不读gap1。草稿L42诚实界定A排除unavoidable/undecided、多障碍A=各可清集之交更弱、机动他船破CV失效。'A上可证明无碰'中A本身是sound子集这点草稿已明说(L3红线)。此项无洞、界定诚实。",
+            "fixable": true
+          }
+        ],
+        "overall": "命题4的核心洞察(可清障集≈前向不变、同一机动尾巴certified)在收紧后能站住，但草稿存在4处需修的逻辑松弛，其中2处触及论文的真命门(非纯写作)。(1)引理1对任意certified机动断言'清H⟹永久清'，对纯转向尾巴假——本机反例:纯转向成员清[0,40]s但43/53.5/57s又撞；须把'直行尾+过顶裕度'写进引理与A的定义(修后核心成立,每步裕度守恒)。(2)A_H成员谓词'视界H覆盖会遇'与引理1真正需要的margin谓词不等价，H→H−Δ闭合未焊干净。(3)推论'U_term≠∅⟹QP恒可行'丢掉了U_colregs交集——被草稿自身5%残余(唯一清障方向vs合规相反)+stand-on in-extremis证伪；且命题4只证A不变、未证A∩U_colregs不变。(4)推论隐含假设U_term可算(可实现为QP约束)，而这正是草稿自列的OPEN——非空性≠可解QP可行性,内近似可能空致归纳断链。(5)75/75=100%是合成态经验且测的是全量重分类,不隔离证明机制,不能当机制坐实。(6)A不继承gap#1的47%保守(两个独立证书),此项界定诚实=SOLID。全部可修,建议:严格重定义A(直行尾+margin)、把引理1加直行尾前提、推论限到A∩U_colregs作用域并显式hedge可算性OPEN、补'同尾巴+H−Δ'定向探针与真让路态复核。非rubber-stamp:'恒可行'与'永久清'两处全称命题按字面为overclaim/被自身残余集证伪。"
+      },
+      {
+        "overall": "Prop4 的证明结构（终端约束→用 u0∈U_term 提供可行性→归纳保持在 A 内）方向是对的，但作为\"可证明\"命题有多个 load-bearing 逻辑洞，几乎全部围绕\"清障证书 C（只保证 [0,H] 内 d>0）\"与\"命题/引理实际需要的更强性质（永久分离、机动族闭合、可算终端约束）\"之间的落差。最要命的一条：机动族 M 对\"走一步取尾巴\"不闭合（尾巴 turn-t1 掉出 {20,40,60} 网格、纯滑行(0,0) 被排除），而 A_H 恰以\"∃m∈M\"定义 —— 于是证明用来见证 U_term≠∅ 的尾巴 m' 根本不是 A_H 的合法成员，直接动摇推论\"QP 恒可行\"的地基。引理1对\"转到底不回正\"的成员不成立（转弯尾巴非CV、相对运动非仿射、距离非凸→\"分离则永远分离\"失据）。C 不校验 H 处闭合率（是否真过顶），引理1前提是外加的经验事实而非证书交付。75/75 递归可行性用的 partition 本身就把 fut>Tc 当 avoidable（=引理1闭合），故不能反过来\"坐实\"引理1（循环）。U_term 可算性 OPEN，推论把\"概念可行\"偷换成\"QP 可解\"。§合规行\"大概率非空⟹可证明合规且无碰\"自相矛盾。10s钳v 不破坏同一轨迹（Δ=钳周期对齐，SOLID）；A 的正向定义不继承 gap#1 保守（SOLID）。这些洞多数可修（收紧措辞/重定义 M 为尾闭合族/加分离检查），但\"可算终端约束\"是真 OPEN，未解前推论只能条件式陈述。建议投稿前把\"证明\"与\"经验\"的边界重画。",
+        "verdicts": [
+          {
+            "location": "命题4_草稿.md L14 定义 A_H, L24 命题4-步2 + block3_partition_probe.py L193-211 maneuver_family",
+            "issue": "机动族 M 对'走一步取尾巴'不闭合，而 A_H:={s:∃m∈M,C(s,m)=1} 以有限族定义。命题4 用'同一机动尾巴 m'' 作 s' 的 certified 清障机动来证 F(s,u0)∈A（=U_term≠∅ 的唯一见证）。但实测 M = 8 个 bang-bang(恒控到底) + turn-then-straight(t1∈{20,40,60} 固定) + 无纯滑行(0,0)成员。走 Δ=10s 后：turn-20 的尾巴=turn-10-then-straight，t1=10 不在 {20,40,60} 网格→非 M 成员；turn 走完后尾巴=(0,0,None) 纯滑行，(0,0) 被 `if a==0 and w==0: continue` 排除→也非 M 成员。故尾巴 m' 不是 A_H 的合法见证，无法证 s'∈A_H。证明证的是更大的'∃任意控制序列'不变集，不是定义里的族限定 A_H。",
+            "verdict": "OVERCLAIM",
+            "fixable": true,
+            "evidence": "block3_partition_probe.py L198-201 排除(0,0)；L204-207 turn t1 只取{20,40,60}固定；尾巴=turn-(t1-10) 掉出网格。命题4-步2 直接把尾巴当合法 certified 机动。经验 75/75 是对每个 s' 全族重搜命中，不是尾巴见证，故证明与经验用的是两套机动集。"
+          },
+          {
+            "location": "命题4_草稿.md L16-19 引理1 + L19 括注'机动族尾巴末段直行'",
+            "issue": "引理1'CV下 d 此后单调增'的证明依据是'相对运动终成线性(两船皆CV)→距离凸→过CPA后单调'。这对直行尾巴成立（我核过：两凸刚体在恒速相对平移下 min 距离 g(t)=dist(wt,B⊕(−A)) 确为 t 的凸函数，故过CPA后单调，SOUND）。但 M 含 8 个 w=±0.03 恒控到底的成员，尾巴一直转圈（非CV、朝向变、非刚体平移）→凸性/仿射前提失效→'分离则永远分离'对这些成员无据。若某态的 certifying m 恰是转圈成员，引理1 前提不满足。结论或许仍靠'他船 CV 逃出 ego 半径317m圈'成立，但那是另一套论证，草稿没给。",
+            "verdict": "OVERCLAIM",
+            "fixable": true,
+            "evidence": "maneuver_family L198-202 生成 a±_w±0.03 恒控成员（转圈）；括注 L19 只覆盖 turn-then-straight，静默假设 certifier 末段直行，但 A_H 定义(L14)不限制 witness 为直行尾巴。修法：把 A_H 的 witness 集限定为'最终直行'机动，或对转圈成员另证他船逃逸。"
+          },
+          {
+            "location": "命题4_草稿.md L12 C定义 / L14 '视界H覆盖会遇' / L17 引理1前提",
+            "issue": "清障证书 C(s,m)=1 只判 [0,H] 内 d>0（代码 first_unsafe_t is None/>Tc），不校验 H 处闭合率<0（真过顶/分离）。引理1前提'在[t_pass,H]段已过顶(闭合率<0)'是外加条件，C 不交付、实现的成员判定也不算 range rate。故一个在 [0,H] 全程 d>0 但在 H 处仍在逼近的机动满足 C、却违反引理1前提→H 后可能撞。A_H 里'视界H覆盖会遇'这句是关键却未 operationalize。整条引理其实靠经验'会遇视界~40-60s'兜底（L18/L19），是经验事实非证明。",
+            "verdict": "OVERCLAIM",
+            "fixable": true,
+            "evidence": "reclassify.py L77-92 first_unsafe_t 只比 ilb<=0，不算 dd/dt；partition L134-138 用 fut>Tc。草稿 L40 自己标引理1为'[经验·须真态复核]'，但命题体把它当已证 Lemma 用。修法：成员判定加 H 处分离检查（range rate>0），或用 Tc<H 且证明剩余裕度。"
+          },
+          {
+            "location": "命题4_草稿.md L19 '递归可行性探针Tc=40/60s 100%经验坐实此闭合' + L26",
+            "issue": "循环支撑。partition_at 把 avoidable 定义为'∃机动 first_unsafe_t is None 或 >Tc'（clear过Tc即算可清）——这本身就假设了'clear过Tc⟹永久安全'（=引理1闭合）。75/75 递归可行性是'后继在同一 Tc-截断 partition 下仍 avoidable'，即验证了 A_Tc 的前向不变，但并未独立验证'clear过Tc⟹此后永不撞'。用它'坐实此闭合'是拿假设当证据。",
+            "verdict": "OVERCLAIM",
+            "fixable": true,
+            "evidence": "reclassify.py partition L134-138 `if fut is None or fut>Tc: return 'avoid'`；phase4 预研 L14-16 递归可行性用同一 partition 走一步重分类。引理1闭合是 partition 的内建假设，不是探针的输出。修法：改用真无穷视界/分离检查重跑，或把 L19 措辞降为'前向不变的经验证据'而非'坐实闭合'。"
+          },
+          {
+            "location": "命题4_草稿.md L29-30 推论 'u∈U_term(s):={u:F(s,u)∈A}' + 'QP恒可行'",
+            "issue": "推论把 U_term 当 QP 硬约束写，并由 U_term≠∅ 断言'QP恒可行'，presupposes U_term 可算/QP可表示。但 F(s,u)∈A 的成员判定='∃清障机动'，非半空间非凸集，草稿 L41 自列为 OPEN。两问题混为一谈：(a) 概念约束问题可行（U_term≠∅，OK）；(b) 作为真 QP 可解（未立）。真实实现只能用内近似 Û_term⊆U_term，而 Û_term 可能为空 even when U_term≠∅→实现的 QP 可能不可行。'QP恒可行'不传递到可实现的 QP。",
+            "verdict": "OVERCLAIM",
+            "fixable": true,
+            "evidence": "usv_projection.py project_qp L309+ 现约束=U_box∩U_colregs∩单步无碰，无终端约束；草稿 L41 '[OPEN·待设计] U_term(s)的可算内近似...尚未设计'。推论正文却按可解 QP 陈述。修法：把推论改成条件式（'若存在非空可算内近似 Û_term 则...'），未解 OPEN 前不写'恒可行'。"
+          },
+          {
+            "location": "命题4_草稿.md L35 '大概率非空⟹可证明合规且无碰' + L30 QP恒可行未含U_colregs交",
+            "issue": "内部不一致：'A∩U_colregs 大概率非空'（~85-95%，5%残余）却接'⟹可证明合规且无碰'——概率性非空推不出'可证明'。在残余~5%（唯一清障方向与合规要求相反）态上 A∩U_colregs 为空，QP 若同时含 U_colregs（project_qp 确实含 L335）与终端约束则不可行，这些态上根本无法证'合规且无碰'。此外 L30 推论由 U_term≠∅ 得可行，但含 COLREGs 的 QP 需 U_box∩U_colregs∩U_term≠∅（u0 是清障机动首步、未必合规），非仅 U_term≠∅。",
+            "verdict": "OVERCLAIM",
+            "fixable": true,
+            "evidence": "usv_projection.py colregs_interval L260-271 让路态硬约束 w_hi=−ω_turn 等；project_qp L335 取 U_box∩U_colregs 为基。草稿 L36 已诚实标'残余~5%冲突集'，但 L35 措辞'⟹可证明合规且无碰'越界。修法：把结论限定到 A∩U_colregs≠∅ 的（经验85-95%）子集，残余落 Rule17 in-extremis。"
+          },
+          {
+            "location": "命题4_草稿.md L23-24 命题4-步1/2 '10s钳v...同一条物理轨迹后半段'",
+            "issue": "核查通过：Δ=10s 恰等于钳v周期，钳点(t=10,20,30...)在 s 与 s' 两条时钟下对齐，故尾巴轨迹与原轨迹在[10,H]逐点重合、C(s',m') 的 ilb 值一致，'同一物理轨迹'成立。非洞。唯一须注意：这只证 F(s,u0) 的性质（=U_term≠∅ 见证）；实际受盾后继用 QP 解 u_QP≠u0，其∈A 靠终端约束 u_QP∈U_term 保证，不靠这条。",
+            "verdict": "SOLID",
+            "fixable": false,
+            "evidence": "block3_partition_probe.py L231-245 integrate_maneuver_official assert h整除10、L243 仅在 t 为10整数倍钳v；reclassify.py L73 同。Δ=钳周期→对齐，无破坏。"
+          },
+          {
+            "location": "命题4_草稿.md L42 边界 '单CV障碍' 与 gap#1 完备度~47%",
+            "issue": "核查：A（avoidable）由正向清障证书定义（∃机动全程净空>0），soundness 不继承 gap#1 的保守。gap#1（unavoidable 侧）~47%完备只影响'诚实未覆盖'的 undecided 区大小，不影响 A 上命题的可靠性。草稿 L42-43 已诚实界定'A外态不覆盖'。非洞。一处 nuance：若某文档用 gap#1 unavoidable 支撑 A-ii'有界严重度'子集，需另核 gap#1 触发率（分距离），但不涉及 Prop4 本体。",
+            "verdict": "SOLID",
+            "fixable": false,
+            "evidence": "block3_partition_probe.py classify_state L268-273：先 gap1_unavoid 否则搜机动族→avoid 需正证书；A 的边界=清障证书的正面，不是 gap#1 的补。草稿 L42 已 hedge。"
+          }
+        ]
+      }
+    ],
+    "synth": {
+      "recommend_uterm": "【选型】主推 方案②(backup-maneuver 信赖域 + O(1) 事后重认证)，作为唯一 sound 落地骨架；方案③的\"固定模板 clears\"作为【事后重认证的证书本体】被吸收进②(二者共用 block1 SOUND 证书，只是②认证的对象是【拼接机动 u*⊕m*_tail】而非固定模板)；方案④(离线 reach-avoid V 表)降级为【在线加速缓存/前置否决】(µs 级插值先秒筛，不承载 soundness)；方案①(clearance-value CBF)整体弃(其可算形 soundness 只锚经验 κ，正是 Phase4 要消灭的东西)。\n\n【为什么是②】四方案里只有②的 soundness 无致命洞(评审 sound4/tract5/cost5)，且它是 Prop4 尾巴论证的【正确实例化】而非重写：\n- ①弃因：可跑的那个对象(QP 兼容的 Φ(u) 线性化)是 unsound 的(其自证 Q3:567 over-est 格/中位 89m 线性化误差)，靠一个\"缓存/查表 vs 几何\"的经验曲率裕度 κ 补 soundness——κ 无 certified Lipschitz/二阶余项界(尤其 30-80 步 bang-bang 尾)⟹\"可证明\"退回\"另一个经验裕度\"，goal 落空。\n- ③弃(独立落地)因：集合级 soundness 成立，但唯一 sound 路径(oracle+veto)【不维持前向不变】——veto 后走 Node 4，而 Node 4 输出【从不复核】是否∈U_term(现 _terminal_feasible 架构 L366-367 ρ5→True 是平凡兜底)，闭环可在\"QP 最优恰终端不可行\"的 A-边缘态直接掉出 A。但③的\"固定模板被 block1 判全程清障⟹后继∈A(有见证)\"这条 sound 记账是对的，正好当②事后重认证的证书。\n- ④弃(作 soundness 层)因：旗舰主张\"DP 不动点=最大 10s-hold 不变集\"未兑现(N=6 一遍扫、无收敛判据、终端 V_N=d(z) 非不变终端集)⟹{V^(6)≥ε}⊇真不变集，U_term 可空、\"恒可行\"不成立；ε 漏 N 步复合 ψ 灵敏度(~570m/rad)一上真分布就假接受。但它的 4D 表插值 µs 级 vs 在线跑族 ms 级(~1000×)是真价值——留作②的前置快筛/热启动，只做拒绝不做放行(V 欠估则永不假放行=不撞)。\n\n【核心洞察·为什么②同时兼顾 sound+可算+不杀策略】②把 soundness 从\"集合刻画\"整体挪到【事后对单条拼接机动重认证】，从而绕开 Prop4/③/①共有的两个死结：\n(a) 机动族尾闭合死结(Prop4 L14 vs L24-26·\"0/40 mismatch\"·turn40 尾=30s turn∉M)：②【不依赖∃m∈M】。block1 证书认证【任意有限控制序列】，②认证的是具体拼接轨迹 u*⊕m*_tail 本身，不问它是否族成员。验证对象=执行对象=同一条被 SOUND 证书判过的物理轨迹⟹族尾闭合问题消失。这是②相对①③④和 Prop4 字面稿的决定性优势。\n(b) 可算性 OPEN(Prop4 L29/L41)：U_term 成员判定不再是\"∃清障机动 from F(s,u)\"的非凸存在量词，而是\"这一条拼接机动过不过 1 次证书\"——O(1)、非整族搜索。\n\n【构造·三层】s∈A 带 certified m*=(u0,u1,…)。U_term(s):={u: 把 m* 首步换成 u、后接尾巴 m*_tail 的拼接机动仍全程 certified 清障}。u=u0 时拼接=原认证轨迹⟹平凡∈U_term⟹U_term≠∅⟹QP 恒可行。\n- 层0(µs 快筛，来自④)：F(s,u) 过 4D reach-avoid V 表插值 / gap#1 补集——V<ε 或 gap1 fire 则秒拒(免跑证书积分)。只否决不放行，sound 中性。\n- 层1(内联 QP，凸可行域给 RL)：以 u0 为中心的信赖域盒 [u0±δ]。**【钉死点1·replace 非 augment】**：在 U_term 约束的 QP 路径里，信赖域盒必须【替换】掉现有 collision_free_constraint 的 disk 单步半平面(L560 d_safe=R_ego+R_obs≈562m 外接圆，比矩形证书保守得多)——否则 u0 满足矩形证书却可能违反 disk 半平面⟹u0 被交集排除⟹\"恒可行\"破(proposer 实测 κ=1 内联盒 3/5 不 sound 即此)。该路径的碰撞安全【不靠 disk 半平面、靠层2 证书】，disk 约束在此路径丢弃(至多留作 warm-start 软项)。盒是纯启发式凸域、与真 U_term 差距(κ上界)未算⟹盒本身不承载 soundness。\n- 层2(事后重认证，唯一 soundness 锚)：对 QP 选出的 u*，用 block1 SOUND 证书【只重认证那一条】拼接机动 u*⊕m*_tail(1 次证书、非整族)。**【钉死点2·证书须交付闭合率】**：证书当前只判 [0,H] 内 d>0(first_unsafe_t)，不校验 H 处闭合率<0/过顶(引理1 前提是外加经验)。须扩证书=判\"d>0 于[0,H−Δ] ∧ 尾段直行(ω=0 且 v 恒) ∧ H 处闭合率<0 带 margin(过 CPA)\"，把引理1 前提变成证书交付而非经验事实(修 Prop4 引理1 洞·L16-19)。过⟹F(s,u*)∈A 有见证⟹放行 u*；不过⟹缩盒重解或退回 u0(u0 拼接=原认证轨迹、恒 sound)。**退回目标是 certified U_term 成员 u0，绝非 Node 4**(修③致命洞)。归纳⟹A 前向不变、经验→可证明。\n\n【落进现有 QP·具体接线】\n- 插入点=_terminal_feasible(usv_projection.py L424)：现\"存在性级∃合规脱身机动\"(ρ2/3/4 跑 encounter_action_verification、ρ0/1/5→True 平凡)的 oracle，替换为【对具体 u_applied 重认证拼接机动 u_applied⊕m*_tail】的证书调用(复用 reclassify.py 的 integ+first_unsafe_t+扩闭合率检查)。返回 True=过证书、False=退兜底——但兜底出口改为【退 u0】而非现 _fallback()→Node 4。\n- m* 跨步存储：盾状态里存 per-(s,obstacle) 的 certified m*；第 k 步用的 m*_tail 在第 k+1 步成为新 backup(尾巴让递归成立)。须像 EmergencyController 一样在 episode 边界 reset(否则 stale backup=D13 级静默错误)。\n- funnel library 恢复 RL 自由度：备多条 backup(右转 backup/左转 backup/减速 backup)，各带自己信赖域盒；并盒(非凸)→按 COLREGs 合规方向选盒中心 u0，或逐盒跑 QP 取最优。备份首步选【合规方向】解 U_colregs∩U_term(head-on/crossing 取右转 bang-bang 作 m*、overtake 按 get_turning_act)。\n- 内联盒与 U_colregs 半空间轴对齐取交仍成立(盒替换的是 disk 半平面、不是 colregs 区间)。\n\n【三性同立】soundness=每个落地动作或(i)过 block1 SOUND 重认证的具体拼接机动⟹F∈A 有见证，或(ii)u0 其拼接=原认证轨迹⟹平凡∈A；无经验 κ、无族闭合假设、无\"盾从不 bail\"经验条件——真前向不变。可算=层0 µs+层1 O(1)凸盒+层2 1 次证书≈ms，无整族搜索。不杀策略=信赖域盒+funnel 并盒给 RL 连续凸自由域；只有在真·近∂A 态(A∩可行域本就薄)才塌到≈u0——诚实且严格优于①(处处塌)。\n\n【残余诚实兜底】\n- COLREGs∩A 空(~5% 残余+stand-on in-extremis)：备份首步优先取合规方向；若唯一 certified backup 非合规(合规方向清不掉)⟹该态落【诚实界定的残余冲突集】(A-ii 有界严重度/Rule17 in-extremis)，不 claim 可证明合规且无碰、按 source 计数报率。QP 同含 U_colregs+U_term 盒若空⟹退 relaxed(丢 COLREGs、保 u0 拼接的 certified 无碰)——碰撞安全仍可证、合规诚实放松。\n- A 外态(unavoidable/undecided)：无 certified m* 可播种⟹根本不进 U_term-QP 路径，落 emergency/collision_min(现状)，诚实标注在可证明集外，报真分布 A-成员率。\n- Prop4 稿须同步改：U_term 重定义为\"拼接机动 certified\"(非∃m∈M)、引理1 加直行尾+闭合率证书前提、推论限到 A∩U_colregs 作用域并显式 hedge、写明 replace-非-augment 的可行性条件、把 75/75 从\"机制坐实\"降为\"事实近似前向不变\"。",
+      "probe_spec": "【A3 真让路态探针·服务器纯 eval·不烧训练卡】仿 block3 探针体例：加载 rollout 落盘的态(jsonl，同 block3_synthetic_states.jsonl 格式)，CPU 跑证书+分类，无梯度无训练。目的=把现全在【合成分布】的门1(递归可行)/门2(方向弹性)/U_term 非空率搬到【盾真实访问的态分布】上复核，出真 go/no-go。\n\n【收态·从真 rollout】\n- 源：受盾 SAC(可用中途 checkpoint、无须收敛策略)跑 eval rollout，每决策步落盘 (s_ego,s_obs,ρ,give_way_dir,QP source,u_nom,u_applied,m* 是否存在)。\n- 筛：ρ2/3/4 让路态(head_on/crossing/overtake)为主体；ρ1 stand-on 单收(测 in-extremis 残余)；ρ5 单收(测 A 外率)。\n- 分层：按 (相对方位 bearing×相对航向 rel-course×距离 range×速度比)分箱 + 按他船尺寸 L_obs 分箱(【追越必须富采 L_obs 变化】，追越是 yaw 饱和+方向合规最吃紧处)。每层目标 N≥50(总 N≥600，覆盖三让路态各≥150)。\n- 与合成的差别正是要测的：75/75、85%弹性都是合成良性几何抽的，真分布有对抗格(ψ 凹陷、深侵入、边缘态)。\n\n【门1·递归可行(真分布)·测机制非测重分类】对每个 s∈A：走一受盾步得 s'，但【隔离证明机制】三查(现 75/75 只测全量重分类、不隔离机制=循环坐实，须修)：\n- (1a) 同一尾巴：验 m*_tail 能 certify s'(用存下来的那条尾巴、非 fresh 全族搜索)。\n- (1b) 收缩视界：证书跑 H−Δ 而非全 H。\n- (1c) 引理1 闭合：查 H 处闭合率<0+直行尾+过 CPA margin(扩后证书直接输出该布尔)。\n- 报【逐机制通过率】(1a/1b/1c 各一列)，非只报聚合 avoidable 率。\n\n【门2·方向弹性(真分布)】对让路态：查【合规方向】certified backup 是否存在(head_on/crossing:右转 bang-bang；overtake:按 get_turning_act)。报 A∩U_colregs 非空率，head_on/crossing/overtake【分开报】。\n\n【U_term 非空率】(a) A-成员率(certified m* 存在率，真让路态)；(b) 层1+层2 产出非空内联可行域率(信赖域盒重解后 u* 过重认证率)。\n\n【判据·预期 go/no-go 阈值】\n- 门1(机制隔离通过率)：soundness 逐步 by-construction airtight，故门1 失败=该态真·近∂A 连 u0 尾巴都重认证不过=A 非真不变的结构缺陷或机制 bug。GO≥99%(1a/1b/1c 全≥99%)；<99% 逐条查因(是 stale backup/reset 漏？还是 A 定义须收紧？)，no-go 直到修。\n- 门2(方向弹性)：合规 certified backup 存在率≥85-90%(对齐合成~85%)，head_on≥95%(合成 23/24)。低于⟹残余冲突集比 claim 大，非硬 no-go 但须【扩大残余集诚实刻画】、下调\"大概率合规无碰\"措辞。\n- U_term 非空(真让路态 A-成员率)≥95%；A 外态显式列出报率(unavoidable/undecided 落 emergency，诚实在可证明集外)。\n- 附核：真态上 RK4 vs odeint 一致性~1e-8(证书积分保真)；gap#1 在真态复现(clears⟹¬gap1 应 0 矛盾)。\n\n【产出】逐层表(分层×三让路态)+机制隔离通过率(1a/1b/1c)+残余冲突集成员清单(带几何:唯一清障方向 vs 合规方向)+每门 go/no-go 裁决。全 CPU 纯 eval、加载落盘态、无训练卡。",
+      "baseline_spec": "【B1 CBF-QP 外部基线·同 benchmark 同指标·纯 eval】\n\n【实现哪个】标准海事 CBF-QP 动作滤波器：h(x)=‖p_ego−p_obs‖²−d_safe²(相对度 2·加速度/转艏率控制⟹用 HOCBF/指数 CBF:ḧ+k1ḣ+k0h≥0，或对 double-integrator-like USV 的二阶 CBF)。滤波:min‖u−u_nom‖² s.t. HOCBF 约束 + u∈U_box，u_nom=同一 SAC 标称策略(两盾喂同一 u_nom 才公平)。加一档【COLREGs-CBF】变体:非对称/旋转 barrier 惩罚左舷(port)passing(近年海事 CBF 文献口径)。选一篇具体已发表公式引用(指数/高阶 CBF+COLREGs 半空间的 USV 版)，别自造。做 ablation:CBF-QP 含 vs 不含 COLREGs 项。\n\n【同 benchmark】同 CommonOcean/合成场景池、同动力学(Krasowski yaw-limited、Δ=10s 决策步、步末钳 v、先单 CV 他船后多障碍+追越)、同 u_nom 喂两盾、同 eval harness(服务器 CPU 纯 eval)。建在 trb_env 内、共用 dynamics/obstacle/statechart。\n\n【同指标】碰撞率(【裸船体】非 d_safe)、COLREGs 方向合规率、介入率、到达率、路径效率、最小距离分布。\n\n【测它是不是真 0 碰撞·别假设】CBF 前向不变只在【连续时间+精确模型+安全集真控制不变】下成立。本设定破三条:(a) 10s 零阶保持(ZOH)采样-数据执行⟹决策时刻满足 CBF≠步内(inter-sample)安全;(b) CBF-QP 同样有 P=∅(U_box 内无 u 满足 HOCBF)⟹须 fallback、fallback 期无保证;(c) yaw 饱和+v 钳的非线性⟹ḣ 线性外推失真。故【实测】大场景池(对齐项目~2000-80000 场景)裸船体碰撞，【含步内细积分复检】(决策步间 fine-integrate 查最小距离)。预期 CBF-QP 有非零碰撞(来自 ZOH 缺口/QP 不可行 fallback/562m 尺度保守 vs 真不变)。报碰撞率带 CI，【不 claim 0】。\n\n【大数据集+追越覆盖】跑全池;追越(overtake)是 yaw 饱和+方向合规最吃紧处，分层单报;多障碍→多 barrier CBF QP 更易不可行，报 QP 可行率(feasibility rate)分层。\n\n【差异化对照点】本文投影盾+Prop4 前向不变 vs CBF 线的三处对照:\n- (i) CBF 的 {h≥0} 是解析/手工 barrier、非 certified 可清障集 A;A 是族相对+block1 SOUND 证书的内近似(且②的重认证不依赖族闭合)。CBF 的 {h≥0} 既非 sound-inner 也非尾闭合。\n- (ii) CBF-QP 在 10s ZOH 下【无递归可行性证明】、压在经验步内安全上——正是 Phase4 要取代的\"经验一步前瞻\"。本文②每步有 certified backup 重认证。\n- (iii) 同场景实测对撞:本文盾(若真态探针站住)裸碰≈0+每步 certified backup vs CBF-QP 残余碰撞+不可行 fallback。这就是对 Krasowski(离散动作)与 CBF 线(无 RL/无 provable 递归可行层)的\"解真问题、真原创\"对照。\n\n【实现口径】trb_env 内与 usv_projection 并列，共享动力学/障碍/状态机，喂同一 u_nom，同 eval harness(CPU 纯 eval，加载同场景池，无训练)。含 COLREGs-CBF on/off 两档 ablation + 多障碍/追越分层。",
+      "open_risks": "【落地即致命·必须钉死】\n1. replace-非-augment(层1):内联信赖域盒必须【替换】现 collision_free_constraint 的 disk 单步半平面(L560 d_safe≈562m 外接圆)、非取交。含糊或取交⟹u0(过矩形证书但可能违 disk 半平面)被排除⟹\"恒可行\"静默破。须在 U_term-QP 路径显式丢弃 disk 半平面、碰撞安全全交层2 证书。\n2. verify-after 是唯一 soundness 锚:任何图省事砍掉层2 事后重认证(只留内联盒 κ=1)=静默放行(proposer 实测 3/5 不 sound)。盒纯启发式、与真 U_term 差距(κ上界)未算。绝不可省。\n3. 证书须扩交付闭合率:现 C 只判 [0,H] 内 d>0、不校验 H 处闭合率<0/过顶。引理1\"分离则永远分离\"前提须由证书交付(d>0于[0,H−Δ]∧直行尾∧H 处闭合率<0带margin)、非当经验事实。不扩⟹一个 [0,H] 全程 d>0 但 H 处仍逼近的机动骗过证书、H 后撞。\n\n【机制性风险】\n4. 有限视界→永久仍压引理1(会遇视界闭合)、A_H⊆A_∞ 未独立证:现 75/75 用的 partition 把 fut>Tc 当 avoidable=已假设闭合⟹不能反过来坐实闭合(循环)。扩闭合率证书+真态探针门1(1c)是解，但仍【单 CV·他船 CV】限定,机动他船破 CV 即失效。\n5. m* 跨步存储=stateful backup:须像 EmergencyController 在 episode 边界 reset,否则 stale backup 沿用=D13 头号静默错误类。\n6. 多障碍:A=各障碍可清集之交、不合成、更弱;funnel per-obstacle backup 可能互斥(躲 A 撞 B)。单 CV 之外须显式降 claim。\n\n【经验暴露风险(靠 A3 探针出真值)】\n7. 真分布 A-成员率/方向弹性可能低于合成(85%):残余冲突集或比 claim 大,须扩大诚实刻画、下调\"大概率合规无碰\"。真态含对抗几何(ψ 凹陷、深侵入)是合成没打进的。\n8. RL 自由度在真·近∂A 态塌到≈u0(诚实、优于①处处塌,但须在论文如实报\"边缘态退化为模板控制器\"、非隐藏)。\n\n【论文措辞红线】绝不写 provably collision-free 裸;写\"可清障集 A 上(单 CV 障碍)·受盾策略可证明前向不变无碰(每步 certified backup 重认证)+残余冲突集诚实刻画\";\"恒可行\"限定到 replace-非-augment+verify-after 都落实的实现,否则字面 overclaim。"
+    }
+  },
+  "workflowProgress": [
+    {
+      "type": "workflow_phase",
+      "index": 1,
+      "title": "设计U_term"
+    },
+    {
+      "type": "workflow_phase",
+      "index": 2,
+      "title": "评审证伪"
+    },
+    {
+      "type": "workflow_phase",
+      "index": 3,
+      "title": "Prop4复审"
+    },
+    {
+      "type": "workflow_phase",
+      "index": 4,
+      "title": "综合"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 1,
+      "label": "design:CBF-barrier",
+      "phaseIndex": 1,
+      "phaseTitle": "设计U_term",
+      "agentId": "a1c7016bd4906d5dd",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784820467857,
+      "queuedAt": 1784820464325,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "CBF-barrier over the CLEARANCE VALUE FUNCTION (not a hand-c…",
+      "promptPreview": "背景：TRB 2027 海事避碰 RL 项目·正在探\"Phase 4 可证明升级\"(把投影盾从经验一步前瞻升级成可证明前向不变)。\n已确立(复审+预研·本机numpy/scipy/shapely·无vesselmodels·常控yp动力学解析可积可重建)：\n- 动力学 ẋ=f(x,u), x=[px,py,θ,v], u=[a,ω], |a|≤0.24,|ω|≤0.03,v∈[0,9.5]; 决策步Δ=10s(步内连续·步末钳v); 单他船CV。\n- **可清障集 A={态s: ∃机动m用sound连续时间Lipschitz清障证书C(s,m)判全程d>0}**(证书已对抗复审SOLID)。\n- **递归可行性预研=100%**(75/75 avoidable态走一步后仍avoidable)·方向弹性85%左右都能清。\n- 投影盾现状=QP: 把RL动作u投影到 U_box∩U_colre…",
+      "lastProgressAt": 1784821428960,
+      "tokens": 106186,
+      "toolCalls": 23,
+      "durationMs": 961103,
+      "resultPreview": "{\"approach\":\"CBF-barrier over the CLEARANCE VALUE FUNCTION (not a hand-crafted barrier). h(x)=certified clearance margin of the best family maneuver; {h>=0}=A_M EXACTLY (it is not an approximation of A — it IS the family-relative clearable set, the same oracle block3 uses). DT-CBF h(F(s,u))>=(1-alpha)h(s) gives forward invariance of A. Central obstacle: h has no closed form (max-min over an integr…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 2,
+      "label": "design:backup-maneuver",
+      "phaseIndex": 1,
+      "phaseTitle": "设计U_term",
+      "agentId": "adee9ca510afac6f4",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784820467048,
+      "queuedAt": 1784820464326,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "backup-maneuver 终端约束=以\"当前 certified 备份清障机动 m* …",
+      "promptPreview": "背景：TRB 2027 海事避碰 RL 项目·正在探\"Phase 4 可证明升级\"(把投影盾从经验一步前瞻升级成可证明前向不变)。\n已确立(复审+预研·本机numpy/scipy/shapely·无vesselmodels·常控yp动力学解析可积可重建)：\n- 动力学 ẋ=f(x,u), x=[px,py,θ,v], u=[a,ω], |a|≤0.24,|ω|≤0.03,v∈[0,9.5]; 决策步Δ=10s(步内连续·步末钳v); 单他船CV。\n- **可清障集 A={态s: ∃机动m用sound连续时间Lipschitz清障证书C(s,m)判全程d>0}**(证书已对抗复审SOLID)。\n- **递归可行性预研=100%**(75/75 avoidable态走一步后仍avoidable)·方向弹性85%左右都能清。\n- 投影盾现状=QP: 把RL动作u投影到 U_box∩U_colre…",
+      "lastProgressAt": 1784822148789,
+      "tokens": 84928,
+      "toolCalls": 29,
+      "durationMs": 1681741,
+      "resultPreview": "{\"approach\":\"backup-maneuver 终端约束=以\\\"当前 certified 备份清障机动 m* 的首步 u0\\\"为中心的信赖域,叠 O(1) 事后再认证兜住 soundness。构造直接落在 Prop4 的尾巴论证上:s∈A 带 certified m*=(u0,u1,...),U_term(s):={u: 把首步换成 u、后接 m* 尾巴 m*_tail 的拼接机动仍全程 certified 清障}。u=u0 时拼接=原认证轨迹(尾巴不变)⟹ 平凡在集内 ⟹ U_term≠∅ ⟹ QP 恒可行。分两层:①QP内联=u0 的信赖域盒(便宜、给RL凸可行域);②事后=对QP选出的 u* 只重认证【那一条】拼接机动(1次证书,非整族搜索),失败则缩盒/退回u0。funnel library(多备份并盒)恢复RL自由度;备份首步选合规方向解COLREGs交集。本机在合成态…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 3,
+      "label": "design:gap1-complement+",
+      "phaseIndex": 1,
+      "phaseTitle": "设计U_term",
+      "agentId": "a919e5b2c63b797c8",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784821433464,
+      "queuedAt": 1784820464326,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "U_term「gap1-complement+」= 双层。真正承载 soundness 的是【…",
+      "promptPreview": "背景：TRB 2027 海事避碰 RL 项目·正在探\"Phase 4 可证明升级\"(把投影盾从经验一步前瞻升级成可证明前向不变)。\n已确立(复审+预研·本机numpy/scipy/shapely·无vesselmodels·常控yp动力学解析可积可重建)：\n- 动力学 ẋ=f(x,u), x=[px,py,θ,v], u=[a,ω], |a|≤0.24,|ω|≤0.03,v∈[0,9.5]; 决策步Δ=10s(步内连续·步末钳v); 单他船CV。\n- **可清障集 A={态s: ∃机动m用sound连续时间Lipschitz清障证书C(s,m)判全程d>0}**(证书已对抗复审SOLID)。\n- **递归可行性预研=100%**(75/75 avoidable态走一步后仍avoidable)·方向弹性85%左右都能清。\n- 投影盾现状=QP: 把RL动作u投影到 U_box∩U_colre…",
+      "lastProgressAt": 1784822074289,
+      "tokens": 96490,
+      "toolCalls": 18,
+      "durationMs": 640825,
+      "resultPreview": "{\"approach\":\"U_term「gap1-complement+」= 双层。真正承载 soundness 的是【固定模板充分清障检查】：只要后继 F(s,u) 有一个模板机动 m_fix 被 block1 SOUND 证书判全程清障，则 F(s,u)∈A（有见证），u∈U_term。gap#1 补集(¬迫近不可避)是【必要非充分】的便宜前置否决 + 诊断层——因 clears⟹¬gap1(两 SOUND 证书不可矛盾·实测 0 矛盾)，gap#1 项对\\\"收进来的 u 集合\\\"逻辑冗余，其价值=当它 fire 时秒拒(免跑 clears 积分)+ 区分\\\"后继不可避(去 A-ii/emergency)\\\"vs\\\"后继未决\\\"。故本方案 sound 内近似 = 固定模板 clears；gap#1 只做剪枝/标注。实测(合成 18 个 A 内态·grid|u|=15·H=80s)：小模…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 4,
+      "label": "design:reach-avoid值",
+      "phaseIndex": 1,
+      "phaseTitle": "设计U_term",
+      "agentId": "abec23809a261a2de",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784822078083,
+      "queuedAt": 1784820464326,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "离线预计算「采样数据(10s-hold)reach-avoid 值函数 V」于障碍…",
+      "promptPreview": "背景：TRB 2027 海事避碰 RL 项目·正在探\"Phase 4 可证明升级\"(把投影盾从经验一步前瞻升级成可证明前向不变)。\n已确立(复审+预研·本机numpy/scipy/shapely·无vesselmodels·常控yp动力学解析可积可重建)：\n- 动力学 ẋ=f(x,u), x=[px,py,θ,v], u=[a,ω], |a|≤0.24,|ω|≤0.03,v∈[0,9.5]; 决策步Δ=10s(步内连续·步末钳v); 单他船CV。\n- **可清障集 A={态s: ∃机动m用sound连续时间Lipschitz清障证书C(s,m)判全程d>0}**(证书已对抗复审SOLID)。\n- **递归可行性预研=100%**(75/75 avoidable态走一步后仍avoidable)·方向弹性85%左右都能清。\n- 投影盾现状=QP: 把RL动作u投影到 U_box∩U_colre…",
+      "lastProgressAt": 1784822734435,
+      "tokens": 115846,
+      "toolCalls": 26,
+      "durationMs": 656352,
+      "resultPreview": "{\"approach\":\"离线预计算「采样数据(10s-hold)reach-avoid 值函数 V」于障碍系相对态 z=[rx,ry,ψ,v](他船 CV → 从 8D 世界态降到 4D 状态 + 参数 ov,L_obs,W_obs)。A={z:V(z)≥ε},U_term(s)={u:V(F(s,u))≥ε}。把「∃清障机动」的在线成员判定(现跑机动族≈ms)换成一次 10s 前向积分 + 一次 4D 表插值(≈µs,~1000×)。关键选型:不用连续时间 HJ,而用【离散时间 10s-hold sampled-data DP】——它的决策步语义与投影盾逐位一致,顺带把连续 HJ 会留的 sampled-data 缺口焊死,且 DP 不动点=最大 10s-hold 控制不变子集 → 命题4 递归可行性变成推论(不再需要「机动尾巴」论证)。实证已过:降维不变性 40/40、成员 soun…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 5,
+      "label": "judge:CBF-barrier over the CLEARANCE VALUE FUNCTION (not a hand-crafted barrier). h(x)=certified clearance margin of the best family maneuver; {h>=0}=A_M EXACTLY (it is not an approximation of A — it IS the family-relative clearable set, the same oracle block3 uses). DT-CBF h(F(s,u))>=(1-alpha)h(s) gives forward invariance of A. Central obstacle: h has no closed form (max-min over an integrated bang-bang family) so h(F(s,u)) is not directly a function of u. Reduction via Prop4 tail: at step k we already hold the best maneuver m* (found when certifying s in A) and its tail m'; lower-bound h(F(s,u)) >= Phi(u)=min_t clearance of the FIXED tail m' launched from F(s,u), and enforce Phi(u)>=(1-alpha)h(s). QP-compatible via per-sampled-time separating-hyperplane linearization — exactly the existing collision_free_constraint trick, just repeated over tail times instead of one step. The 'margin-to-unavoidable' candidate (gap#1 distance) is REJECTED: {far from unavoidable} is a SUPERSET of A (contains the undecided region), so its superlevel set is NOT subset of A — wrong direction for soundness. Only the clearance value function is a sound inner indicator of A.",
+      "phaseIndex": 2,
+      "phaseTitle": "评审证伪",
+      "agentId": "aaa92f11800a83f64",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784822152614,
+      "queuedAt": 1784821430822,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "U_term = DT-CBF over the certified clearance value function…",
+      "promptPreview": "背景：TRB 2027 海事避碰 RL 项目·正在探\"Phase 4 可证明升级\"(把投影盾从经验一步前瞻升级成可证明前向不变)。\n已确立(复审+预研·本机numpy/scipy/shapely·无vesselmodels·常控yp动力学解析可积可重建)：\n- 动力学 ẋ=f(x,u), x=[px,py,θ,v], u=[a,ω], |a|≤0.24,|ω|≤0.03,v∈[0,9.5]; 决策步Δ=10s(步内连续·步末钳v); 单他船CV。\n- **可清障集 A={态s: ∃机动m用sound连续时间Lipschitz清障证书C(s,m)判全程d>0}**(证书已对抗复审SOLID)。\n- **递归可行性预研=100%**(75/75 avoidable态走一步后仍avoidable)·方向弹性85%左右都能清。\n- 投影盾现状=QP: 把RL动作u投影到 U_box∩U_colre…",
+      "lastProgressAt": 1784822262816,
+      "tokens": 46084,
+      "toolCalls": 4,
+      "durationMs": 110202,
+      "resultPreview": "{\"approach\":\"U_term = DT-CBF over the certified clearance value function h(x)=max_{m in M} min_t ilb(x,m,t). {h>=0}=A_M exactly. QP reduction: fix warm-started tail m' (Prop4 recursion), lower-bound h(F(s,u))>=Phi(u)=min-clearance of m' launched from F(s,u), linearize p_e^tail(u) via 2-pt FD Jacobians into per-tail-time separating-hyperplane rows g_j.u<=h_j, add L-inf box trust region + kappa curv…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 6,
+      "label": "judge:U_term「gap1-complement+」= 双层。真正承载 soundness 的是【固定模板充分清障检查】：只要后继 F(s,u) 有一个模板机动 m_fix 被 block1 SOUND 证书判全程清障，则 F(s,u)∈A（有见证），u∈U_term。gap#1 补集(¬迫近不可避)是【必要非充分】的便宜前置否决 + 诊断层——因 clears⟹¬gap1(两 SOUND 证书不可矛盾·实测 0 矛盾)，gap#1 项对\"收进来的 u 集合\"逻辑冗余，其价值=当它 fire 时秒拒(免跑 clears 积分)+ 区分\"后继不可避(去 A-ii/emergency)\"vs\"后继未决\"。故本方案 sound 内近似 = 固定模板 clears；gap#1 只做剪枝/标注。实测(合成 18 个 A 内态·grid|u|=15·H=80s)：小模板集(7 个·⊆定义 A 的族) soundness 违反 0、RL 保留 81.1%、递归可行断裂 1/18；富模板配匹配真值族 保留升 88.7%、断裂仍 1/18。",
+      "phaseIndex": 2,
+      "phaseTitle": "评审证伪",
+      "agentId": "a4550d9af219808d2",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784822266152,
+      "queuedAt": 1784822076281,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "U_term「gap1-complement+」双层：soundness 承载=固定合规模板…",
+      "promptPreview": "背景：TRB 2027 海事避碰 RL 项目·正在探\"Phase 4 可证明升级\"(把投影盾从经验一步前瞻升级成可证明前向不变)。\n已确立(复审+预研·本机numpy/scipy/shapely·无vesselmodels·常控yp动力学解析可积可重建)：\n- 动力学 ẋ=f(x,u), x=[px,py,θ,v], u=[a,ω], |a|≤0.24,|ω|≤0.03,v∈[0,9.5]; 决策步Δ=10s(步内连续·步末钳v); 单他船CV。\n- **可清障集 A={态s: ∃机动m用sound连续时间Lipschitz清障证书C(s,m)判全程d>0}**(证书已对抗复审SOLID)。\n- **递归可行性预研=100%**(75/75 avoidable态走一步后仍avoidable)·方向弹性85%左右都能清。\n- 投影盾现状=QP: 把RL动作u投影到 U_box∩U_colre…",
+      "lastProgressAt": 1784822483445,
+      "tokens": 73634,
+      "toolCalls": 8,
+      "durationMs": 217292,
+      "resultPreview": "{\"approach\":\"U_term「gap1-complement+」双层：soundness 承载=固定合规模板 T_fix 的 block1 SOUND 清障证书（∃m_fix∈T_fix: C(F(s,u),m_fix)=1 ⟹ 后继∈A ⟹ u∈U_term_cheap 是 U_term 的 sound 内近似）；gap#1 补集作便宜前置否决+诊断（对收进集合逻辑冗余）。落地=(A) 后验 oracle+veto（推荐·SOUND drop-in）或 (B) clears 链式线性化半平面塞 QP（近似 land-inside·须 oracle 复核）。\",\"score_soundness\":4,\"score_tractability\":4,\"score_rl_freedom\":3,\"score_colregs\":4,\"score_cost\":4,\"fatal_flaw\":\"…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 7,
+      "label": "judge:backup-maneuver 终端约束=以\"当前 certified 备份清障机动 m* 的首步 u0\"为中心的信赖域,叠 O(1) 事后再认证兜住 soundness。构造直接落在 Prop4 的尾巴论证上:s∈A 带 certified m*=(u0,u1,...),U_term(s):={u: 把首步换成 u、后接 m* 尾巴 m*_tail 的拼接机动仍全程 certified 清障}。u=u0 时拼接=原认证轨迹(尾巴不变)⟹ 平凡在集内 ⟹ U_term≠∅ ⟹ QP 恒可行。分两层:①QP内联=u0 的信赖域盒(便宜、给RL凸可行域);②事后=对QP选出的 u* 只重认证【那一条】拼接机动(1次证书,非整族搜索),失败则缩盒/退回u0。funnel library(多备份并盒)恢复RL自由度;备份首步选合规方向解COLREGs交集。本机在合成态上跑了两个脚本证形状/自由度/soundness边界。",
+      "phaseIndex": 2,
+      "phaseTitle": "评审证伪",
+      "agentId": "acad0647060e658a0",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784822488732,
+      "queuedAt": 1784822150692,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "backup-maneuver 终端约束 U_term=以 certified 备份首步 u0 为…",
+      "promptPreview": "背景：TRB 2027 海事避碰 RL 项目·正在探\"Phase 4 可证明升级\"(把投影盾从经验一步前瞻升级成可证明前向不变)。\n已确立(复审+预研·本机numpy/scipy/shapely·无vesselmodels·常控yp动力学解析可积可重建)：\n- 动力学 ẋ=f(x,u), x=[px,py,θ,v], u=[a,ω], |a|≤0.24,|ω|≤0.03,v∈[0,9.5]; 决策步Δ=10s(步内连续·步末钳v); 单他船CV。\n- **可清障集 A={态s: ∃机动m用sound连续时间Lipschitz清障证书C(s,m)判全程d>0}**(证书已对抗复审SOLID)。\n- **递归可行性预研=100%**(75/75 avoidable态走一步后仍avoidable)·方向弹性85%左右都能清。\n- 投影盾现状=QP: 把RL动作u投影到 U_box∩U_colre…",
+      "lastProgressAt": 1784822732685,
+      "tokens": 52599,
+      "toolCalls": 5,
+      "durationMs": 243953,
+      "resultPreview": "{\"approach\":\"backup-maneuver 终端约束 U_term=以 certified 备份首步 u0 为中心的信赖域盒(内联凸)+ O(1) 事后重认证拼接机动兜 soundness + funnel 多备份并盒恢复 RL 自由度\",\"score_soundness\":4,\"score_tractability\":5,\"score_rl_freedom\":2,\"score_colregs\":4,\"score_cost\":5,\"fatal_flaw\":\"none（无 soundness 致命洞）。构造是 Prop4 尾巴论证的正确实例：u0 平凡在集内⟹U_term≠∅⟹QP恒可行；每步落点由【block1 sound 证书重认证拼接 u*⊕m*_tail】把关，过则 F(s,u*)∈A、否则退 u0（u0 恒 sound），归纳前向不变——逻辑闭合，验证脚本口径(RK4…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 8,
+      "label": "judge:离线预计算「采样数据(10s-hold)reach-avoid 值函数 V」于障碍系相对态 z=[rx,ry,ψ,v](他船 CV → 从 8D 世界态降到 4D 状态 + 参数 ov,L_obs,W_obs)。A={z:V(z)≥ε},U_term(s)={u:V(F(s,u))≥ε}。把「∃清障机动」的在线成员判定(现跑机动族≈ms)换成一次 10s 前向积分 + 一次 4D 表插值(≈µs,~1000×)。关键选型:不用连续时间 HJ,而用【离散时间 10s-hold sampled-data DP】——它的决策步语义与投影盾逐位一致,顺带把连续 HJ 会留的 sampled-data 缺口焊死,且 DP 不动点=最大 10s-hold 控制不变子集 → 命题4 递归可行性变成推论(不再需要「机动尾巴」论证)。实证已过:降维不变性 40/40、成员 sound 假接受 0/120、U_term 假接受 1/625(=ε 必须>0 的证据)。",
+      "phaseIndex": 2,
+      "phaseTitle": "评审证伪",
+      "agentId": "a5d26a4680602cd6b",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784822744765,
+      "queuedAt": 1784822736384,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "离线预计算 sampled-data(10s-hold) reach-avoid 值函数 V 于障…",
+      "promptPreview": "背景：TRB 2027 海事避碰 RL 项目·正在探\"Phase 4 可证明升级\"(把投影盾从经验一步前瞻升级成可证明前向不变)。\n已确立(复审+预研·本机numpy/scipy/shapely·无vesselmodels·常控yp动力学解析可积可重建)：\n- 动力学 ẋ=f(x,u), x=[px,py,θ,v], u=[a,ω], |a|≤0.24,|ω|≤0.03,v∈[0,9.5]; 决策步Δ=10s(步内连续·步末钳v); 单他船CV。\n- **可清障集 A={态s: ∃机动m用sound连续时间Lipschitz清障证书C(s,m)判全程d>0}**(证书已对抗复审SOLID)。\n- **递归可行性预研=100%**(75/75 avoidable态走一步后仍avoidable)·方向弹性85%左右都能清。\n- 投影盾现状=QP: 把RL动作u投影到 U_box∩U_colre…",
+      "lastProgressAt": 1784823321760,
+      "tokens": 90114,
+      "toolCalls": 25,
+      "durationMs": 576995,
+      "resultPreview": "{\"approach\":\"离线预计算 sampled-data(10s-hold) reach-avoid 值函数 V 于障碍系 4D 相对态 z=[rx,ry,ψ,v]（他船 CV 降维），A_inner={V≥ε}，U_term(s)={u:min(步内净空,V(F(s,u)))≥ε}；在线把\\\"∃清障机动\\\"成员判定从跑机动族(ms)换成一次10s前向积分+一次4D插值(µs)。QP兼容走 A(解后 V-gate 替换 _terminal_feasible)+C(11×11采样投影)，避开非凸QP。COLREGs 用 V_all/V_give 两表求交，残余显式升级 Rule 17。\",\"score_soundness\":2,\"score_tractability\":4,\"score_rl_freedom\":3,\"score_colregs\":4,\"score_cost\":4,\"fa…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 9,
+      "label": "prop4-review:1",
+      "phaseIndex": 3,
+      "phaseTitle": "Prop4复审",
+      "agentId": "a8f370260f6a85b40",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784823328891,
+      "queuedAt": 1784823324482,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "命题4的核心洞察(可清障集≈前向不变、同一机动尾巴certified)在…",
+      "promptPreview": "背景：TRB 2027 海事避碰 RL 项目·正在探\"Phase 4 可证明升级\"(把投影盾从经验一步前瞻升级成可证明前向不变)。\n已确立(复审+预研·本机numpy/scipy/shapely·无vesselmodels·常控yp动力学解析可积可重建)：\n- 动力学 ẋ=f(x,u), x=[px,py,θ,v], u=[a,ω], |a|≤0.24,|ω|≤0.03,v∈[0,9.5]; 决策步Δ=10s(步内连续·步末钳v); 单他船CV。\n- **可清障集 A={态s: ∃机动m用sound连续时间Lipschitz清障证书C(s,m)判全程d>0}**(证书已对抗复审SOLID)。\n- **递归可行性预研=100%**(75/75 avoidable态走一步后仍avoidable)·方向弹性85%左右都能清。\n- 投影盾现状=QP: 把RL动作u投影到 U_box∩U_colre…",
+      "lastProgressAt": 1784823631306,
+      "tokens": 81481,
+      "toolCalls": 8,
+      "durationMs": 302415,
+      "resultPreview": "{\"verdicts\":[{\"location\":\"引理1 (L16-19)\",\"issue\":\"引理陈述对【任意 certified 机动 m】断言\\\"d>0直到H ⟹ d>0对所有t>H\\\"，但该结论只对【直行尾巴】(ω=0且v恒定)成立。机动族含8个纯bang-bang成员(ω≠0恒转)——恒转ego开环画圈会绕回撞\\\"已开走的CV他船\\\"，某时刻闭合率<0不蕴含此后永远分离。证明草注承认\\\"'转到清就回正'成员末段直行\\\"，但引理主体没带这个前提。\",\"verdict\":\"OVERCLAIM\",\"evidence\":\"本机跑reclassify: 纯转向成员(a=0,ω=±0.03)在3个合成态上【清[0,40]s但first_unsafe_t=43/53.5/57s(∈(40,120])】——清短视界后又撞，直接反驳'清H⟹永久清'对转向尾巴。且block3/reclassify…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 10,
+      "label": "prop4-review:2",
+      "phaseIndex": 3,
+      "phaseTitle": "Prop4复审",
+      "agentId": "a2441fc09eec1d9d4",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784823327812,
+      "queuedAt": 1784823324482,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "Prop4 的证明结构（终端约束→用 u0∈U_term 提供可行性→归纳保持…",
+      "promptPreview": "背景：TRB 2027 海事避碰 RL 项目·正在探\"Phase 4 可证明升级\"(把投影盾从经验一步前瞻升级成可证明前向不变)。\n已确立(复审+预研·本机numpy/scipy/shapely·无vesselmodels·常控yp动力学解析可积可重建)：\n- 动力学 ẋ=f(x,u), x=[px,py,θ,v], u=[a,ω], |a|≤0.24,|ω|≤0.03,v∈[0,9.5]; 决策步Δ=10s(步内连续·步末钳v); 单他船CV。\n- **可清障集 A={态s: ∃机动m用sound连续时间Lipschitz清障证书C(s,m)判全程d>0}**(证书已对抗复审SOLID)。\n- **递归可行性预研=100%**(75/75 avoidable态走一步后仍avoidable)·方向弹性85%左右都能清。\n- 投影盾现状=QP: 把RL动作u投影到 U_box∩U_colre…",
+      "lastProgressAt": 1784823726469,
+      "tokens": 87248,
+      "toolCalls": 8,
+      "durationMs": 398657,
+      "resultPreview": "{\"overall\":\"Prop4 的证明结构（终端约束→用 u0∈U_term 提供可行性→归纳保持在 A 内）方向是对的，但作为\\\"可证明\\\"命题有多个 load-bearing 逻辑洞，几乎全部围绕\\\"清障证书 C（只保证 [0,H] 内 d>0）\\\"与\\\"命题/引理实际需要的更强性质（永久分离、机动族闭合、可算终端约束）\\\"之间的落差。最要命的一条：机动族 M 对\\\"走一步取尾巴\\\"不闭合（尾巴 turn-t1 掉出 {20,40,60} 网格、纯滑行(0,0) 被排除），而 A_H 恰以\\\"∃m∈M\\\"定义 —— 于是证明用来见证 U_term≠∅ 的尾巴 m' 根本不是 A_H 的合法成员，直接动摇推论\\\"QP 恒可行\\\"的地基。引理1对\\\"转到底不回正\\\"的成员不成立（转弯尾巴非CV、相对运动非仿射、距离非凸→\\\"分离则永远分离\\\"失据）。C 不校验 H 处闭合率（是否真过顶…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 11,
+      "label": "synthesize",
+      "phaseIndex": 4,
+      "phaseTitle": "综合",
+      "agentId": "a7e1c25f5e3a0c622",
+      "model": "claude-opus-4-8",
+      "state": "done",
+      "startedAt": 1784823731457,
+      "queuedAt": 1784823728489,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "【选型】主推 方案②(backup-maneuver 信赖域 + O(1) 事后重认证…",
+      "promptPreview": "背景：TRB 2027 海事避碰 RL 项目·正在探\"Phase 4 可证明升级\"(把投影盾从经验一步前瞻升级成可证明前向不变)。\n已确立(复审+预研·本机numpy/scipy/shapely·无vesselmodels·常控yp动力学解析可积可重建)：\n- 动力学 ẋ=f(x,u), x=[px,py,θ,v], u=[a,ω], |a|≤0.24,|ω|≤0.03,v∈[0,9.5]; 决策步Δ=10s(步内连续·步末钳v); 单他船CV。\n- **可清障集 A={态s: ∃机动m用sound连续时间Lipschitz清障证书C(s,m)判全程d>0}**(证书已对抗复审SOLID)。\n- **递归可行性预研=100%**(75/75 avoidable态走一步后仍avoidable)·方向弹性85%左右都能清。\n- 投影盾现状=QP: 把RL动作u投影到 U_box∩U_colre…",
+      "lastProgressAt": 1784824017901,
+      "tokens": 65684,
+      "toolCalls": 6,
+      "durationMs": 286444,
+      "resultPreview": "{\"recommend_uterm\":\"【选型】主推 方案②(backup-maneuver 信赖域 + O(1) 事后重认证)，作为唯一 sound 落地骨架；方案③的\\\"固定模板 clears\\\"作为【事后重认证的证书本体】被吸收进②(二者共用 block1 SOUND 证书，只是②认证的对象是【拼接机动 u*⊕m*_tail】而非固定模板)；方案④(离线 reach-avoid V 表)降级为【在线加速缓存/前置否决】(µs 级插值先秒筛，不承载 soundness)；方案①(clearance-value CBF)整体弃(其可算形 soundness 只锚经验 κ，正是 Phase4 要消灭的东西)。\\n\\n【为什么是②】四方案里只有②的 soundness 无致命洞(评审 sound4/tract5/cost5)，且它是 Prop4 尾巴论证的【正确实例化】而非重写：\\n- ①弃…"
+    }
+  ],
+  "totalTokens": 900294,
+  "totalToolCalls": 160
+}
