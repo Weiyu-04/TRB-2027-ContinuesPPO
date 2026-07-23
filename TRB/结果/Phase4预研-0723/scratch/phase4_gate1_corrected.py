@@ -29,8 +29,8 @@ def cert_v2(ego, obs, olen, owid, segs, H=120.0, h=0.5):
     ts, traj, oseg = R.integ(ego, segs, H, h=h)
     fut = R.first_unsafe_t(ts, traj, obs, olen, owid, h, oseg)   # Lipschitz 下界首次不安全
     clears_H = (fut is None) or (fut > H)
-    # 尾段直行？segs 最后一段 ω=0
-    straight_tail = abs(segs[-1][1]) < 1e-9
+    # 🔴F1修：尾段【恒速】直行 ω=0 且 a=0（凸性前提·加速尾非凸假sound）
+    straight_tail = abs(segs[-1][1]) < 1e-9 and abs(segs[-1][0]) < 1e-9
     # 过CPA？直行尾上 g 在 H 处增（用采样距离末两点·直行尾 g 凸→增at H⟹永久增）
     ds = _dist_profile(ts, traj, obs, olen, owid)
     # 只在直行尾区间判增：找尾段起始 t
@@ -108,20 +108,26 @@ def main():
         ts, traj, oseg = R.integ(ego, segs, DT10, h=0.5)
         ego2 = list(traj[-1]); obs2 = [obs[0]+obs[3]*math.cos(obs[2])*DT10, obs[1]+obs[3]*math.sin(obs[2])*DT10, obs[2], obs[3]]
         tail = tail_after(segs, DT10)
-        # (1a) 同一尾巴 certify s' (全视界 H)
+        # (1a) 同一尾巴 certify s' 永久清 (全视界 H)
         c1a = cert_v2(ego2, obs2, olen, owid, tail, H=120.0)
-        # (1b) 收缩视界 H-Δ=110
+        # 🔴F2修·门1三查正交化(防伪三角互证):
+        # (1b) 收缩视界 H-Δ=110 用【certified_perm】(非clears·缩视界past_cpa窗变短·不被1a蕴含)
         c1b = cert_v2(ego2, obs2, olen, owid, tail, H=110.0)
-        # (1c) 引理1闭合(v2 已交付 past_cpa+straight_tail)
+        # (1c) 独立闭合率: 后继尾末态中心 ṙ>0(分离)·从速度直算·不复用 c1a.past_cpa
+        tsT, trajT, _ = R.integ(ego2, tail, 120.0, h=0.5); egoT = trajT[-1]; tH = tsT[-1]
+        obsT = [obs2[0]+obs2[3]*math.cos(obs2[2])*tH, obs2[1]+obs2[3]*math.sin(obs2[2])*tH, obs2[2], obs2[3]]
+        prel = np.array([egoT[0]-obsT[0], egoT[1]-obsT[1]]); nn = np.hypot(prel[0], prel[1])
+        vrel = egoT[3]*np.array([math.cos(egoT[2]), math.sin(egoT[2])]) - obsT[3]*np.array([math.cos(obsT[2]), math.sin(obsT[2])])
+        rdot = float(prel @ vrel / nn) if nn > 1e-9 else 0.0
         if c1a['certified_perm']: g1a += 1
-        if c1b['clears_H']: g1b += 1
-        if c1a['straight_tail'] and c1a['past_cpa']: g1c += 1
+        if c1b['certified_perm']: g1b += 1
+        if rdot > 0.0: g1c += 1
     print(f"\n  可清障(∃certified直行尾脱离m*) A-成员 = {nA}/{len(clean)} ({100*nA/max(1,len(clean)):.1f}%) · 无backup={no_backup}")
     if nA:
         print(f"  门1 逐机制(非循环·s∈A→后继s'):")
         print(f"    (1a) 同一尾巴 v2-certify s' 永久清 : {g1a}/{nA} ({100*g1a/nA:.1f}%)")
-        print(f"    (1b) 收缩视界 H-Δ clears           : {g1b}/{nA} ({100*g1b/nA:.1f}%)")
-        print(f"    (1c) 引理1闭合(直行尾+过CPA)交付   : {g1c}/{nA} ({100*g1c/nA:.1f}%)")
+        print(f"    (1b) 收缩视界 certified_perm      : {g1b}/{nA} ({100*g1b/nA:.1f}%)")
+        print(f"    (1c) 独立闭合率 rdot>0(速度直算)  : {g1c}/{nA} ({100*g1c/nA:.1f}%)")
         print(f"  判读：三机制≥99% → 修正版命题4机制(非循环)在合成态坐实·A真前向不变；<99%查因。")
         print(f"        (注:这次是【隔离机制】测·非全量重分类·修了75/75的循环)")
 
