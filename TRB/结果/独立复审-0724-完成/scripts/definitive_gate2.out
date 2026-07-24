@@ -1,0 +1,12 @@
+definitive gate2 over ALL give-way n=860
+  ...100/860 (95s)
+  ...200/860 (191s)
+  ...500/860 (476s)
+
+  situation   n    gate2-base%    gate2-fine%(strict-compliant)
+  head-on     63    95.2   ->   100.0
+  crossing   767    54.2   ->    97.1
+  overtake    30   100.0   ->   100.0
+
+[timing] 787s
+INTERPRETATION: if fine% >> base% for all situations, the 'residual' is a family artifact across the board.
