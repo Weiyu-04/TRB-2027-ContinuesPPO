@@ -41,10 +41,13 @@
 
 ## 3 · 实施状态 + 盾适配器 ready-to-apply spec（本机可做的已做·盾核心待服务器冒烟）
 ### 已完成(本机·已提交 main)
-- **✅ soundness 核心 `代码/trb_env/uterm_terminal.py`**(纯·不依赖 vesselmodels)：cert_v2 + straight_tail_family(加密89) + state_in_A/successor_in_A(O(1) backup 复用)。**本机单测 6 项全过**(`代码/tests/test_uterm_terminal.py`)：引理1/state_in_A/hint==全搜/合规过滤/**SOUND fuzz 0 假放行**/**first_unsafe_t==block3.clearance_profile(L198 SOUND)逐点相等**。
-- **✅ A∩U_colregs 前向不变理论+数值闭合**(§2)。
+- **✅ soundness 核心 `代码/trb_env/uterm_terminal.py`**(纯·不依赖 vesselmodels)：cert_v2 + straight_tail_family(**10s对齐可执行族·57条**) + state_in_A/successor_in_A(O(1) backup 复用)。**本机单测 6 项全过**(`代码/tests/test_uterm_terminal.py`)：引理1/state_in_A/hint==全搜/合规过滤/**SOUND fuzz 0 假放行**/**first_unsafe_t==block3.clearance_profile(L198 SOUND)逐点相等**。
+- **✅ A∩U_colregs 前向不变理论+数值闭合**(§2·可执行族重验 CASE2=0/241·100%)。
+- **✅ 盾适配器【已写进 usv_projection.py + env】**(默认 off·bit-identical by construction·三文件 py_compile 通过·已提交)：terminal_mode 开关 + obs_width plumb(真宽) + `_terminal_feasible_certv2`/`_terminal_ok`/`_integrate_maneuver_official`/`_seg_at_maneuver`。
+- **✅ 2 对抗 agent 审**(soundness+bit-identical / 集成correctness)：**bit-identical 两审确认 CLEAN**。抓修:🔴Finding A(可执行性=机动族 10s 对齐·上文)+Finding C(H=420→120)+Finding D(vessel_params 守卫防假放行)+terminal_dt_sim 整除硬 raise。Finding B(ρ0/1/5 return True=honest scope)已落论文措辞(scope 0)。
+- **🔴 剩 = 服务器闭环冒烟 + eval**(本机无 vesselmodels 跑不了·待 user 拍纯 eval)：见下。
 
-### 🔴 盾适配器(usv_projection.py)= 服务器活(本机无 vesselmodels·不可冒烟·不盲改核心)
+### 🔴 盾适配器 = 服务器闭环冒烟/eval 待做(已写进代码·本机无 vesselmodels 不可跑闭环·不盲信未冒烟的 infra)
 拟加(全在 `recursive_feasibility=True ∧ terminal_mode='certv2'` 门后·默认 off=bit-identical by construction)：
 ```python
 # __init__ 加: terminal_mode: str = "discrete"（validate ∈ {'discrete','certv2'}）; self.terminal_mode=...

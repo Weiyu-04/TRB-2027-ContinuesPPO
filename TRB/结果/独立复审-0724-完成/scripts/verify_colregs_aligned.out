@@ -1,0 +1,7 @@
+pool=243 · ALIGNED compliant family
+
+=== A∩U_colregs (ALIGNED·states w/ compliant backup: 241) ===
+ CASE1 (t1>10s): 241  · tail-certifies 241/241 · tail-compliant 241/241
+ CASE2 (t1==10s, completes in one step): 0
+ s' re-admits a fresh compliant certified escape: 241/241 = 100.0%
+ => invariance holds if (CASE1 tail-ok/compliant ~100%) AND (re-admit ~100% covers CASE2). DONE

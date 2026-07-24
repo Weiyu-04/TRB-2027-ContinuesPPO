@@ -1,0 +1,8 @@
+pool=243 (head-on63+overtake30+crossing150) · fine|43| aligned|27|
+
+  situation   n   gate2-fine%   gate2-ALIGNED%(admissible)
+  head-on     63   100.0   ->   100.0
+  crossing   150    98.0   ->    98.0
+  overtake    30   100.0   ->   100.0
+
+VERDICT: if aligned% stays ~97-100%, the corrected headline survives admissibility (family artifact fix holds on executable escapes).

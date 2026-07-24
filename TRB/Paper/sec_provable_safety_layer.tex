@@ -241,12 +241,19 @@ the differentiator against reactive CBF-QP filters (which, under a $\Delta=10$\,
 zero-order hold, carry no recursive-feasibility proof).
 
 \paragraph{Clearable set.} Fix a single constant-velocity (CV) target. Call a finite
-control sequence $m$ a \emph{certified straight-tail escape} for state $s$ if its
-tail segment is \emph{constant velocity and straight} ($\omega=0\wedge a=0$) and the
-sound Lipschitz clearance certificate (the same interval lower bound used for
-Prop.~\ref{prop:farfield}, Section~\ref{sec:provable-farfield}) shows hull
-distance $d>0$ on $[0,H]$ with a past-closest-point-of-approach (CPA) margin. Define
-the \emph{clearable set} $A:=\{s:\exists\,\text{certified straight-tail escape}\}$.
+control sequence $m$ a \emph{certified straight-tail escape} for state $s$ if (i) it is
+\emph{executable} by the decision-step controller---each segment boundary lands on a
+decision-step ($\Delta=10$\,s) boundary, so $m$ is a sequence of constant per-step
+controls; (ii) its tail segment is \emph{constant velocity and straight}
+($\omega=0\wedge a=0$); and (iii) the sound Lipschitz clearance certificate (the same
+interval lower bound used for Prop.~\ref{prop:farfield},
+Section~\ref{sec:provable-farfield}) shows hull distance $d>0$ on $[0,H]$ with a
+past-closest-point-of-approach (CPA) margin. Define the \emph{clearable set}
+$A:=\{s:\exists\,\text{certified straight-tail escape}\}$. Executability (i) is
+essential: a witness that switches control mid-step is not a real fallback, so the
+maneuver family uses turn durations that are integer multiples of $\Delta$;
+empirically this costs nothing (the clearing turns large hulls need already exceed one
+step).
 
 \begin{lemma}[Constant-velocity tail $\Rightarrow$ permanent clearance]
 \label{lem:convex-tail}
@@ -302,10 +309,17 @@ compliant backup's turn extends beyond one decision step, a condition met on $10
 of the observed give-way distribution.
 
 \begin{scope}
-[HONESTY] (i) Single CV target (multi-target is weaker, $A=\bigcap_i A_i$, and per-%
-target funnels may conflict). (ii) Membership in $A$ is decided by a finite
-constant-control maneuver family plus the sound-but-conservative certificate, so $A$
-is an \emph{inner} approximation of the true clearable set; the residual is exactly
+[HONESTY] (0) The terminal constraint certifies $A$-membership only at
+\emph{give-way} successors ($\rho'\in\{$head-on, crossing, overtake$\}$); a
+successor that de-escalates to no-conflict is trivially safe, while stand-on and
+emergency successors fall to the existing per-step guarantees
+(Props.~\ref{prop:farfield}--\ref{prop:compliance}) and the empirical emergency
+fallback respectively. The forward-invariance guarantee is thus over the give-way
+portion of the trajectory on $A$; we do not claim cert-level coverage of the
+stand-on/emergency regimes. (i) Single CV target (multi-target is weaker,
+$A=\bigcap_i A_i$, and per-target funnels may conflict). (ii) Membership in $A$ is
+decided by a finite constant-control maneuver family plus the sound-but-conservative
+certificate, so $A$ is an \emph{inner} approximation of the true clearable set; the residual is exactly
 the $A$-membership boundary---states not clearable in \emph{any} direction---which
 falls to the emergency/relaxed fallback, and is \textbf{not} a
 compliance-versus-safety conflict. On the real give-way distribution this residual is
