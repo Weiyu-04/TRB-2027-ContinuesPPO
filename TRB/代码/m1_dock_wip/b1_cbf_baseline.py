@@ -58,8 +58,12 @@ def qp_project(u_nom, g, b, box):
     if tmin > tmax + 1e-9:
         return un, False   # box∩halfplane 空 = QP 不可行
     tstar = float(np.clip((np.asarray(u_nom, float) - u0) @ d, tmin, tmax))
-    u = u0 + tstar * d
-    return np.clip(u, [a_lo, w_lo], [a_hi, w_hi]), True
+    u = np.clip(u0 + tstar * d, [a_lo, w_lo], [a_hi, w_hi])
+    # 🔴 L200-F 修·退化轴守卫：g 有零分量(正对遇 W_coef=0·d 沿单轴)时·被约束轴 u0[i] 可能出界·
+    #   末尾 clip 会把点推离约束面 g·u=b → 须复核 g·u≤b·不满足=box 内该约束不可行·如实报 False
+    #   (旧 bug：g=[-1,0],b=-0.5 → 返回 [0.24,0],feas=True 但 g·u=-0.24>b=-0.5 违反)。
+    feas = bool(float(g @ u) <= b + 1e-6)
+    return u, feas
 
 
 def hocbf_constraint(ego, obs, d_safe, a1, a2):
