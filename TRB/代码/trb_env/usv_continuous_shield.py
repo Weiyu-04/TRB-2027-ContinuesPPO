@@ -141,6 +141,9 @@ class ContinuousProjectionEnv(gym.Env):
         assert_single_obstacle(self._obstacles, type(self).__name__)   # D40#4/L49#2：多他船 fail-fast（盾只护 obstacles[0]）
         self._obs_length = (float(self._obstacles[0].obstacle_shape.length)
                             if self._obstacles else self._ego_length)   # 真实他船长（同 ShieldedUSVEnv 决定 4）
+        self._obs_width = (float(self._obstacles[0].obstacle_shape.width)    # 真实他船宽（cert_v2 终端约束用·任务A 2026-07-25）
+                           if self._obstacles and hasattr(self._obstacles[0].obstacle_shape, "width")
+                           else None)   # None → 盾内 _terminal_feasible_certv2 保守用 w=length（sound·悲观）
         self._rho = RHO_NO_CONFLICT
         self._source: str | None = None
 
@@ -210,7 +213,7 @@ class ContinuousProjectionEnv(gym.Env):
             self._source = "goal_cone" if u_cone is not None else "no_obstacle"
             give_way_dir = emergency_mode = None
         else:                                                # ③ 每决策步只调一次 safe_action（含 ② box-match assert + 推状态机一步）
-            res = self.proj.safe_action(self._ego_vs(), s_obs, u_desired, self.env.dt, self.env.p)
+            res = self.proj.safe_action(self._ego_vs(), s_obs, u_desired, self.env.dt, self.env.p, obs_width=self._obs_width)
             u_safe = res.u_safe
             self._rho = res.rho
             self._source = res.source

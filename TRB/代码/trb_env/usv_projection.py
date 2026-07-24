@@ -27,6 +27,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from . import usv_dynamics
+from . import uterm_terminal as _uterm   # U_term SOUND 终端核心（Prop4 v2 backup-maneuver·纯·已本机全测·任务A 2026-07-25）
 from .usv_colregs import (
     ColregsStatechart,
     EmergencyController,       # Node 4 紧急兜底（Alg.1，复用 Phase-1 组件3 D13）
@@ -108,6 +109,7 @@ class ContinuousColregsProjection:
         eps_a: float = DEFAULT_EPS_A,
         statechart: ColregsStatechart | None = None,
         recursive_feasibility: bool = False,
+        terminal_mode: str = "discrete",
         terminal_dt_sim: float = 0.5,
         # ── 统一态势盾·ρ0 朝目标锥安全集（方案①，2026-07-04）──
         # goal_cone_half=None（默认）→ ρ0 分支完全不生效 = 逐位等价现状 bit-identical。
@@ -144,6 +146,12 @@ class ContinuousColregsProjection:
         self.goal: np.ndarray | None = None              # 目标点 [x, y]（set_goal 注入；None=无目标=锥不生效）
         # ── N1 档位B*（默认关 recursive_feasibility=False → project_qp 逐位等价现状 bit-identical）──
         self.recursive_feasibility = bool(recursive_feasibility)   # 开=project_qp 加"落点存在合规脱身机动"终端检查
+        # terminal_mode（仅 recursive_feasibility=True 时生效·默认 'discrete'=现行为 back-compat）：
+        #   'discrete'=旧 encounter_action_verification(dt_sim Euler·~3m 漂移)；
+        #   'certv2'  =block1-SOUND cert_v2 backup-maneuver(uterm_terminal·配 provably·2026-07-25 任务A)。
+        if terminal_mode not in ("discrete", "certv2"):
+            raise ValueError(f"terminal_mode 须 ∈ {{'discrete','certv2'}}，得到 {terminal_mode!r}")
+        self.terminal_mode = str(terminal_mode)
         self.terminal_dt_sim = float(terminal_dt_sim)              # 终端 maneuver_verified 积分步（运行时 0.5 快·证明性重放用 0.1）
         if not (self.terminal_dt_sim > 0.0):
             raise ValueError(f"terminal_dt_sim 须 > 0，得到 {terminal_dt_sim}")
@@ -306,7 +314,7 @@ class ContinuousColregsProjection:
             give_way_dir=give_way_dir,
         )
 
-    def project_qp(self, s_ego, s_obs, u_desired, dt, vessel_params, taus=None):
+    def project_qp(self, s_ego, s_obs, u_desired, dt, vessel_params, taus=None, obs_width=None):
         """Node 2c：把 u_desired 投影进 U_box ∩ U_colregs ∩ U_collision-free（QP，蓝图 §4 路线1=直接在 H-多胞形投影）。
 
         与 project()(Node 1) 同契约：内部推状态机一步、**每决策步只调一次**（别和 project() 混调）。
@@ -363,7 +371,7 @@ class ContinuousColregsProjection:
         u_safe = np.asarray(u_qp, dtype=float)
         # ── N1 档位B*：递归可行性终端检查（默认关=recursive_feasibility False 时整块跳过=逐位等价）。
         #    落点无合规脱身机动 → 退兜底（走与 P=∅ 同一 _fallback 出口，交 safe_action 的 relaxed/emergency，绝不静默放行）──
-        if self.recursive_feasibility and not self._terminal_feasible(s_ego, s_obs, u_safe, rho, dt, vessel_params):
+        if self.recursive_feasibility and not self._terminal_ok(s_ego, s_obs, u_safe, rho, dt, vessel_params, obs_width):
             return _fallback()
         return ProjectionResult(
             u_safe=u_safe, rho=rho,
@@ -371,7 +379,7 @@ class ContinuousColregsProjection:
             needs_fallback=False, give_way_dir=give_way_dir,
         )
 
-    def safe_action(self, s_ego, s_obs, u_desired, dt, vessel_params, taus=None):
+    def safe_action(self, s_ego, s_obs, u_desired, dt, vessel_params, taus=None, obs_width=None):
         """Node 2c + Node 4 总入口：把 u_desired 变成【总是可直接执行】的安全动作（投影优先、P=∅ 落兜底）。
 
         与 project()/project_qp() 同契约：内部经 project_qp 推状态机**一步**、每决策步只调一次（别和 project/project_qp 混调）。
@@ -388,7 +396,7 @@ class ContinuousColregsProjection:
            EC 沿用上一事件 mode = 静默错误动作（D13 头号风险，无运行时守卫、同离散 SafeActionScheduler；Node 3/env 须 env.reset()→proj.reset()）。
         ⚠️ **projection box 须 == vessel_params box**（否则 emergency 越 box / 约束失真；project_qp 已 assert，复审 B-EMERGENCY-BOX）。
         """
-        res = self.project_qp(s_ego, s_obs, u_desired, dt, vessel_params, taus=taus)  # 推状态机一步 + Node2c（含 taus/dt 校验）
+        res = self.project_qp(s_ego, s_obs, u_desired, dt, vessel_params, taus=taus, obs_width=obs_width)  # 推状态机一步 + Node2c（含 taus/dt 校验）
         rho = res.rho
         prev = self._prev_rho
         self._prev_rho = rho
@@ -450,6 +458,70 @@ class ContinuousColregsProjection:
         a_s = encounter_action_verification(s_ego_n, s_obs_n, psi,
                                             dt_sim=self.terminal_dt_sim, vessel_params=vessel_params)
         return len(a_s) > 0
+
+    def _terminal_ok(self, s_ego, s_obs, u_applied, current_rho, dt, vessel_params, obs_width=None) -> bool:
+        """终端检查 dispatch（recursive_feasibility=True 时 project_qp 调用）。terminal_mode 选判据。"""
+        if self.terminal_mode == "certv2":
+            return self._terminal_feasible_certv2(s_ego, s_obs, u_applied, current_rho, dt, vessel_params, obs_width)
+        return self._terminal_feasible(s_ego, s_obs, u_applied, current_rho, dt, vessel_params)
+
+    def _terminal_feasible_certv2(self, s_ego, s_obs, u_applied, current_rho, dt, vessel_params, obs_width=None) -> bool:
+        """N1 档位B* · cert_v2(block1 SOUND)版终端检查：落点 s' 是否 ∈A（∃ certified 恒速直行尾脱离·让路态要求合规首步）。
+        比 _terminal_feasible（离散 encounter_action_verification·dt_sim Euler·~3m 漂移）严格 → 配 provably（任务A 2026-07-25；
+        soundness 核心 uterm_terminal 已本机全测：0 假放行 + first_unsafe_t==block3.clearance_profile 逐点相等）。
+        ⚠️ **待服务器闭环冒烟**（本机无 vesselmodels 跑不了官方 step）。
+        ⚠️ obs_width=None → 保守 w=length（sound·悲观·会多退兜底）；env 传【真宽】才 recover 高率（见设计文档 §3 OPEN①）。
+        ⚠️ s'/ρ' 计算与 _terminal_feasible 同（当前 ρ 播种·防持续 give-way 误判 ρ0·归纳链不裂）。"""
+        nxt = usv_dynamics.step(_ego_state_vec(s_ego), np.asarray(u_applied, dtype=float), dt, vessel_params)
+        s_ego_n = VesselState(position=np.asarray(nxt[:2], dtype=float).copy(),
+                              orientation=float(nxt[2]), velocity=float(nxt[3]), length=s_ego.length)
+        s_obs_n = predict_state_cv(s_obs, dt)
+        tmp = ColregsStatechart(t_horizon=self._sc.t_horizon, t_pred=self._sc.t_pred,
+                                dt=self._sc.dt, t_react=self._sc.t_react)
+        tmp.rho = int(current_rho)
+        rho_n = int(tmp.step(s_ego_n, s_obs_n))
+        if rho_n in (RHO_NO_CONFLICT, RHO_STAND_ON, RHO_EMERGENCY):
+            return True                                # ρ0 全箱 / ρ1 保向 / ρ5 紧急兜底（同 _terminal_feasible·经验·诚实 limitation D13）
+        # 让路态 ρ2/3/4：要求【合规首步】cert_v2 certified 脱离存在（A∩U_colregs 非空）
+        ego_vec = [float(s_ego_n.position[0]), float(s_ego_n.position[1]), float(s_ego_n.orientation), float(s_ego_n.velocity)]
+        obs_vec = [float(s_obs_n.position[0]), float(s_obs_n.position[1]), float(s_obs_n.orientation), float(s_obs_n.velocity)]
+        olen = float(s_obs_n.length)
+        owid = float(obs_width) if (obs_width is not None and float(obs_width) > 0.0) else olen   # None→保守 w=length（sound over-approx）
+        sign = -1 if rho_n in (RHO_HEAD_ON, RHO_CROSSING) else 0   # head_on/crossing→starboard(Rule14/15)·overtake→任意向(Rule13 两侧皆可=合规)
+        integ = lambda e, segs, T, h: self._integrate_maneuver_official(e, segs, T, h, vessel_params)
+        in_A, _ = _uterm.successor_in_A(ego_vec, obs_vec, olen, owid, integ,
+                                        H=float(self._sc.t_horizon), h=self.terminal_dt_sim, require_omega_sign=sign)
+        return bool(in_A)
+
+    def _integrate_maneuver_official(self, ego_vec, segments, T, h, vessel_params):
+        """分段常控积分（官方 usv_dynamics.step·10s 边界钳 v=执行口径·忠实 block3.integrate_maneuver_official）
+        → (ts[N], traj[N,4], omega_seg[N-1])·供 uterm.cert_v2。h 须整除 10s（钳不错拍）。"""
+        assert abs(round(_uterm.DECISION_DT / h) * h - _uterm.DECISION_DT) < 1e-9, \
+            f"h={h} 须整除 {_uterm.DECISION_DT}s（否则 10s 边界钳错拍·轨迹不忠实）"
+        n = int(round(T / h))
+        x = np.asarray(ego_vec, dtype=float).copy()
+        ts = [0.0]; out = [x.copy()]; oseg = []
+        for i in range(n):
+            a, w = _seg_at_maneuver(segments, i * h)
+            oseg.append(abs(w))
+            x = usv_dynamics.step(x, (a, w), h, vessel_params, clip_velocity=False)   # 窗内不截（忠实执行）
+            t = (i + 1) * h
+            if abs(t / _uterm.DECISION_DT - round(t / _uterm.DECISION_DT)) < 1e-9:     # 10s 边界钳 v（=usv_env clip_velocity=True）
+                x[3] = float(np.clip(x[3], 0.0, self.v_max))
+            ts.append(t); out.append(x.copy())
+        return np.array(ts), np.array(out), np.array(oseg)
+
+
+def _seg_at_maneuver(segments, t):
+    """常控分段 → t 时刻 (a, ω)。dur=None → 吃到末尾（忠实 block3._seg_at / uterm）。"""
+    acc = 0.0
+    for a, w, dur in segments:
+        if dur is None:
+            return a, w
+        if t < acc + dur - 1e-9:
+            return a, w
+        acc += dur
+    return segments[-1][0], segments[-1][1]
 
 
 # ============================================================================
