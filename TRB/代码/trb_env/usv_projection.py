@@ -155,6 +155,10 @@ class ContinuousColregsProjection:
         self.terminal_dt_sim = float(terminal_dt_sim)              # 终端 maneuver_verified 积分步（运行时 0.5 快·证明性重放用 0.1）
         if not (self.terminal_dt_sim > 0.0):
             raise ValueError(f"terminal_dt_sim 须 > 0，得到 {terminal_dt_sim}")
+        # 🔴 对抗审：certv2 积分器的 10s 边界钳要求 terminal_dt_sim 整除 10s（否则钳错拍=轨迹不忠实）。
+        #   在此 raise（构造期硬失败）·非只靠 _integrate_maneuver_official 里的 assert（-O 会剥离）。
+        if abs(round(_uterm.DECISION_DT / self.terminal_dt_sim) * self.terminal_dt_sim - _uterm.DECISION_DT) >= 1e-9:
+            raise ValueError(f"terminal_dt_sim 须整除 {_uterm.DECISION_DT}s（10s 边界钳不错拍），得到 {terminal_dt_sim}")
         self._sc = statechart if statechart is not None else ColregsStatechart()
         # Node 4 兜底：紧急控制器(Alg.1)懒创建（首次 safe_action 用其 vessel_params/dt）+ ρ5 进入边沿 reset 用的 prev_rho
         self._ec: EmergencyController | None = None
@@ -488,9 +492,18 @@ class ContinuousColregsProjection:
         olen = float(s_obs_n.length)
         owid = float(obs_width) if (obs_width is not None and float(obs_width) > 0.0) else olen   # None→保守 w=length（sound over-approx）
         sign = -1 if rho_n in (RHO_HEAD_ON, RHO_CROSSING) else 0   # head_on/crossing→starboard(Rule14/15)·overtake→任意向(Rule13 两侧皆可=合规)
+        # 🔴 对抗审 Finding D：uterm 的 Lipschitz 界写死 SR108 常量(A_MAX/W_MAX/V_MAX/L_SHIP)·须与本盾 vessel_params 一致·
+        #   否则 a_max>0.24 时 A_MAX·hh 速度 overshoot 项欠估 L → 假放行(unsound)。非 SR108 → fail-fast·别静默假 certify。
+        if not (abs(vessel_params.a_max - _uterm.A_MAX) < 1e-9 and abs(vessel_params.w_max - _uterm.W_MAX) < 1e-9
+                and abs(float(self.v_max) - _uterm.V_MAX) < 1e-9 and abs(float(s_ego.length) - _uterm.L_SHIP) < 1e-9):
+            raise ValueError(f"terminal_mode='certv2' 仅支持 SR108 常量(a_max={_uterm.A_MAX}/w_max={_uterm.W_MAX}/"
+                             f"v_max={_uterm.V_MAX}/l={_uterm.L_SHIP})·得 a_max={vessel_params.a_max}/w_max={vessel_params.w_max}/"
+                             f"v_max={self.v_max}/l={s_ego.length}（uterm Lipschitz 界写死这些·不一致会假放行）")
         integ = lambda e, segs, T, h: self._integrate_maneuver_official(e, segs, T, h, vessel_params)
+        # 🔴 对抗审 Finding C：H=120(=uterm 默认+机动族 max 转 120s+ fuzz 验证的 regime)·非 statechart t_horizon(=420·未验+过保守)。
+        #   引理1 凸性(过 CPA→永久增)使 120 足够充分证永久清·无需 420。
         in_A, _ = _uterm.successor_in_A(ego_vec, obs_vec, olen, owid, integ,
-                                        H=float(self._sc.t_horizon), h=self.terminal_dt_sim, require_omega_sign=sign)
+                                        H=120.0, h=self.terminal_dt_sim, require_omega_sign=sign)
         return bool(in_A)
 
     def _integrate_maneuver_official(self, ego_vec, segments, T, h, vessel_params):

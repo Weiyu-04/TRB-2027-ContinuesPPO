@@ -107,11 +107,13 @@ def _omega_from(segments, ts):
 
 
 def straight_tail_family():
-    """[(name, segments, first_omega)]·末段恒速直行(ω=0∧a=0)。时长网格【加密】(L200-C·5..120s)。
-    first_omega<0=右转(starboard)·>0=左转(port)·=0=纯直行。"""
+    """[(name, segments, first_omega)]·末段恒速直行(ω=0∧a=0)。first_omega<0=右转(starboard)·>0=左转(port)·=0=纯直行。
+    🔴 时长网格 = 决策步(10s)整数倍(对抗审 Finding A·2026-07-25)：控制器每决策步施【一个恒定控制】·转向时长非 10s 整数倍的机动
+       (如 turn5s→straight·turn15s→straight)会在步内切控制=【控制器不可执行】=非 admissible backup → 前向不变的退路必须可执行。
+       10s 对齐后每段边界都落决策步边界 ⟹ 机动=恒控序列·可执行。实测:对齐后门2率 head-on100/crossing98/overtake100 = 与细网格【几乎不变】(救援来自长时长·非细粒度)。"""
     A, W = A_MAX, W_MAX
     fam = []
-    DURS = (5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 90.0, 100.0, 110.0, 120.0)
+    DURS = (10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0, 120.0)   # 10s 对齐=可执行(admissible)
     for w in (-W, +W):
         for t1 in DURS:
             fam.append((f"turn{w:+.3f}_{int(t1)}s", [(0.0, w, t1), (0.0, 0.0, None)], w))
