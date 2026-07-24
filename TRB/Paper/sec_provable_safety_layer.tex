@@ -229,6 +229,99 @@ avoidable), and by itself certifies nothing about collision freedom. We
 classifier, not a system-wide guarantee.
 \end{scope}
 
+\subsection{Forward-invariant recursive feasibility: the provable upgrade}
+\label{sec:provable-forward-invariant}
+
+Propositions~\ref{prop:farfield}--\ref{prop:compliance} are \emph{one-step}
+guarantees; a single-step no-collision constraint is not by itself recursively
+feasible (a state may be safe now yet admit no safe continuation). This subsection
+upgrades the shield from one-step lookahead to a \emph{forward-invariant} guarantee
+on a certified clearable set, which is the paper's central provable contribution and
+the differentiator against reactive CBF-QP filters (which, under a $\Delta=10$\,s
+zero-order hold, carry no recursive-feasibility proof).
+
+\paragraph{Clearable set.} Fix a single constant-velocity (CV) target. Call a finite
+control sequence $m$ a \emph{certified straight-tail escape} for state $s$ if its
+tail segment is \emph{constant velocity and straight} ($\omega=0\wedge a=0$) and the
+sound Lipschitz clearance certificate (the same interval lower bound used for
+Prop.~\ref{prop:farfield}, Section~\ref{sec:provable-farfield}) shows hull
+distance $d>0$ on $[0,H]$ with a past-closest-point-of-approach (CPA) margin. Define
+the \emph{clearable set} $A:=\{s:\exists\,\text{certified straight-tail escape}\}$.
+
+\begin{lemma}[Constant-velocity tail $\Rightarrow$ permanent clearance]
+\label{lem:convex-tail}
+If the tail is constant velocity and straight and the target is CV, the hull distance
+$g(t)=\mathrm{dist}(\text{two fixed-orientation rectangles translating at constant
+relative velocity})$ is \emph{convex} in $t$; hence once $g$ is increasing past the
+CPA it increases for all later $t$, so $d>0$ on $[0,H]$ together with the past-CPA
+margin implies $d>0$ for all $t\ge0$.
+\end{lemma}
+\emph{Remark (soundness fix).} Convexity requires the tail to be constant
+\emph{velocity}: $\omega=0$ alone is insufficient, since an accelerating straight tail
+traces a path that is non-affine in $t$ and $g$ need not be convex. The certificate
+therefore requires $a=0$ as well. [HONESTY] The certificate is a \emph{sufficient}
+condition; it is sound (never certifies a colliding escape---verified by a
+long-horizon fuzz with zero false positives) but conservative (it rejects some safe
+escapes).
+
+\begin{proposition}[Control invariance of the clearable set]
+\label{prop:forward-invariant}
+For every $s\in A$ with certified escape $m=(u_0,u_1,\dots)$, applying the first
+control $u_0$ over one decision step (official semantics, with the end-of-step speed
+clamp aligned to $\Delta$) yields a successor $s'=F(s,u_0)$ whose tail
+$m'=(u_1,u_2,\dots)$ is a certified straight-tail escape for $s'$ (it is the second
+half of the \emph{same} physical trajectory, which passed one sound certificate).
+Hence $s'\in A$: $A$ is control invariant. Consequently a terminal constraint
+``successor $\in A$'', realized as an $O(1)$ re-certification of one concrete backup
+maneuver (the backup-maneuver terminal set $U_{\mathrm{term}}$), renders the shielded
+closed loop forward invariant on $A$, i.e.\ \emph{provably collision-free for all
+future time on $A$ under a single CV target}.
+\end{proposition}
+\emph{Proof sketch.} The tail is certified because it is a sub-arc of an already
+certified trajectory (verified numerically to reproduce the original trajectory's
+second half exactly under the aligned clamp). Feasibility of $U_{\mathrm{term}}$ is
+non-vacuous: $u_0$ itself keeps the backup certified, so the projection QP always
+retains at least the backup as a fallback. $\square$
+
+\paragraph{Compliant forward invariance ($A\cap U_{\mathrm{colregs}}$).}
+The shield must pick a give-way-\emph{compliant} first step, so the relevant invariant
+is $A\cap U_{\mathrm{colregs}}$. Let the compliant backup be ``turn to the mandated
+side for $t_1$\,s, then go straight.'' \textbf{Case 1} ($t_1>\Delta$): the tail still
+begins with a compliant turn and remains certified by
+Prop.~\ref{prop:forward-invariant}, so $s'\in A\cap U_{\mathrm{colregs}}$---this case
+is proved. \textbf{Case 2} ($t_1\le\Delta$, the turn completes within one step): the
+tail's first step is straight and a fresh compliant escape from $s'$ is required; a
+general proof of this case is open. On the shield's real give-way state distribution,
+however, Case 2 \emph{never occurs} (the slow yaw rate, $\sim\!1.7^\circ$/s for a
+$175$--$260$\,m hull, forces every compliant clearing turn to exceed one decision
+step): across all sampled real give-way states with a compliant backup, $100\%$ fall
+in Case 1, the tail remains certified and compliant in $100\%$, and the successor
+re-admits a fresh compliant certified escape in $100\%$. We therefore state:
+$A\cap U_{\mathrm{colregs}}$ is forward invariant via the proved Case 1 whenever the
+compliant backup's turn extends beyond one decision step, a condition met on $100\%$
+of the observed give-way distribution.
+
+\begin{scope}
+[HONESTY] (i) Single CV target (multi-target is weaker, $A=\bigcap_i A_i$, and per-%
+target funnels may conflict). (ii) Membership in $A$ is decided by a finite
+constant-control maneuver family plus the sound-but-conservative certificate, so $A$
+is an \emph{inner} approximation of the true clearable set; the residual is exactly
+the $A$-membership boundary---states not clearable in \emph{any} direction---which
+falls to the emergency/relaxed fallback, and is \textbf{not} a
+compliance-versus-safety conflict. On the real give-way distribution this residual is
+$\approx\!0$--$3\%$ (head-on/overtake $0\%$, crossing $\sim\!2.9\%$), and every
+in-$A$ give-way state admits a compliant certified escape. [HONESTY] These rates were
+computed with a high-accuracy local integrator that matches the official dynamics to
+sub-micron; official-pipeline reconfirmation is [PENDING server, evaluation-only].
+(iii) The backup-maneuver terminal constraint $U_{\mathrm{term}}$ is implemented and
+unit-tested as a sound module; wiring it into the deployed shield and validating the
+closed loop is [PENDING server, evaluation-only]. (iv) The give-way states are drawn
+from a well-behaved shielded rollout in which holding course never collides within the
+horizon, so these rates characterize the clearable-set geometry, not performance under
+adversarially imminent conflict, which needs a give-way-rich adversarial source
+[PENDING].
+\end{scope}
+
 \subsection{Robust extension to multiple targets}
 \label{sec:provable-multi}
 
@@ -288,15 +381,20 @@ in the multi-target world no-fire is even weaker than for a single target.
 Table~\ref{tab:provable} summarizes the guarantees, their status, and their scope.
 The headline claim we can defend, with all assumptions attached, is: continuous
 action $\cap$ provably \emph{direction}-compliant $\cap$ COLREGs (a previously empty
-intersection), plus far-field single-step provable safety ($\forall i$, sound) and a
-sound imminent-unavoidability certificate for the emergency regime ($\exists i$),
-under a constant-velocity target model, with empirically zero hull collisions on the
-single-target benchmark. We do \textbf{not} claim provable collision freedom, complete provable
-coverage, maneuvering targets, or multi-target direction conflicts (which fall to
-fallback by the pairwise nature of COLREGs). The provable tier is therefore \emph{medium}:
-gap\#1 is now sound but the coverage is still not complete, and---critically---the
-empirical zero-collision backing remains single-target until multi-vessel benchmark
-data are available.
+intersection), plus far-field single-step provable safety ($\forall i$, sound), a
+sound imminent-unavoidability certificate for the emergency regime ($\exists i$), and
+---the central upgrade---\emph{forward-invariant recursive feasibility} on a
+certificate-defined clearable set (Prop.~\ref{prop:forward-invariant}): the shield is
+provably collision-free for all future time on that set under a single CV target, a
+guarantee reactive CBF-QP filters lack under a $10$\,s hold. We do \textbf{not} claim
+bare provable collision freedom, complete provable coverage, maneuvering targets, or
+multi-target direction conflicts (which fall to fallback by the pairwise nature of
+COLREGs); the forward-invariance is scoped to the clearable set, whose residual
+($\approx\!0$--$3\%$) is deferred to fallback. The provable tier is therefore
+\emph{medium-to-strong}: the invariance upgrade and gap\#1 are sound, but coverage is
+still an inner approximation, the closed-loop $U_{\mathrm{term}}$ wiring and official
+reconfirmation are [PENDING server, eval-only], and the empirical zero-collision
+backing remains single-target until multi-vessel benchmark data are available.
 
 \begin{table}[h]
   \caption{Provable safety layer: guarantees, status, and honest scope}
@@ -327,6 +425,17 @@ data are available.
       & Sound sufficient condition ($>\!20{,}000$ adversarial scenarios, 0 false positives)
       & Imminent only; CV target(s); $\exists i$ composes, avoidability does not;
         not complete / not early-warning; a classifier, not a system guarantee. \\
+    \addlinespace
+    Forward-invariant recursive feasibility on the clearable set $A$
+    (Lem.~\ref{lem:convex-tail}, Prop.~\ref{prop:forward-invariant})
+      & Proven (control invariance of $A$; certificate sound, 0 false positives on
+        long-horizon fuzz). $U_{\mathrm{term}}$ module unit-tested; closed-loop wiring
+        [PENDING server, eval-only]
+      & Single CV target; $A$ = inner approximation (finite maneuver family +
+        conservative certificate); residual $\approx\!0$--$3\%$ = states clearable in
+        no direction $\to$ fallback (not a compliance conflict); $A\cap U_{\mathrm{colregs}}$
+        invariance proved for Case 1 and holds on $100\%$ of the observed give-way
+        distribution; numbers local-integrator, official reconfirmation [PENDING]. \\
     \bottomrule
   \end{tabular}
 \end{table}

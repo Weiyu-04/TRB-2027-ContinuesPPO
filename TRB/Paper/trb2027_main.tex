@@ -20,6 +20,7 @@
 \usepackage{hyperref}
 
 \newtheorem{proposition}{Proposition}
+\newtheorem{lemma}{Lemma}
 \newtheorem{assumption}{Assumption}
 \theoremstyle{remark}\newtheorem*{scope}{Scope and honest limits}
 
@@ -47,8 +48,16 @@ the nearest action that is both direction-compliant and (single-step)
 collision-free. We characterize exactly what the layer can and cannot prove: a
 sound far-field single-step no-collision guarantee, per-give-way-step direction
 compliance by construction, and a \emph{sound} imminent-unavoidability certificate
-for the emergency regime; we deliberately do \emph{not} claim provable collision
-freedom. On the Krasowski--Althoff benchmark the shielded continuous policy attains
+for the emergency regime. Upgrading these one-step guarantees, we prove that a
+certificate-defined \emph{clearable set} is control-invariant, so a backup-maneuver
+terminal constraint makes the shield \emph{forward-invariant} (recursively feasible)
+on that set under a single constant-velocity target---a guarantee that reactive
+CBF-QP filters lack under a $10$\,s zero-order hold---and on the shield's real
+give-way state distribution a COLREGs-compliant certified escape exists at every
+clearable state. We deliberately do \emph{not} claim bare provable collision freedom:
+the guarantee is scoped to the clearable set (single CV), with the residual
+($\approx\!0$--$3\%$, states clearable in no direction) deferred to an honestly
+characterized emergency fallback. On the Krasowski--Althoff benchmark the shielded continuous policy attains
 zero hull collisions over [PENDING: seeds$\times$episodes] and a structural
 $\sim\!5\times$ advantage in throttle smoothness over the discrete baseline, at
 comparable arrival. We report all limitations honestly, including a
