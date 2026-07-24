@@ -80,14 +80,19 @@ def cert_v2(ts, traj, oseg, obs0, obs_len, obs_wid, segments, h, H):
 # 核心 2 · 直行尾脱离族（只带直行尾·修 Prop4 v1 引理1 纯转向反例）+ 合规方向标注
 # ════════════════════════════════════════════════════════════════════════════════════════
 def straight_tail_family():
-    """[(name, segments, first_omega)]。segments 末段恒直行(ω=0)。first_omega<0=右转(starboard)·>0=左转(port)·=0=纯直行。"""
+    """[(name, segments, first_omega)]。segments 末段恒【速】直行(ω=0∧a=0·引理1凸性前提)。first_omega<0=右转(starboard)·>0=左转(port)·=0=纯直行。
+    🔴 时长网格【已加密】(2026-07-25 独立复审 L200-C)：旧粗网格 {10,20,30,40,60,80}s 漏掉中间/更长转向时长·把门2交叉合规率压到 54%(=机动族假象·非物理残余)；
+       加密到 5..120s(步长~5-10s)+加速转向再减速回匀速直行尾后·门2 交叉 54%→~97%·真残余~2-3%(全860态定值坐实·两独立方法复现)。
+       ⚠️ 删了旧 acc 变体(尾段 a=+A≠0 → straight_tail 恒 False → 从不 certify=死权重)·换成 accdec(加速转向→减速→匀速直行尾·有合法直行尾·可 certify·补覆盖)。"""
     A, W = A_MAX, W_MAX
     fam = []
+    DURS = (5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 90.0, 100.0, 110.0, 120.0)
     for w in (-W, +W):
-        for t1 in (10.0, 20.0, 30.0, 40.0, 60.0, 80.0):
+        for t1 in DURS:
             fam.append((f"turn{w:+.3f}_{int(t1)}s", [(0.0, w, t1), (0.0, 0.0, None)], w))
-            fam.append((f"acc{w:+.3f}_{int(t1)}s", [(+A, w, t1), (+A, 0.0, None)], w))
             fam.append((f"dec{w:+.3f}_{int(t1)}s", [(-A, w, t1), (0.0, 0.0, None)], w))
+        for t1 in (20.0, 40.0, 60.0):   # 加速转向 t1 → 减速20s → 匀速直行尾(合法直行尾·可 certify·补 yaw 饱和下的覆盖)
+            fam.append((f"accdec{w:+.3f}_{int(t1)}s", [(+A, w, t1), (-A, 0.0, 20.0), (0.0, 0.0, None)], w))
     for a in (-A, 0.0, +A):
         fam.append((f"straight_a{a:+.2f}", [(a, 0.0, None)], 0.0))
     return fam
@@ -158,6 +163,9 @@ def gate_state(rec, H, h, p):
     out["in_A"] = segs is not None
     out["kc"] = keep_course_min_dist(ego, obs, olen, owid)
     if segs is None:
+        # 🔴 L200-G2 修·门2 分母一致化：not-in-A 态【无任意方向 backup ⟹ 也无合规 backup】→ 门2 记 False(非 None)·
+        #   让 phase_gates 按【全体让路态】分母计(与 gw_gates 一致)·而非仅 in-A 条件分母(旧 bug=silently 掉 not-in-A→数偏高)。
+        out["compliant_backup"] = (False if _compliant_omega_sign(gw) != 0 else None)
         return out
     # 门1：走一受盾步 u0=m* 前 Δ → 后继 s'（障碍 CV 前进 Δ）
     ts, traj, oseg = B3.integrate_maneuver_official(ego, segs, DT, h, p)
@@ -271,25 +279,28 @@ def phase_gates():
     allres = []   # (seed, scn_idx, step, rho, res)·供相遇聚合（F4·防 per-step 双计）
     for i, r in enumerate(recs):
         res = gate_state(r, H, h, p)
-        rho = res["rho"]; d = by_rho.setdefault(rho, dict(n=0, inA=0, g1a=0, g1b=0, g1c=0, cb=0, cb_tot=0, genuine=0))
+        rho = res["rho"]; d = by_rho.setdefault(rho, dict(n=0, inA=0, g1a=0, g1b=0, g1c=0, cb=0, cb_tot=0, cb_inA_tot=0, genuine=0))
         d["n"] += 1
         if res["kc"] <= 0: d["genuine"] += 1
         if res["in_A"]:
             d["inA"] += 1
             d["g1a"] += int(res.get("g1a", False)); d["g1b"] += int(res.get("g1b", False)); d["g1c"] += int(res.get("g1c", False))
         if res.get("compliant_backup") is not None:
-            d["cb_tot"] += 1; d["cb"] += int(res["compliant_backup"])
+            d["cb_tot"] += 1; d["cb"] += int(res["compliant_backup"])       # 全体让路态分母(gw_gates 口径)
+            if res["in_A"]: d["cb_inA_tot"] += 1                            # in-A 条件分母(L200-G2·两口径都报)
         allres.append((r.get("seed"), r.get("scn_idx"), r.get("step"), rho, res))
         if (i + 1) % 100 == 0:
             print(f"  ...{i+1}/{len(recs)}", flush=True)
 
     print("\n===== A3 门报告 A · 【per-step】按 ρ 分层 =====")
-    print(f"  {'ρ':>10} | {'n':>5} {'真对撞%':>7} {'A-成员%':>7} | 门1: {'1a同尾%':>7} {'1b缩视%':>7} {'1c闭合%':>7} | 门2:{'合规backup%':>11}")
+    print("  (门2 两口径·L200-G2：全体=全让路态分母[gw_gates口径·not-in-A 记 fail]·in-A=仅可清障态条件分母)")
+    print(f"  {'ρ':>10} | {'n':>5} {'真对撞%':>7} {'A-成员%':>7} | 门1: {'1a同尾%':>7} {'1b缩视%':>7} {'1c闭合%':>7} | {'门2全体%':>9} {'门2in-A%':>9}")
     for rho in sorted(by_rho):
         d = by_rho[rho]; nA = max(1, d["inA"]); N = max(1, d["n"])
-        cb = f"{100*d['cb']/max(1,d['cb_tot']):.1f}({d['cb_tot']})" if d["cb_tot"] else "n/a"
+        cb_full = f"{100*d['cb']/max(1,d['cb_tot']):.1f}({d['cb']}/{d['cb_tot']})" if d["cb_tot"] else "n/a"
+        cb_inA = f"{100*d['cb']/max(1,d['cb_inA_tot']):.1f}({d['cb']}/{d['cb_inA_tot']})" if d["cb_inA_tot"] else "n/a"
         print(f"  {RHO_NAME.get(rho, rho):>10} | {d['n']:>5} {100*d['genuine']/N:>6.1f} {100*d['inA']/N:>6.1f} | "
-              f"     {100*d['g1a']/nA:>6.1f} {100*d['g1b']/nA:>6.1f} {100*d['g1c']/nA:>6.1f} | {cb:>11}")
+              f"     {100*d['g1a']/nA:>6.1f} {100*d['g1b']/nA:>6.1f} {100*d['g1c']/nA:>6.1f} | {cb_full:>13} {cb_inA:>13}")
 
     # ── F4·【per-encounter】聚合（项目口径 encounter 级·同 block3 phase_classify）──
     #   相遇 = 同 (seed,scn_idx) 内 step 连续的一段。相遇级门通过 = 该相遇【全部 A-成员步】均通过。
