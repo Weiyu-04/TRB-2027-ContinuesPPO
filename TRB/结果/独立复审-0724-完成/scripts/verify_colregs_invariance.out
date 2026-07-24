@@ -1,0 +1,10 @@
+pool=243 give-way states with a compliant backup
+
+=== A∩U_colregs forward-invariance validation (states with compliant backup: 241) ===
+ CASE1 (compliant backup turn t1>Δ=10s): 241
+   tail still certifies s' (Prop4 tail arg):        241/241 = 100.0%
+   tail first-step still compliant (case1 claim):    241/241 = 100.0%
+   => s' re-admits a compliant certified escape:     241/241 = 100.0%
+ CASE2 (turn completes within step, t1<=Δ): 0
+
+ VERDICT: case1 proof holds numerically if tail-certifies & tail-compliant ~100%; case2 residual empirically closed if re-admit ~100%.
