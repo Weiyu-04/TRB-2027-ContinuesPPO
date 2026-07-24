@@ -1,0 +1,9 @@
+pool=393 (all head-on+overtake give-way, 150 crossing, 150 synthetic) · horizon 600s dt=0.1
+  ...100/393 ncert=96 nfp=0 worst=1641.3
+  ...200/393 ncert=186 nfp=0 worst=1641.3
+
+=== cert_v2 permanent-clearance soundness (fine 600.0s) ===
+ certified backups checked: 321
+ FALSE POSITIVES (certified but true collision over [0,600.0]): 0
+ worst true min hull-dist among certified: 1.94 m
+ VERDICT: SOUND (0 false positives)

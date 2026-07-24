@@ -1,0 +1,11 @@
+crossing n=767 sample=200 · base|12| fine-starboard|43| +decstr|20|
+
+=== crossing compliant-backup coverage (n=200) ===
+ A-membership (any dir):            184/200 = 92.0%
+ base starboard (gate's 12, first-step omega<0):        109/200 = 54.5%   [reported 54%]
+ + finer STRICT-starboard timings (still first-step omega<0): 197/200 = 98.5%
+ + slow-straight-then-starboard (first-step omega=0, permissive): 197/200 = 98.5%
+
+ INTERPRETATION:
+  strict-compliant residual (A-member but NO strict starboard escape) ~ -6.5% of all
+  genuinely no compliant escape even permissive ~ -6.5% of A-members-ish

@@ -1,0 +1,48 @@
+[INDEP REPRO] give-way n=860 (head-on 63/crossing 767/overtake 30)
+  ...100/860  (147s)
+  ...200/860  (294s)
+  ...300/860  (429s)
+  ...400/860  (576s)
+  ...500/860  (738s)
+  ...600/860  (887s)
+  ...700/860  (1004s)
+  ...800/860  (1148s)
+
+  态势        n  A成员%  门1(1a/1b/1c)%  门2合规backup%
+  head-on     63   95.2  100.0/100.0/100.0    95.2 (60/63)
+  crossing   767   90.1  100.0/100.0/100.0    54.2 (416/767)
+  overtake    30  100.0  100.0/100.0/90.0    100.0 (30/30)
+
+[timing] 1246s total
+
+=== OVERTAKE 1c investigation (range-rate at tail end) ===
+  idx=205 seed=2 rr=+0.399 1a=True ds_end=2206.2 olen=248 owid=49.8
+  idx=206 seed=2 rr=+0.042 1a=True ds_end=2092.4 olen=248 owid=49.8
+  idx=207 seed=2 rr=+0.909 1a=True ds_end=1984.9 olen=248 owid=49.8
+  idx=208 seed=2 rr=+0.068 1a=True ds_end=1813.1 olen=248 owid=49.8
+  idx=209 seed=2 rr=+1.319 1a=True ds_end=2002.7 olen=248 owid=49.8
+  idx=284 seed=3 rr=-0.058 1a=True ds_end=1878.3 olen=259 owid=30.6  <-- 1c FAIL
+  idx=285 seed=3 rr=+1.797 1a=True ds_end=2107.0 olen=259 owid=30.6
+  idx=286 seed=3 rr=+0.512 1a=True ds_end=2136.7 olen=294 owid=46.3
+  idx=287 seed=3 rr=+0.891 1a=True ds_end=2125.1 olen=294 owid=46.3
+  idx=432 seed=5 rr=+0.979 1a=True ds_end=2672.8 olen=255 owid=35.4
+  idx=433 seed=5 rr=+1.182 1a=True ds_end=2636.9 olen=255 owid=35.4
+  idx=517 seed=6 rr=+1.321 1a=True ds_end=1786.2 olen=241 owid=43.7
+  idx=600 seed=7 rr=+0.590 1a=True ds_end=1808.0 olen=294 owid=40.3
+  idx=601 seed=7 rr=+0.344 1a=True ds_end=1828.2 olen=291 owid=33.9
+  idx=602 seed=7 rr=+0.735 1a=True ds_end=1911.2 olen=291 owid=33.9
+  idx=603 seed=7 rr=+0.593 1a=True ds_end=1840.7 olen=237 owid=39.5
+  idx=604 seed=7 rr=-0.215 1a=True ds_end=1686.8 olen=237 owid=39.5  <-- 1c FAIL
+  idx=605 seed=7 rr=+0.510 1a=True ds_end=1830.1 olen=296 owid=45.6
+  idx=606 seed=7 rr=-0.307 1a=True ds_end=1696.9 olen=296 owid=45.6  <-- 1c FAIL
+  idx=607 seed=7 rr=+2.341 1a=True ds_end=2306.6 olen=294 owid=46.3
+  idx=608 seed=7 rr=+0.571 1a=True ds_end=2049.5 olen=294 owid=46.3
+  idx=609 seed=7 rr=+0.701 1a=True ds_end=1850.7 olen=294 owid=46.3
+  idx=610 seed=7 rr=+0.758 1a=True ds_end=2223.7 olen=294 owid=46.3
+  idx=611 seed=7 rr=+0.070 1a=True ds_end=2069.7 olen=294 owid=46.3
+  idx=612 seed=7 rr=+2.407 1a=True ds_end=2267.7 olen=294 owid=46.3
+  idx=613 seed=7 rr=+2.303 1a=True ds_end=2139.4 olen=300 owid=47.0
+  idx=614 seed=7 rr=+0.274 1a=True ds_end=1855.0 olen=300 owid=47.0
+  idx=615 seed=7 rr=+1.016 1a=True ds_end=1880.3 olen=300 owid=47.0
+  idx=746 seed=8 rr=+0.415 1a=True ds_end=2128.5 olen=227 owid=35.4
+  idx=747 seed=8 rr=+1.639 1a=True ds_end=2331.7 olen=227 owid=35.4

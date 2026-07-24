@@ -1,0 +1,8 @@
+checking fine-starboard rescues for collision-freeness (fine 600s integ)
+
+=== fine-starboard rescue soundness ===
+ rescued states (base fail -> fine-starboard cert): 88
+ of those, FALSE (true collision over 600s = cert bug): 0
+ worst true min hull-dist among rescues: 1854.01 m
+ genuine compliant residual (even fine-starboard fails): 3/200 = 1.5%
+ VERDICT: rescues SOUND (real compliant escapes) => 46% residual was a family artifact

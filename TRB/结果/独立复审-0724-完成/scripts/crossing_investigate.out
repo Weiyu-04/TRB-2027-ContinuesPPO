@@ -1,0 +1,19 @@
+crossing give-way total=767 · sampled 200 · base-right |12| enriched-right |52|
+  ...50/200 (86s) A=46 rightbase=26
+  ...100/200 (175s) A=92 rightbase=51
+  ...150/200 (246s) A=138 rightbase=82
+  ...200/200 (325s) A=184 rightbase=109
+
+=== crossing gate2 residual anatomy (n=200) ===
+ A-membership (any-dir backup): 184/200 = 92.0%
+ base-right compliant backup (gate2): 109/200 = 54.5%   [reported ~54%]
+ gate2 FAILURES broken down:
+   - not in A at all (unavoidable/undecided, falls to fallback regardless): 16
+   - A-member, no right, but LEFT works (genuine COLREGs∩safety tension): 75
+   - A-member, neither right nor left (only straight/decel clears): 0
+ ENRICHED right-turn family on base-right-failing A-members:
+   - rescued by enriched right (=> base residual OVERSTATED, family artifact): 66
+   - still fail with enriched right (=> genuine right-direction infeasible): 9
+
+ INTERPRETATION: of 91 gate2 failures, 16 are not-in-A (fallback anyway),
+   75 are A-members without a base-right escape; enriched right rescues 66 of them.
