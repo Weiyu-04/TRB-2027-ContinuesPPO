@@ -39,11 +39,40 @@
 **⟹ 论文命题(诚实收紧·据数值坐实更新)**：
 > "在可清障集 A 上·受盾策略经 cert_v2 backup-maneuver 终端约束 ⟹ **可证明前向不变无碰**(单 CV·A 上)。让路态:合规备份的 starboard 相扩过当前决策步时(情形1)·后继仍在 A∩U_colregs(合规且安全前向不变·尾巴论证严证);**且在真让路态分布上·合规备份的转向恒 >一个决策步(大船慢转天然)·故情形1 覆盖 100%(情形2=0·数值坐实 241/241)+ 后继恒重入合规脱离(门2 in-A=100%)** ⟹ A∩U_colregs 前向不变【实质成立】(local RK4·待官方 --gates)。残余仅 A 成员边界(~0-3% 不可清障·落 fallback)·非合规冲突。"
 
-## 3 · 下一节点(动代码·须冒烟+对抗审)
-1. 实现 `_terminal_feasible_certv2` + `terminal_mode` 开关(默认 off bit-identical)·本机单测(A 内/外态判定·bit-identical)。
-2. O(1) backup m* 复用 + episode reset 守卫(D13)。
-3. ≥2 独立对抗 agent 审(soundness/集成/时序/契约)+措辞收紧。
-4. 服务器闭环纯 eval(待 user 拍·非烧训练卡)对照 off。
-5. 把情形1 命题 + 情形2 作用域写进 `Paper/命题4草稿` 的 §COLREGs 叠加(替"【尚未证】")。
+## 3 · 实施状态 + 盾适配器 ready-to-apply spec（本机可做的已做·盾核心待服务器冒烟）
+### 已完成(本机·已提交 main)
+- **✅ soundness 核心 `代码/trb_env/uterm_terminal.py`**(纯·不依赖 vesselmodels)：cert_v2 + straight_tail_family(加密89) + state_in_A/successor_in_A(O(1) backup 复用)。**本机单测 6 项全过**(`代码/tests/test_uterm_terminal.py`)：引理1/state_in_A/hint==全搜/合规过滤/**SOUND fuzz 0 假放行**/**first_unsafe_t==block3.clearance_profile(L198 SOUND)逐点相等**。
+- **✅ A∩U_colregs 前向不变理论+数值闭合**(§2)。
+
+### 🔴 盾适配器(usv_projection.py)= 服务器活(本机无 vesselmodels·不可冒烟·不盲改核心)
+拟加(全在 `recursive_feasibility=True ∧ terminal_mode='certv2'` 门后·默认 off=bit-identical by construction)：
+```python
+# __init__ 加: terminal_mode: str = "discrete"（validate ∈ {'discrete','certv2'}）; self.terminal_mode=...
+# project_qp L366 改为 dispatch:
+if self.recursive_feasibility and not self._terminal_ok(s_ego, s_obs, u_safe, rho, dt, vessel_params):
+    return _fallback()
+# 新增:
+def _terminal_ok(self, s_ego, s_obs, u_applied, rho, dt, vp):
+    if self.terminal_mode == 'certv2':
+        return self._terminal_feasible_certv2(s_ego, s_obs, u_applied, rho, dt, vp)
+    return self._terminal_feasible(s_ego, s_obs, u_applied, rho, dt, vp)   # 现离散(back-compat)
+def _terminal_feasible_certv2(self, s_ego, s_obs, u_applied, current_rho, dt, vp):
+    # s'/s_obs'/ρ'(当前ρ播种·同 _terminal_feasible); ρ'∈{0,1,5}→True(同现·经验兜底诚实标)
+    # ρ'∈{2,3,4}: ego_vec/obs_vec; sign = -1 if ρ'∈{head_on,crossing} else 0(overtake 松)
+    # integ = lambda e,segs,T,h: self._integrate_maneuver_official(e,segs,T,h,vp)  # usv_dynamics.step 分段+10s钳
+    # return uterm.successor_in_A(ego_vec,obs_vec,olen,owid,integ,H=self._sc.t_horizon,h=self.terminal_dt_sim,require_omega_sign=sign)[0]
+```
+### 🔴🔴 服务器session须先定的 OPEN(本机定不了·会影响 soundness/数值)
+1. **他船宽 obs_wid 来源**：`VesselState` 【无 width 字段】(只 length·usv_colregs:80)·project_qp 收不到真宽。两选:
+   (a) **保守 w=obs_len**(=现 `_vessel_circumradius` 默认·SOUND 但悲观·会比本窗口 dense_full_gates 用真宽 25-44m 低估 A/门率)·无需改 API；
+   (b) **真宽 plumb**(env 有 obstacle_shape.width → 经 safe_action→project_qp→terminal 传入·recover 高 率)·须改 API(小侵入)。**先跑 (a) 保 sound·再评是否值得 (b)**。
+2. **episode reset**：若上 O(1) backup m* 缓存(stateful)→必 episode 边界 reset(D13 头号静默错误类)。第一版可【不缓存】(每步全族搜·免 stale·慢但 sound)·先求对再优化。
+3. **integrate_maneuver_official 复用**：`block3.integrate_maneuver_official` 已是官方分段积分(需 vesselmodels)·可抽到 uterm 或盾内复用·别再写一份(divergence 风险)。
+### 服务器 smoke + eval 计划(待 user 拍·纯 eval 不烧训练卡)
+1. bit-identical: terminal_mode 默认(recursive_feasibility=False) max|Δ|=0 vs 现状。
+2. 单测 _terminal_feasible_certv2(喂 A 内/外态·对 uterm 本机结果)。
+3. ≥2 对抗 agent 审(集成/时序/契约/width 口径/reset)。
+4. 闭环纯 eval(certv2 vs off)看碰撞率/介入率/到达率/门通过率。
+5. 过了→把情形1 命题写进 `Paper/命题4草稿` §COLREGs 叠加(替"【尚未证】")。
 
 *(本文=设计+理论节·未动 usv_projection.py 核心代码·未烧任何卡。)*
