@@ -447,7 +447,9 @@ class ContinuousColregsProjection:
            ρ5→True（紧急控制器 Alg.1 恒给动作·**但经验兜底非 provably·诚实 limitation D13：ρ5 不在可证明零碰撞内**）。
         """
         # 落点全状态（位置+朝向+速度）：复用已验证 dynamics.step（忠实 eq(1)，不手推积分）
-        nxt = usv_dynamics.step(_ego_state_vec(s_ego), np.asarray(u_applied, dtype=float), dt, vessel_params)
+        # 🔴 clip_velocity=True：落点 v 夹 [0,v_max]=同 env 真正执行口径(usv_env clip_velocity=True)。
+        #   否则 RL 减速步可致 v<0(不物理·VesselState 拒)→崩·且判了个 env 不会到达的虚态。夹后=忠实真落点。
+        nxt = usv_dynamics.step(_ego_state_vec(s_ego), np.asarray(u_applied, dtype=float), dt, vessel_params, clip_velocity=True)
         s_ego_n = VesselState(position=np.asarray(nxt[:2], dtype=float).copy(),
                               orientation=float(nxt[2]), velocity=float(nxt[3]), length=s_ego.length)
         s_obs_n = predict_state_cv(s_obs, dt)          # 他船恒速预测（规则态势保向保速，同 collision_free_constraint）
@@ -476,7 +478,9 @@ class ContinuousColregsProjection:
         ⚠️ **待服务器闭环冒烟**（本机无 vesselmodels 跑不了官方 step）。
         ⚠️ obs_width=None → 保守 w=length（sound·悲观·会多退兜底）；env 传【真宽】才 recover 高率（见设计文档 §3 OPEN①）。
         ⚠️ s'/ρ' 计算与 _terminal_feasible 同（当前 ρ 播种·防持续 give-way 误判 ρ0·归纳链不裂）。"""
-        nxt = usv_dynamics.step(_ego_state_vec(s_ego), np.asarray(u_applied, dtype=float), dt, vessel_params)
+        # 🔴 clip_velocity=True：落点 v 夹 [0,v_max]=同 env 真正执行口径(usv_env clip_velocity=True)。
+        #   否则 RL 减速步可致 v<0(不物理·VesselState 拒)→崩·且判了个 env 不会到达的虚态。夹后=忠实真落点。
+        nxt = usv_dynamics.step(_ego_state_vec(s_ego), np.asarray(u_applied, dtype=float), dt, vessel_params, clip_velocity=True)
         s_ego_n = VesselState(position=np.asarray(nxt[:2], dtype=float).copy(),
                               orientation=float(nxt[2]), velocity=float(nxt[3]), length=s_ego.length)
         s_obs_n = predict_state_cv(s_obs, dt)
