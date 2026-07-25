@@ -456,6 +456,28 @@ def main():
 
     # ---- 逐 checkpoint：锚点复现检查 → 正式评 ----
     results = {}
+
+    def _dump(final=False):
+        """**每评完一个 checkpoint 就落盘一次**（本项目两次被中途打断咬过：欠费 / SSH SIGHUP·`03` L193/L192-C）
+        → 半途被杀也留得住已评出的臂，不用从头再来。"""
+        payload = {"池": {"spec": POOL_SPEC, "说明": pool_desc, "N": len(pool), "请求": len(want_keys),
+                          "clean": len(clean_idx), "strict": len(strict_idx),
+                          "训练泄漏": len(keys) - len(clean_idx), "验证泄漏": len(clean_idx) - len(strict_idx),
+                          "smoke": SMOKE, "REEVAL_N": CLEAN_N},
+                   "官方划分": {"n_total": OFF_N_TOTAL, "test_frac": OFF_TEST_FRAC,
+                                "split_seed": OFF_SPLIT_SEED, "pool": OFF_POOL},
+                   "会遇类型计数": (dict(Counter(types.values())) if types else {}),
+                   "池键": keys, "clean键": sorted((keys[i] for i in clean_idx), key=str),
+                   "strict键": sorted((keys[i] for i in strict_idx), key=str),
+                   "已完成": len(results), "待评": len(ckpts) - len(results), "全部完成": final,
+                   "结果": results}
+        if os.path.dirname(OUT):
+            os.makedirs(os.path.dirname(OUT), exist_ok=True)
+        tmp = OUT + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:          # 原子写：半写被杀不留损坏 json
+            json.dump(payload, fh, ensure_ascii=False, indent=1)
+        os.replace(tmp, OUT)
+
     for b in ckpts:
         sc, name = sidecars[b], os.path.basename(b)
         if sc is None:
@@ -527,21 +549,9 @@ def main():
             print(fmt("对照：训练/验证见过的", r["看过的"]))
         for t, m in (r["分型_clean"] or r["分型_全部"] or {}).items():
             print(fmt(f"  · {t}", m))
+        _dump()                                                # 🔴 每评完一个就落盘（中途被杀也留得住已评出的臂）
 
-    payload = {"池": {"spec": POOL_SPEC, "说明": pool_desc, "N": len(pool), "请求": len(want_keys),
-                      "clean": len(clean_idx), "strict": len(strict_idx),
-                      "训练泄漏": len(keys) - len(clean_idx), "验证泄漏": len(clean_idx) - len(strict_idx),
-                      "smoke": SMOKE, "REEVAL_N": CLEAN_N},
-               "官方划分": {"n_total": OFF_N_TOTAL, "test_frac": OFF_TEST_FRAC, "split_seed": OFF_SPLIT_SEED,
-                            "pool": OFF_POOL},
-               "会遇类型计数": (dict(Counter(types.values())) if types else {}),
-               "池键": keys, "clean键": sorted((keys[i] for i in clean_idx), key=str),
-               "strict键": sorted((keys[i] for i in strict_idx), key=str),
-               "结果": results}
-    if os.path.dirname(OUT):
-        os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, ensure_ascii=False, indent=1)
+    _dump(final=True)
     print(f"\n[reeval_official] 完成 → {OUT}", flush=True)
     if SMOKE or CLEAN_N:
         print("⚠️ 这是【冒烟/截断】跑，不是正式数——正式跑请清掉 REEVAL_SMOKE / REEVAL_N。", flush=True)

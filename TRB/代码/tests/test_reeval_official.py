@@ -237,6 +237,37 @@ class TestEndToEndStubbed(unittest.TestCase):
         ns = {k: v["clean"]["n"] for k, v in p["结果"].items()}
         self.assertEqual(set(ns.values()), {577})
         self.assertEqual(len(p["结果"]), 2)
+        self.assertEqual((p["已完成"], p["待评"], p["全部完成"]), (2, 0, True))   # 增量落盘的进度字段
+
+    def test_incremental_dump_survives_interruption(self):
+        """每评完一个 checkpoint 就落盘 → 中途被杀也留得住已评出的臂（欠费/SIGHUP 咬过两次）。"""
+        _make_ckpt(self.tmp, "A_s0_x", kind="continuous", party="Continuous-safe")
+        _make_ckpt(self.tmp, "B_s0_x", kind="continuous", party="Continuous-safe")
+        boom = {"n": 0}
+        orig = globals()["_install_stubs"]                      # 先绑住真身·否则下面覆盖 globals 会自我递归
+
+        def _stubs(**kw):
+            R = orig(**kw)
+            real_replay = R.replay_eval
+
+            def _explode(*a, **k):                              # 第 2 个 ckpt 评到一半"被杀"
+                boom["n"] += 1
+                if boom["n"] > 1:
+                    raise KeyboardInterrupt("模拟被杀")
+                return real_replay(*a, **k)
+            R.replay_eval = _explode
+            return R
+        old = orig
+        try:
+            globals()["_install_stubs"] = _stubs
+            with self.assertRaises(KeyboardInterrupt):
+                _run({**self.base_env, "REEVAL_ANCHOR": "0"}, replay_arrival=400)
+        finally:
+            globals()["_install_stubs"] = old
+        with open(self.out, encoding="utf-8") as fh:            # 被杀了·但第 1 个臂的结果已落盘
+            p = json.load(fh)
+        self.assertEqual((p["已完成"], p["待评"], p["全部完成"]), (1, 1, False))
+        self.assertEqual(len(p["结果"]), 1)
 
     def test_envcfg_guard_blocks_non_golden(self):
         """连续臂 eval env knob 非金标默认（这些 knob 不进 config_sig·会【静默】改数字）→ 必须中止。"""
