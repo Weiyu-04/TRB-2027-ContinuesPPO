@@ -221,6 +221,10 @@ class ContinuousProjectionEnv(gym.Env):
             emergency_mode = res.emergency_mode
 
         # ④ 连续 _map_action 做最终 box 限幅（emergency 越 box 被截）；emergency_used 传 reward 使紧急惩罚 C_EMERGENCY 口径==离散 Discrete-safe（L43-续①修四方混杂）
+        # ⚠️ 分级介入(`03` L205)下的 C_EMERGENCY 口径：`== "emergency"` 严格判【EC 真接管】。
+        #   新档 `emergency_relaxed`(ρ5 但走投影·策略动作被保留) **不计**紧急惩罚 —— 语义正确
+        #   (EC 没接管)且与离散臂同源(离散也是 scheduler 真用 a_em 才罚)。这是分级介入的【预期奖励变化】之一：
+        #   追越那类"软 ρ5"不再被白罚 → 正是要治的病。默认 graded_emergency=False 时此行为逐位不变。
         obs, r, term, trunc, info = self.env.step(u_safe, emergency_used=(self._source == "emergency"))
         out_info = {
             **info, "rho": self._rho, "rho_acting": self._rho, "source": self._source,

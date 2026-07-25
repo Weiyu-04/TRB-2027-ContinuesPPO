@@ -118,7 +118,9 @@ def _traj_pose(ego_vs, obs_vs):
 #   · relaxed/collision_min/degenerate → 兜底步%（P=∅ 兜底：放松 COLREGs / 碰撞风险最小化 / 退化）= 下面这个集合
 #   · projection / no_obstacle       → 两不计（常规合规投影 / 他船窗外无规则适用；既非紧急也非兜底，与离散 _obs_vs=None 短路同口径）
 #   （reset 时 source=None 不入计数——计数只在 step 循环内。Q2/D40#1：兜底步现 evaluate 既不计紧急%也不计违规，须显式单列。）
-_FALLBACK_SOURCES = frozenset({"relaxed", "collision_min", "degenerate"})
+_FALLBACK_SOURCES = frozenset({"relaxed", "collision_min", "degenerate",
+                               "emergency_relaxed"})   # 🆕 分级介入(`03` L205)：ρ5 下投影 u_desired(去COLREGs)=语义属兜底
+#   ⚠️ 紧急步% 走 rho_acting==ρ5【不看 source】→ 新标签【不改】紧急步%口径(与历史可比)；本集合只影响「兜底步%」。
 
 # ── Node L CAT7 控制质量（连续臂细控优势量化·additive·【绝不入钱图 5 列】）──
 # 执行控制 u=(a,ω) 取 env.env.last_action（四臂同口径：离散=所选网格点 (a,ω)，连续=投影+限幅后 u_safe，
@@ -417,7 +419,9 @@ def run_episode_continuous(env, model, *, seed=None, deterministic=True, max_ste
     rho_hist = _rho_hist()                                    # CAT2 ρ 态势分布
     cpa_center = cpa_clear = float("inf"); cpa_step = -1      # CAT3 最近接近距离
     src_counts = {"projection": 0, "emergency": 0, "relaxed": 0, "collision_min": 0,
-                  "degenerate": 0, "no_obstacle": 0}         # CAT4 兜底链逐档分解（别合并）
+                  "degenerate": 0, "no_obstacle": 0,
+                  "emergency_relaxed": 0}                # 🆕 分级介入 ρ5 档1(`03` L205)·必须显式列否则静默丢弃
+    # CAT4 兜底链逐档分解（别合并）
     em_modes = {"ahead": 0, "stern": 0, "base": 0}           # CAT4 紧急控制器模式分布
     corrections = []                                         # CAT4 投影修正量 ‖u_applied−u_desired‖（盾介入步）
     traj = [] if record_traj else None                       # CAT5：示例轨迹（仅 record_traj=True 累积）

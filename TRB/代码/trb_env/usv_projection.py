@@ -121,6 +121,17 @@ class ContinuousColregsProjection:
         eps_a: float = DEFAULT_EPS_A,
         statechart: ColregsStatechart | None = None,
         recursive_feasibility: bool = False,
+        # ── 🆕 分级介入（graded intervention·`03` L205·2026-07-25 later）──────────────────
+        # False(默认) = 现行为【逐位不变 bit-identical】：ρ5 紧急 → 直接 Alg.1（策略动作被整个丢弃）。
+        # True = ρ5 先试【档1：box∩无碰撞 投影 u_desired】(=同 ρ0-4 的 relaxed 语义·仍去 COLREGs 方向约束)；
+        #        不可行 → 落【档2：Alg.1】(Krasowski 迫近响应·原样不动)。
+        # 🔴 动机(L205 实测)：追越 82.4% 步判 ρ5 → 策略动作 82% 被弃 → 无学习信号(混叠极端)+EC 不去目标
+        #    → 追越到达 2% 且带崩全局(对遇/交叉 82%→17-20%)。档1 让"软 ρ5"(如追越 900m 外)保住策略意图。
+        # 🔴 为何只两档(保守·对抗审 R1)：不插 collision_min 软 QP——它会【抢在 Alg.1 前面】，而真迫近时
+        #    单步一阶线性化可能弱于 Alg.1 多模式响应。故：有安全动作→投影；没有→原样交 Alg.1。
+        # 🔴 安全语义：档1 施加的是【无碰撞约束】(现状 ρ5 走 Alg.1 是纯启发式·根本没施加此约束)；
+        #    COLREGs 方向约束在 ρ5 本就不适用(现状 Alg.1 亦不守)→ 合规口径不变。ρ5 本就在可证明层作用域外。
+        graded_emergency: bool = False,
         terminal_mode: str = "discrete",
         terminal_dt_sim: float = 0.5,
         # ── 统一态势盾·ρ0 朝目标锥安全集（方案①，2026-07-04）──
@@ -158,6 +169,7 @@ class ContinuousColregsProjection:
         self.goal: np.ndarray | None = None              # 目标点 [x, y]（set_goal 注入；None=无目标=锥不生效）
         # ── N1 档位B*（默认关 recursive_feasibility=False → project_qp 逐位等价现状 bit-identical）──
         self.recursive_feasibility = bool(recursive_feasibility)   # 开=project_qp 加"落点存在合规脱身机动"终端检查
+        self.graded_emergency = bool(graded_emergency)             # 🆕 ρ5 分级介入（默认 False=逐位不变·见上 docstring）
         # terminal_mode（仅 recursive_feasibility=True 时生效·默认 'discrete'=现行为 back-compat）：
         #   'discrete'=旧 encounter_action_verification(dt_sim Euler·~3m 漂移)；
         #   'certv2'  =block1-SOUND cert_v2 backup-maneuver(uterm_terminal·配 provably·2026-07-25 任务A)。
@@ -175,6 +187,7 @@ class ContinuousColregsProjection:
         # Node 4 兜底：紧急控制器(Alg.1)懒创建（首次 safe_action 用其 vessel_params/dt）+ ρ5 进入边沿 reset 用的 prev_rho
         self._ec: EmergencyController | None = None
         self._prev_rho: int = RHO_NO_CONFLICT
+        self._prev_ec_used: bool = False        # 🆕 上一步是否【真调用了 EC】（分级介入的 EC reset 判据·见 safe_action）
 
     def reset(self) -> None:
         """episode 边界：清状态机 + 紧急控制器 + ρ 边沿追踪。"""
@@ -182,6 +195,7 @@ class ContinuousColregsProjection:
         if self._ec is not None:
             self._ec.reset()
         self._prev_rho = RHO_NO_CONFLICT
+        self._prev_ec_used = False              # 🆕 episode 边界清（同 _prev_rho·防跨局陈旧=D13 类静默错误）
 
     @property
     def rho(self) -> int:
@@ -420,12 +434,40 @@ class ContinuousColregsProjection:
         if not res.needs_fallback:
             return SafeActionResult(res.u_safe, rho, res.give_way_dir, source="projection", emergency_mode=None)
 
-        if rho == RHO_EMERGENCY:                                    # (2) ρ5 紧急 → Alg.1 紧急控制器
+        if rho == RHO_EMERGENCY:                                    # (2) ρ5 紧急
+            # 🆕 档1（graded_emergency=True 时）：box∩无碰撞 可行 → 投影 u_desired（保住策略意图=保学习信号）。
+            #    默认 False → 整块跳过 → 逐位等价现状（直接落下方 Alg.1）。
+            if self.graded_emergency:
+                u_g = np.asarray(u_desired, dtype=float)
+                u_gbox = np.array([float(np.clip(u_g[0], -self.a_max, self.a_max)),
+                                   float(np.clip(u_g[1], -self.w_max, self.w_max))], dtype=float)
+                rows_g = []
+                degenerate_g = False
+                for tau in ([dt] if taus is None else list(taus)):
+                    g, h, _d, _ds = collision_free_constraint(s_ego, s_obs, u_gbox, tau, dt, vessel_params)
+                    if g is None:                                   # 圆心重合/已碰=无分离方向 → 不投影·交 Alg.1（保守）
+                        degenerate_g = True
+                        break
+                    rows_g.append((g, h))
+                if not degenerate_g:
+                    u_relax_g, feas_g = _solve_box_halfplane_qp(u_g, (-self.a_max, self.a_max),
+                                                                (-self.w_max, self.w_max), rows_g)
+                    if feas_g:
+                        self._prev_ec_used = False                  # 本步未用 EC → 下次真用 EC 时须 reset（见下）
+                        return SafeActionResult(np.asarray(u_relax_g, float), rho, res.give_way_dir,
+                                                source="emergency_relaxed", emergency_mode=None)
+            # 档2：Alg.1 紧急控制器（Krasowski 迫近响应·原样不动）
             if self._ec is None:
                 self._ec = EmergencyController(vessel_params=vessel_params, dt=float(dt))
-            if prev != RHO_EMERGENCY:                               # 进入边沿 = 新紧急事件（同 SafeActionScheduler）
+            # 进入边沿 = 新紧急事件（同 SafeActionScheduler）。
+            # 🔴 分级下补一条（对抗审 R4·D13 头号静默错误类）：若上一步【没真用 EC】(走了档1)，本步 EC 才接管
+            #    ⟹ 也算"新接管"须 reset，否则 EC 的 mode 驻留计数会跨越未接管的步 = 陈旧状态。
+            #    ⚠️ graded_emergency=False 时 EC 每个 ρ5 步都用 → _prev_ec_used 恒 True → 条件退化成
+            #       `prev != RHO_EMERGENCY` = 与原逻辑【完全一致】(bit-identical 保证)。
+            if prev != RHO_EMERGENCY or not self._prev_ec_used:
                 self._ec.reset()
             a_em = np.asarray(self._ec.step(s_ego, s_obs), dtype=float)
+            self._prev_ec_used = True
             return SafeActionResult(a_em, rho, res.give_way_dir, source="emergency", emergency_mode=self._ec.mode)
 
         # (3) ρ0-4 P=∅：放松 COLREGs、保无碰撞（蓝图 §4）。重建无碰撞约束（基点用 box-clip，∈box 满足 CODE-2）。
