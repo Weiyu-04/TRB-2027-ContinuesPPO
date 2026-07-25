@@ -32,6 +32,7 @@ def phase_run():
     from trb_env.train import make_obs_transform
     from trb_env.usv_continuous_shield import ContinuousProjectionEnv
     from trb_env.usv_scenarios import load_scenario_pool
+    from trb_env import usv_projection as _proj   # 诊断计数 reset/读
     from run_step4e import load_manifest_split
 
     CKPT_DIR = os.environ["CKPT_DIR"]
@@ -60,6 +61,7 @@ def phase_run():
 
     fo = open(OUT, "w")
     for mode in MODES:
+        _proj.reset_certv2_stats()                     # 诊断计数清零(每档)
         n_ep = n_col = n_arr = 0
         src = {}
         for s in SEEDS:
@@ -93,8 +95,9 @@ def phase_run():
             print(f"  [{mode}] s{s}: 累计 ep={n_ep} 碰撞={n_col} 到达={n_arr}", flush=True)
         tot_src = max(1, sum(src.values()))
         interv = 100 * (tot_src - src.get("projection", 0)) / tot_src   # 非 projection = 退兜底 = 介入
+        st = dict(_proj._CERTV2_STATS)                 # 诊断：终端检查 calls/giveway/rejects
         print(f"[{mode}] done · ep={n_ep} · 碰撞率={100*n_col/max(1,n_ep):.2f}%({n_col}) · 到达率={100*n_arr/max(1,n_ep):.2f}% · "
-              f"介入(非projection)率={interv:.2f}% · source={src}", flush=True)
+              f"介入(非projection)率={interv:.2f}% · source={src} · 终端检查[calls={st['calls']} giveway={st['giveway']} rejects={st['rejects']}]", flush=True)
     fo.close()
     print(f"[shield certv2 eval] done → {OUT}", flush=True)
     print("  判读：off 碰撞率应=现状基线(~0·regression 冒烟)；certv2 碰撞率≤off(终端门更严·不该更差)；"

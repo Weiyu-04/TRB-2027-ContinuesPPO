@@ -478,6 +478,7 @@ class ContinuousColregsProjection:
         ⚠️ **待服务器闭环冒烟**（本机无 vesselmodels 跑不了官方 step）。
         ⚠️ obs_width=None → 保守 w=length（sound·悲观·会多退兜底）；env 传【真宽】才 recover 高率（见设计文档 §3 OPEN①）。
         ⚠️ s'/ρ' 计算与 _terminal_feasible 同（当前 ρ 播种·防持续 give-way 误判 ρ0·归纳链不裂）。"""
+        _CERTV2_STATS["calls"] += 1                    # 诊断：终端检查被调次数(跨env累计·仅诊断·闭环eval读)
         # 🔴 clip_velocity=True：落点 v 夹 [0,v_max]=同 env 真正执行口径(usv_env clip_velocity=True)。
         #   否则 RL 减速步可致 v<0(不物理·VesselState 拒)→崩·且判了个 env 不会到达的虚态。夹后=忠实真落点。
         nxt = usv_dynamics.step(_ego_state_vec(s_ego), np.asarray(u_applied, dtype=float), dt, vessel_params, clip_velocity=True)
@@ -490,6 +491,7 @@ class ContinuousColregsProjection:
         rho_n = int(tmp.step(s_ego_n, s_obs_n))
         if rho_n in (RHO_NO_CONFLICT, RHO_STAND_ON, RHO_EMERGENCY):
             return True                                # ρ0 全箱 / ρ1 保向 / ρ5 紧急兜底（同 _terminal_feasible·经验·诚实 limitation D13）
+        _CERTV2_STATS["giveway"] += 1                  # 诊断：落点是让路态·真正做了 A∩U_colregs cert 检查
         # 让路态 ρ2/3/4：要求【合规首步】cert_v2 certified 脱离存在（A∩U_colregs 非空）
         ego_vec = [float(s_ego_n.position[0]), float(s_ego_n.position[1]), float(s_ego_n.orientation), float(s_ego_n.velocity)]
         obs_vec = [float(s_obs_n.position[0]), float(s_obs_n.position[1]), float(s_obs_n.orientation), float(s_obs_n.velocity)]
@@ -508,6 +510,8 @@ class ContinuousColregsProjection:
         #   引理1 凸性(过 CPA→永久增)使 120 足够充分证永久清·无需 420。
         in_A, _ = _uterm.successor_in_A(ego_vec, obs_vec, olen, owid, integ,
                                         H=120.0, h=self.terminal_dt_sim, require_omega_sign=sign)
+        if not in_A:
+            _CERTV2_STATS["rejects"] += 1              # 诊断：让路落点无合规 certified 脱离→退兜底(终端约束真起作用处)
         return bool(in_A)
 
     def _integrate_maneuver_official(self, ego_vec, segments, T, h, vessel_params):
@@ -527,6 +531,16 @@ class ContinuousColregsProjection:
                 x[3] = float(np.clip(x[3], 0.0, self.v_max))
             ts.append(t); out.append(x.copy())
         return np.array(ts), np.array(out), np.array(oseg)
+
+
+# 诊断计数（certv2 终端检查·模块级·跨 env 实例累计·仅诊断·不影响判定/soundness）：
+#   calls=检查被调次数 · giveway=落点为让路态(真做 A∩U_colregs cert)次数 · rejects=让路落点无合规脱离→退兜底次数。
+#   闭环 eval 用 reset_certv2_stats() 清零 + 读 _CERTV2_STATS 量"终端约束到底起没起作用"（identical off/certv2 ⟺ rejects=0）。
+_CERTV2_STATS = {"calls": 0, "giveway": 0, "rejects": 0}
+
+
+def reset_certv2_stats():
+    _CERTV2_STATS["calls"] = 0; _CERTV2_STATS["giveway"] = 0; _CERTV2_STATS["rejects"] = 0
 
 
 def _seg_at_maneuver(segments, t):
