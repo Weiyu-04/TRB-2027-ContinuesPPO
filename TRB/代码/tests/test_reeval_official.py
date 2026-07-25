@@ -60,8 +60,19 @@ def _install_stubs(*, replay_arrival=None, anchor_arrival=None, n_anchor=40, aug
         return (agg, per) if return_per else agg
 
     R.replay_eval = _replay
-    R.load_manifest_split = lambda mp, bdir=None: ([], [f"{_SCEN}/T-{i}.xml" for i in range(n_anchor)],
-                                                   {"n_test": n_anchor})
+
+    def _lms(mp, bdir=None):
+        """桩 load_manifest_split：manifest 池模式返回该 manifest 的真测试路径；锚点模式返回 n_anchor 个。"""
+        with open(mp, encoding="utf-8") as fh:
+            man = json.load(fh)
+        if os.environ.get("_STUB_LMS_REAL") == "1":
+            te = ([f"{_SCEN}/T-{int(x)}.xml" for x in man["head_on"]["test"]]
+                  + [f"{_SCEN}/T-{int(x)}.xml" for x in man["crossing"]["test"]]
+                  + [os.path.join(_BALANCED, os.path.basename(str(x))) for x in man["overtaking"]["test"]])
+            return [], te, {"n_test": len(te)}
+        return [], [f"{_SCEN}/T-{i}.xml" for i in range(n_anchor)], {"n_test": n_anchor}
+
+    R.load_manifest_split = _lms
     sys.modules["run_step4e"] = R
 
     scen = types.ModuleType("trb_env.usv_scenarios")
@@ -155,25 +166,47 @@ class TestEndToEndStubbed(unittest.TestCase):
         self.base_env = {"REEVAL_MANIFEST_DIRS": _BALANCED, "REEVAL_CKDIRS": self.tmp,
                          "STEP4E_SDIR": _SCEN, "REEVAL_OUT": self.out}
 
-    def test_clean_577_strict_563_and_alignment(self):
+    def test_official_pool_600_577_563_and_alignment(self):
         _make_ckpt(self.tmp, "Continuous-safe_s0_gold")
         p = _run({**self.base_env}, replay_arrival=400, anchor_arrival=82.5)
-        self.assertEqual(p["口径"]["clean"], 577)
-        self.assertEqual(p["口径"]["strict"], 563)
-        self.assertEqual(p["口径"]["训练泄漏"], 23)
-        self.assertEqual(p["口径"]["验证泄漏"], 14)
-        self.assertEqual(p["口径"]["实评"], 577)
+        self.assertEqual(p["池"]["N"], 600)                            # 全部都评（含被看过的·用来量污染幅度）
+        self.assertEqual(p["池"]["clean"], 577)
+        self.assertEqual(p["池"]["strict"], 563)
+        self.assertEqual(p["池"]["训练泄漏"], 23)
+        self.assertEqual(p["池"]["验证泄漏"], 14)
         r = p["结果"]["Continuous-safe_s0_gold"]
-        self.assertEqual(r["clean"]["n"], 577)
-        self.assertEqual(r["strict"]["n"], 563)                       # strict 子集从同一趟 eval 切出
-        self.assertAlmostEqual(r["clean"]["到达率%"], 100.0 * 400 / 577, places=6)
+        self.assertEqual((r["全部"]["n"], r["clean"]["n"], r["strict"]["n"]), (600, 577, 563))
+        self.assertEqual(r["看过的"]["n"], 37)                          # 600−563
         self.assertTrue(r["anchor"]["通过"])
-        self.assertEqual(len(p["实评T_id"]), 577)
-        self.assertFalse(set(p["实评T_id"]) & set(self.mod_train_ids()))   # 实评集合与训练集零交集
+        self.assertEqual(len(p["clean键"]), 577)
+        self.assertFalse(set(p["clean键"]) & set(self.mod_train_ids()))  # clean 集与训练集零交集
+        self.assertFalse(set(p["strict键"]) & set(self.mod_val_ids()))   # strict 集与验证集零交集
 
     def mod_train_ids(self):
         m = importlib.import_module("reeval_official")
         return m.manifest_tids(m.find_manifest("manifest_hocr_200.json"))[0]
+
+    def mod_val_ids(self):
+        m = importlib.import_module("reeval_official")
+        return m.manifest_tids(m.find_manifest("manifest_hocr_200.json"))[1]
+
+    def test_manifest_pool_mode_600_with_overtaking(self):
+        """E6 用的池：均衡大集测试 600（对遇200+交叉200+追越200）·金标训练零泄漏、验证 40 个在里面。"""
+        _make_ckpt(self.tmp, "Discrete-safe_s0_gold", kind="shielded", party="Discrete-safe")
+        os.environ["_STUB_LMS_REAL"] = "1"
+        try:
+            p = _run({**self.base_env, "REEVAL_POOL": "manifest:manifest.json", "REEVAL_ANCHOR": "0"},
+                     replay_arrival=300)
+        finally:
+            os.environ.pop("_STUB_LMS_REAL", None)
+        self.assertEqual(p["池"]["N"], 600)
+        self.assertEqual(p["池"]["训练泄漏"], 0)                        # 94 训练全在大集训练侧
+        self.assertEqual(p["池"]["验证泄漏"], 40)                       # 小集 test ⊂ 大集 test
+        self.assertEqual(p["会遇类型计数"], {"对遇": 200, "交叉": 200, "追越": 200})
+        r = p["结果"]["Discrete-safe_s0_gold"]
+        self.assertEqual((r["全部"]["n"], r["clean"]["n"], r["strict"]["n"]), (600, 600, 560))
+        self.assertEqual({t: m["n"] for t, m in r["分型_全部"].items()},
+                         {"对遇": 200, "交叉": 200, "追越": 200})
 
     def test_anchor_one_episode_off_passes_with_warning(self):
         """差一局 = 浮点噪声 → 放行（否则会因单局翻转白白中止一趟 eval）。"""
@@ -193,7 +226,8 @@ class TestEndToEndStubbed(unittest.TestCase):
             _run({**self.base_env}, replay_arrival=400, anchor_arrival=82.5)
         p = _run({**self.base_env, "REEVAL_ALLOW_UNKNOWN_DATASET": "1", "REEVAL_ANCHOR": "0"},
                  replay_arrival=300)
-        self.assertEqual(p["口径"]["clean"], 600)                     # 剔不了泄漏 → 裸 600（已显式承认）
+        self.assertEqual(p["池"]["clean"], 600)                       # 剔不了泄漏 → 裸 600（已显式承认）
+        self.assertEqual(p["池"]["训练泄漏"], 0)
 
     def test_two_arms_share_same_denominator(self):
         """E5(连续)+E6(离散) 同跑：同一 clean 集、同一分母 → 可比。"""
