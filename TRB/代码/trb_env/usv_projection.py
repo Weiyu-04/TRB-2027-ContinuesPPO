@@ -169,7 +169,20 @@ class ContinuousColregsProjection:
         self.goal: np.ndarray | None = None              # 目标点 [x, y]（set_goal 注入；None=无目标=锥不生效）
         # ── N1 档位B*（默认关 recursive_feasibility=False → project_qp 逐位等价现状 bit-identical）──
         self.recursive_feasibility = bool(recursive_feasibility)   # 开=project_qp 加"落点存在合规脱身机动"终端检查
-        self.graded_emergency = bool(graded_emergency)             # 🆕 ρ5 分级介入（默认 False=逐位不变·见上 docstring）
+        # 🔴🔴 REJECTED AS SPECIFIED（对抗安全审 2026-07-25 later-2·`03` L205-补2）——【禁止启用·fail-closed】
+        #   实测反例(真代码真求解器)：正对遇 ego(0,0)θ=0 v=9.5 / obs(1400,0)θ=π v=9.5 →
+        #     Alg.1 最小距 646m 无碰撞  vs  本阶梯 最小距 49m **撞**。
+        #   机理：collision_free_constraint 线性化后 ω 系数 = 475·(n·ĥ⊥)，他船正前/正后时**恰为 0**
+        #     → 该约束对"转向避让"结构性失明，只剩减速；而 `03` L139 已证"减速在 head-on 反有害"。
+        #   且 74.3% 的 ρ5 步该约束**松弛**→原样放行=等于关盾(非"分级")；ρ5 的定义正是"恒速预测不够用"，
+        #   而档1 用的恰是恒速单步近似(F-4 口径倒挂)；`03` L138 亦早实测"贪心最大净空避让比 Alg.1 更差"。
+        #   ⟹ **正确的第一步是修 `is_emergency_resolved` 的 moving_away 判据（ρ5 在追越是吸收态，一行）**，
+        #      不是改兜底阶梯。详见 `03` L205-补2 + `结果/Phase4预研-0723/分级介入设计_*.md`。
+        if graded_emergency:
+            raise NotImplementedError(
+                "graded_emergency 已被对抗安全审【否决】(实测正对遇下会撞·Alg.1 不会)。"
+                "禁止启用；重设计前请先读 `03` L205-补2。正确的第一步=修 is_emergency_resolved(ρ5 吸收态)。")
+        self.graded_emergency = False                              # 恒 False → 与现状逐位等价（回退已就位）
         # terminal_mode（仅 recursive_feasibility=True 时生效·默认 'discrete'=现行为 back-compat）：
         #   'discrete'=旧 encounter_action_verification(dt_sim Euler·~3m 漂移)；
         #   'certv2'  =block1-SOUND cert_v2 backup-maneuver(uterm_terminal·配 provably·2026-07-25 任务A)。
