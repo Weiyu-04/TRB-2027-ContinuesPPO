@@ -175,6 +175,9 @@ def phase_run():
     from trb_env.usv_scenarios import load_scenario_pool
     from trb_env.usv_colregs import ViolationCounter          # COLREGs 违规(裸 §VII-A 谓词·shield=False 也测·CBF 无合规约束→会违=对盾真优势度量)
     from trb_env.evaluate import _control_quality             # 平滑/jerk/转艏/油门增量/路径长(同 shield_certv2_eval 口径·绘图层合并)
+    from trb_env import metrics_subgrid as _msg                # 次网格细调率(同口径·CBF 也是连续控制→可比)
+    from trb_env.usv_env import A_ACC as _A_ACC, A_OMEGA as _A_OMEGA
+    _msg.assert_grid_matches(_A_ACC, _A_OMEGA)                # 守卫:镜像网格==真相源
     from run_step4e import load_manifest_split
     CKPT_DIR = os.environ["CKPT_DIR"]; CKPT_TMPL = os.environ.get("CKPT_TMPL", "Continuous-safe_s{s}_L1rateON_ppo_s{s}")
     SEEDS = [int(x) for x in os.environ.get("SEEDS", "0 1 2 3 4 5 6 7 8 9").split()]
@@ -200,7 +203,8 @@ def phase_run():
 
     n_ep = 0; n_col = 0; n_arr = 0; infeas_steps = 0; tot_steps = 0; qp_steps = 0   # F9·qp_steps=真解QP步
     _MK = ("ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "path_len_m")   # 平滑套件(同 shield eval)
-    agg = {"violations": [], **{k: [] for k in _MK}}                   # 全指标聚合(绘图层与 shield eval 合并)
+    _SG = ("subgrid_accel_frac", "subgrid_yaw_frac")   # 次网格率(CBF shield=False 无状态机→按态势拆不适用·rhos 传 None 优雅降级)
+    agg = {"violations": [], **{k: [] for k in _MK}, **{k: [] for k in _SG}}   # 全指标聚合(绘图层与 shield eval 合并)
     with open(OUT, "w") as fo, open(TRAJ_OUT, "w") as ftraj:
         for s in SEEDS:
             ck = os.path.join(CKPT_DIR, CKPT_TMPL.format(s=s))
@@ -266,15 +270,20 @@ def phase_run():
                 vc.finalize()
                 viol = int(vc.standon_violations + vc.giveway_violations)
                 cq = _control_quality(applied, positions) or {}
+                sg = _msg.subgrid_and_rho_split(applied, None)         # CBF: shield=False 无状态机 ρ → 只取次网格率
                 n_col += int(collided); n_arr += int(arrived)
                 agg["violations"].append(viol)
                 for k in _MK:
                     if cq.get(k) is not None:
                         agg[k].append(cq[k])
+                for k in _SG:
+                    if sg.get(k) is not None:
+                        agg[k].append(sg[k])
                 fo.write(json.dumps(dict(seed=s, scn_idx=si, collided=collided, arrived=arrived, violations=viol,
                                          giveway_violations=int(vc.giveway_violations), standon_violations=int(vc.standon_violations),
                                          **{k: cq.get(k) for k in
-                                            ("ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "ctrl_effort_norm_mean", "path_len_m")})) + "\n")
+                                            ("ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "ctrl_effort_norm_mean", "path_len_m")},
+                                         **{k: sg.get(k) for k in ("subgrid_accel_frac", "subgrid_yaw_frac", "n_inbox_pairs")})) + "\n")
                 if save_traj:
                     ftraj.write(json.dumps(dict(seed=s, scn_idx=si, collided=collided, arrived=arrived, traj=traj)) + "\n")
             fo.flush(); ftraj.flush()
@@ -285,7 +294,8 @@ def phase_run():
     _mean = lambda xs: (sum(xs) / len(xs)) if xs else float("nan")
     print(f"[run B1] done · ep={n_ep} · 碰撞率={cr:.2f}%({n_col}) · 到达率={ar:.2f}% · 违规/局={_mean(agg['violations']):.3f} · "
           f"jerk平滑={_mean(agg['ctrl_jerk_norm_mean']):.4f} · 转艏增量={_mean(agg['yaw_incr_mean']):.4f} · 油门增量={_mean(agg['accel_incr_mean']):.4f} · "
-          f"路径长={_mean(agg['path_len_m']):.0f}m · QP不可行率={ir_qp:.2f}%(解QP步分母·参考全步={ir_all:.2f}%) → {OUT} · 轨迹→{TRAJ_OUT}", flush=True)
+          f"路径长={_mean(agg['path_len_m']):.0f}m · 次网格细调率[油门={100*_mean(agg['subgrid_accel_frac']):.1f}% 转艏={100*_mean(agg['subgrid_yaw_frac']):.1f}%] · "
+          f"QP不可行率={ir_qp:.2f}%(解QP步分母·参考全步={ir_all:.2f}%) → {OUT} · 轨迹→{TRAJ_OUT}", flush=True)
     print("  ⚠️ 碰撞率+到达率【都 confounded·方向未定】(策略本盾下训练·CBF drop-in)·绝不 claim 0/单向上界·须对照我们盾同场景+论文双标混淆。", flush=True)
 
 

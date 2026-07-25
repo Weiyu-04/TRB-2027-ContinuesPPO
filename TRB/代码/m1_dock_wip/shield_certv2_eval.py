@@ -35,6 +35,9 @@ def phase_run():
     from trb_env import usv_projection as _proj   # 诊断计数 reset/读
     from trb_env.usv_colregs import ViolationCounter          # COLREGs 违规(§VII-A 官方口径·复用 evaluate·非重造)
     from trb_env.evaluate import _control_quality             # 平滑/jerk/转艏增量/油门增量/路径长(复用 evaluate CAT7·非重造)
+    from trb_env import metrics_subgrid as _msg                # 次网格细调率 + 按态势拆转艏(本机已单测 6 项)
+    from trb_env.usv_env import A_ACC as _A_ACC, A_OMEGA as _A_OMEGA
+    _msg.assert_grid_matches(_A_ACC, _A_OMEGA)                # 🔴 守卫:镜像网格常量==usv_env 真相源(防静默漂移·同 uterm 范式)
     from run_step4e import load_manifest_split
 
     CKPT_DIR = os.environ["CKPT_DIR"]
@@ -65,11 +68,12 @@ def phase_run():
 
     fo = open(OUT, "w"); ftraj = open(TRAJ_OUT, "w")
     _MK = ("ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "path_len_m")   # 平滑度/路径套件(evaluate CAT7)
+    _SG = ("subgrid_accel_frac", "subgrid_yaw_frac", "yaw_incr_giveway", "yaw_incr_other")   # 次网格率+按态势拆转艏
     for mode in MODES:
         _proj.reset_certv2_stats()                     # 诊断计数清零(每档)
         n_ep = n_col = n_arr = 0
         src = {}
-        agg = {"violations": [], **{k: [] for k in _MK}}   # 全指标聚合(违规+平滑套件·多算法同口径可比)
+        agg = {"violations": [], **{k: [] for k in _MK}, **{k: [] for k in _SG}}   # 全指标聚合(违规+平滑+次网格/态势拆)
         for s in SEEDS:
             ck = os.path.join(CKPT_DIR, CKPT_TMPL.format(s=s))
             if not (os.path.exists(ck + ".zip") and os.path.exists(ck + "_vecnorm.pkl")):
@@ -83,7 +87,7 @@ def phase_run():
                 env = _mk(sc, pp, mode); obs, info = env.reset(seed=0)
                 n_ep += 1; collided = arrived = False
                 vc = ViolationCounter()                                    # COLREGs 违规(喂真态 pre-step·同 evaluate·忠实官方 monitor)
-                applied = []; positions = [np.asarray(env._ego_vs().position, float)]   # 控制质量素材(执行控制+位置序列)
+                applied = []; rhos = []; positions = [np.asarray(env._ego_vs().position, float)]   # 控制质量素材(执行控制+ρ+位置序列)
                 save_traj = (si in TRAJ_IDXS and s == SEEDS[0]); traj = [] if save_traj else None
                 for step_i in range(200):
                     s_obs = env._obs_vs()                                  # pre-step 真态(违规口径+轨迹·同 evaluate)
@@ -99,7 +103,7 @@ def phase_run():
                     obs, _r, term, trunc, info = env.step(np.asarray(act, float))
                     _la = getattr(env.env, "last_action", None)           # 执行控制(=平滑度素材·同 evaluate CAT7·仅正常操作步入 jerk)
                     if _la is not None:
-                        applied.append(np.asarray(_la, float))
+                        applied.append(np.asarray(_la, float)); rhos.append(int(env._rho))   # ρ 同步记(按态势拆转艏用·pre-step ρ 同 obs 口径)
                     positions.append(np.asarray(env._ego_vs().position, float))
                     so = info.get("source")
                     if so is not None:
@@ -117,15 +121,22 @@ def phase_run():
                 vc.finalize()
                 viol = int(vc.standon_violations + vc.giveway_violations)
                 cq = _control_quality(applied, positions) or {}
+                sg = _msg.subgrid_and_rho_split(applied, rhos)             # 次网格细调率 + 按态势拆 |Δω|
                 n_col += int(collided); n_arr += int(arrived)
                 agg["violations"].append(viol)
                 for k in _MK:
                     if cq.get(k) is not None:
                         agg[k].append(cq[k])
+                for k in _SG:
+                    if sg.get(k) is not None:
+                        agg[k].append(sg[k])
                 fo.write(json.dumps(dict(mode=mode, seed=s, scn_idx=si, collided=collided, arrived=arrived, violations=viol,
                                          giveway_violations=int(vc.giveway_violations), standon_violations=int(vc.standon_violations),
                                          **{k: cq.get(k) for k in
-                                            ("ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "ctrl_effort_norm_mean", "path_len_m")})) + "\n")
+                                            ("ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "ctrl_effort_norm_mean", "path_len_m")},
+                                         **{k: sg.get(k) for k in
+                                            ("subgrid_accel_frac", "subgrid_yaw_frac", "n_inbox_pairs",
+                                             "yaw_incr_giveway", "yaw_incr_other", "n_pairs_giveway", "n_pairs_other")})) + "\n")
                 if save_traj:
                     ftraj.write(json.dumps(dict(mode=mode, seed=s, scn_idx=si, collided=collided, arrived=arrived, traj=traj)) + "\n")
             fo.flush(); ftraj.flush()
@@ -138,6 +149,9 @@ def phase_run():
               f"介入率={interv:.2f}% · 违规/局={_mean(agg['violations']):.3f} · jerk平滑={_mean(agg['ctrl_jerk_norm_mean']):.4f} · "
               f"转艏增量={_mean(agg['yaw_incr_mean']):.4f} · 油门增量={_mean(agg['accel_incr_mean']):.4f} · 路径长={_mean(agg['path_len_m']):.0f}m · "
               f"source={src} · 终端检查[calls={st['calls']} giveway={st['giveway']} rejects={st['rejects']}]", flush=True)
+        print(f"   └ 次网格细调率(离散恒0·=用掉的连续分辨率): 油门={100*_mean(agg['subgrid_accel_frac']):.1f}% 转艏={100*_mean(agg['subgrid_yaw_frac']):.1f}%"
+              f" ｜ 转艏增量按态势: 让路={_mean(agg['yaw_incr_giveway']):.4f} vs 非让路={_mean(agg['yaw_incr_other']):.4f}"
+              f"(让路更大 ⟹ 转艏活动=合规让路机动的代价)", flush=True)
     fo.close(); ftraj.close()
     print(f"[shield certv2 eval] done → {OUT} · 轨迹 → {TRAJ_OUT}", flush=True)
     print("  判读：off 碰撞率应=现状基线(~0·regression 冒烟)；certv2 碰撞率≤off(终端门更严·不该更差)；"
