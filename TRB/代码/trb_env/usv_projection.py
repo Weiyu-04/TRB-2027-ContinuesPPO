@@ -52,6 +52,18 @@ from .usv_colregs import (
     encounter_action_verification,  # As(ρ') 非空 ⟺ 落点存在合规脱身机动（Alg.3，:855）
 )
 
+# ── 🔴 复审 2026-07-25（独立复审：主复审 + 2 对抗 agent 一致抓·防御性硬校验）──────────────────
+#   uterm_terminal 是【纯模块】(不能 import vesselmodels)·故把 SR108 常量(DECISION_DT / 本船宽)【硬编码】。
+#   这些若与官方源【静默漂移】→ certv2 会：① 10s 对齐错拍 = 退路不可执行（Finding A 的修白做）
+#   ② 本船几何与碰撞检查不一致 → Lipschitz 界欠估 = 清障证书【假放行】(unsound·Finding D 只查了长没查宽)。
+#   在此【import 期硬校验·fail-fast】(便宜保险·safety-critical·别等服务器闭环才炸)：
+assert abs(_uterm.DECISION_DT - usv_dynamics.DECISION_DT) < 1e-9, (
+    f"uterm.DECISION_DT({_uterm.DECISION_DT}) ≠ usv_dynamics.DECISION_DT({usv_dynamics.DECISION_DT})："
+    "certv2 机动族 10s 对齐会错拍=退路不可执行（Finding A 前提破）")
+assert abs(_uterm.W_SHIP - EGO_WIDTH) < 1e-9, (
+    f"uterm.W_SHIP({_uterm.W_SHIP}) ≠ usv_colregs.EGO_WIDTH({EGO_WIDTH})："
+    "certv2 本船几何(_rect/R_CIRC)与碰撞检查不一致=清障证书假放行风险（补齐 Finding D：守卫只查长未查宽）")
+
 # ── 合规约束阈值（全部 fact-based 自 Phase-1 验证常量；⚠️ 用 T_M=40 段机动时间）──────────────────
 # 让路"明显转向"率下限：ω 持续 T_M 秒累积转角 ≥ Δ_large_turn(20°) → ω_turn = Δ_large_turn / T_M。
 #   = COLREGs 阈值本尊（蓝图 §12.2"Δ_large_turn → 转艏率下限"）；离散基线 ATR 用 ω∈{0.012,0.018}
@@ -494,11 +506,14 @@ class ContinuousColregsProjection:
         sign = -1 if rho_n in (RHO_HEAD_ON, RHO_CROSSING) else 0   # head_on/crossing→starboard(Rule14/15)·overtake→任意向(Rule13 两侧皆可=合规)
         # 🔴 对抗审 Finding D：uterm 的 Lipschitz 界写死 SR108 常量(A_MAX/W_MAX/V_MAX/L_SHIP)·须与本盾 vessel_params 一致·
         #   否则 a_max>0.24 时 A_MAX·hh 速度 overshoot 项欠估 L → 假放行(unsound)。非 SR108 → fail-fast·别静默假 certify。
+        #   ⚠️ v_max 双查(复审 agent3)：积分器钳到 self.v_max·但 env dynamics.step 钳到 vessel_params.v_max
+        #   → 两者须都 == _uterm.V_MAX·否则证书轨迹的钳值 ≠ 执行钳值 = 轨迹不忠实/假放行。
         if not (abs(vessel_params.a_max - _uterm.A_MAX) < 1e-9 and abs(vessel_params.w_max - _uterm.W_MAX) < 1e-9
-                and abs(float(self.v_max) - _uterm.V_MAX) < 1e-9 and abs(float(s_ego.length) - _uterm.L_SHIP) < 1e-9):
+                and abs(float(self.v_max) - _uterm.V_MAX) < 1e-9 and abs(float(vessel_params.v_max) - _uterm.V_MAX) < 1e-9
+                and abs(float(s_ego.length) - _uterm.L_SHIP) < 1e-9):
             raise ValueError(f"terminal_mode='certv2' 仅支持 SR108 常量(a_max={_uterm.A_MAX}/w_max={_uterm.W_MAX}/"
                              f"v_max={_uterm.V_MAX}/l={_uterm.L_SHIP})·得 a_max={vessel_params.a_max}/w_max={vessel_params.w_max}/"
-                             f"v_max={self.v_max}/l={s_ego.length}（uterm Lipschitz 界写死这些·不一致会假放行）")
+                             f"v_max(self={self.v_max}/vp={vessel_params.v_max})/l={s_ego.length}（uterm Lipschitz 界写死这些·不一致会假放行）")
         integ = lambda e, segs, T, h: self._integrate_maneuver_official(e, segs, T, h, vessel_params)
         # 🔴 对抗审 Finding C：H=120(=uterm 默认+机动族 max 转 120s+ fuzz 验证的 regime)·非 statechart t_horizon(=420·未验+过保守)。
         #   引理1 凸性(过 CPA→永久增)使 120 足够充分证永久清·无需 420。
@@ -508,7 +523,10 @@ class ContinuousColregsProjection:
 
     def _integrate_maneuver_official(self, ego_vec, segments, T, h, vessel_params):
         """分段常控积分（官方 usv_dynamics.step·10s 边界钳 v=执行口径·忠实 block3.integrate_maneuver_official）
-        → (ts[N], traj[N,4], omega_seg[N-1])·供 uterm.cert_v2。h 须整除 10s（钳不错拍）。"""
+        → (ts[N], traj[N,4], omega_seg[N-1])·供 uterm.cert_v2。h 须整除 10s（钳不错拍）。
+        ⚠️ 复审 agent3：本积分器【无条件】在 10s 边界钳 v（=假设 env clip_velocity=True=默认/eval 口径）。
+           若 env 以 clip_velocity=False 构造·certv2 的证书轨迹会封顶 v 而执行不封顶=证书乐观=unsound。
+           盾对象看不到 env.clip_velocity → 契约：certv2 只在 clip_velocity=True 的 env 下用（eval harness 默认满足）。"""
         assert abs(round(_uterm.DECISION_DT / h) * h - _uterm.DECISION_DT) < 1e-9, \
             f"h={h} 须整除 {_uterm.DECISION_DT}s（否则 10s 边界钳错拍·轨迹不忠实）"
         n = int(round(T / h))

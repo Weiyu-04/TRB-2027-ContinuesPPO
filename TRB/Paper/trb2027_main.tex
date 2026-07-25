@@ -54,13 +54,17 @@ terminal constraint makes the shield \emph{forward-invariant} (recursively feasi
 on that set under a single constant-velocity target---a guarantee that reactive
 CBF-QP filters lack under a $10$\,s zero-order hold---and on the shield's real
 give-way state distribution a COLREGs-compliant certified escape exists at every
-clearable state. We deliberately do \emph{not} claim bare provable collision freedom:
+sampled clearable state (official-integrator reconfirmation [PENDING]). We deliberately
+do \emph{not} claim bare provable collision freedom:
 the guarantee is scoped to the clearable set (single CV), with the residual
 ($\approx\!0$--$3\%$, states clearable in no direction) deferred to an honestly
 characterized emergency fallback. On the Krasowski--Althoff benchmark the shielded continuous policy attains
-zero hull collisions over [PENDING: seeds$\times$episodes] and a structural
-$\sim\!5\times$ advantage in throttle smoothness over the discrete baseline, at
-comparable arrival. We report all limitations honestly, including a
+zero hull collisions over $10$ seeds $\times$ $40$ episodes on the current benchmark
+(the headline balanced/overtaking-dataset run is [PENDING]) and a structural
+$\sim\!5\times$ advantage in \emph{throttle}-increment smoothness over the discrete
+baseline, at comparable arrival---though yaw-increment and jerk currently trail discrete
+by $\sim\!1.2$--$1.3\times$ (yaw-axis smoothing is open work). We report all limitations
+honestly, including a
 training-stability collapse on a minority of seeds that we address with
 policy warm-starting. [HONESTY: never "provably collision-free"; arrival is
 comparable, not superior.]

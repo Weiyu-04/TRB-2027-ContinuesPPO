@@ -280,9 +280,14 @@ $m'=(u_1,u_2,\dots)$ is a certified straight-tail escape for $s'$ (it is the sec
 half of the \emph{same} physical trajectory, which passed one sound certificate).
 Hence $s'\in A$: $A$ is control invariant. Consequently a terminal constraint
 ``successor $\in A$'', realized as an $O(1)$ re-certification of one concrete backup
-maneuver (the backup-maneuver terminal set $U_{\mathrm{term}}$), renders the shielded
-closed loop forward invariant on $A$, i.e.\ \emph{provably collision-free for all
-future time on $A$ under a single CV target}.
+maneuver (the backup-maneuver terminal set $U_{\mathrm{term}}$), makes the shielded
+closed loop \emph{recursively feasible on $A$} under a single CV target: a sound,
+certified collision-free escape maneuver provably remains available at every give-way
+step. We state this as recursive feasibility, \emph{not} as a collision-free guarantee
+for the \emph{executed} closed loop---the latter would additionally require the
+near-field per-step projection constraint (a first-order linearization, sound only in
+the far-field regime of Prop.~\ref{prop:farfield}), and the executed policy's collision
+freedom is reported \emph{empirically} in Section~\ref{sec:provable-summary}.
 \end{proposition}
 \emph{Proof sketch.} The tail is certified because it is a sub-arc of an already
 certified trajectory (verified numerically to reproduce the original trajectory's
@@ -398,14 +403,18 @@ action $\cap$ provably \emph{direction}-compliant $\cap$ COLREGs (a previously e
 intersection), plus far-field single-step provable safety ($\forall i$, sound), a
 sound imminent-unavoidability certificate for the emergency regime ($\exists i$), and
 ---the central upgrade---\emph{forward-invariant recursive feasibility} on a
-certificate-defined clearable set (Prop.~\ref{prop:forward-invariant}): the shield is
-provably collision-free for all future time on that set under a single CV target, a
-guarantee reactive CBF-QP filters lack under a $10$\,s hold. We do \textbf{not} claim
+certificate-defined clearable set (Prop.~\ref{prop:forward-invariant}): on that set,
+under a single CV target, a sound certified collision-free escape provably remains
+available at every give-way step (\emph{recursive feasibility}), a guarantee reactive
+CBF-QP filters lack under a $10$\,s hold; the executed policy's collision freedom itself
+is reported empirically, not claimed as proven. We do \textbf{not} claim
 bare provable collision freedom, complete provable coverage, maneuvering targets, or
 multi-target direction conflicts (which fall to fallback by the pairwise nature of
 COLREGs); the forward-invariance is scoped to the clearable set, whose residual
 ($\approx\!0$--$3\%$) is deferred to fallback. The provable tier is therefore
-\emph{medium-to-strong}: the invariance upgrade and gap\#1 are sound, but coverage is
+\emph{medium} (rising to medium-strong only after the [PENDING] closed-loop
+$U_{\mathrm{term}}$ wiring and official-gate reconfirmation): the invariance upgrade and
+gap\#1 are sound, but coverage is
 still an inner approximation, the closed-loop $U_{\mathrm{term}}$ wiring and official
 reconfirmation are [PENDING server, eval-only], and the empirical zero-collision
 backing remains single-target until multi-vessel benchmark data are available.
