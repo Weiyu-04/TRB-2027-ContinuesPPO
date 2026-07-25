@@ -173,12 +173,16 @@ def phase_run():
     from trb_env.train import make_obs_transform
     from trb_env.usv_continuous_shield import ContinuousProjectionEnv
     from trb_env.usv_scenarios import load_scenario_pool
+    from trb_env.usv_colregs import ViolationCounter          # COLREGs 违规(裸 §VII-A 谓词·shield=False 也测·CBF 无合规约束→会违=对盾真优势度量)
+    from trb_env.evaluate import _control_quality             # 平滑/jerk/转艏/油门增量/路径长(同 shield_certv2_eval 口径·绘图层合并)
     from run_step4e import load_manifest_split
     CKPT_DIR = os.environ["CKPT_DIR"]; CKPT_TMPL = os.environ.get("CKPT_TMPL", "Continuous-safe_s{s}_L1rateON_ppo_s{s}")
     SEEDS = [int(x) for x in os.environ.get("SEEDS", "0 1 2 3 4 5 6 7 8 9").split()]
     MANIFEST = os.environ["STEP4E_MANIFEST"]; VARIANT = os.environ.get("CBF_VARIANT", "colregs")
     A1 = float(os.environ.get("CBF_A1", "0.3")); A2 = float(os.environ.get("CBF_A2", "0.3"))
     OUT = os.environ.get("OUT_JSONL", "b1_cbf_run.jsonl")
+    TRAJ_OUT = os.environ.get("TRAJ_JSONL", OUT[:-6] + "_traj.jsonl" if OUT.endswith(".jsonl") else OUT + "_traj.jsonl")
+    TRAJ_IDXS = set(int(x) for x in os.environ.get("TRAJ_IDXS", "0 1 2 3 4 5").split())   # 同 shield_certv2_eval 口径(代表场景轨迹·画多算法对比)
     bdir = os.environ.get("STEP4E_BALANCED_DIR") or os.path.dirname(os.path.abspath(MANIFEST))
     _tr, test_paths, _i = load_manifest_split(MANIFEST, bdir); pool = load_scenario_pool(test_paths)
     print(f"[run B1] CBF-QP variant={VARIANT} α=({A1},{A2}) · 场景 n={len(pool)} 种子={SEEDS} → {OUT}", flush=True)
@@ -195,7 +199,9 @@ def phase_run():
         return ContinuousProjectionEnv(sc, pp, shield=False, goal_cone_half=None, goal_v_floor=2.0, augment_rho=False)
 
     n_ep = 0; n_col = 0; n_arr = 0; infeas_steps = 0; tot_steps = 0; qp_steps = 0   # F9·qp_steps=真解QP步
-    with open(OUT, "w") as fo:
+    _MK = ("ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "path_len_m")   # 平滑套件(同 shield eval)
+    agg = {"violations": [], **{k: [] for k in _MK}}                   # 全指标聚合(绘图层与 shield eval 合并)
+    with open(OUT, "w") as fo, open(TRAJ_OUT, "w") as ftraj:
         for s in SEEDS:
             ck = os.path.join(CKPT_DIR, CKPT_TMPL.format(s=s))
             if not (os.path.exists(ck + ".zip") and os.path.exists(ck + "_vecnorm.pkl")):
@@ -208,10 +214,18 @@ def phase_run():
             for si, (sc, pp) in enumerate(pool):
                 env = _mk(sc, pp); obs, info = env.reset(seed=0)
                 n_ep += 1; collided = arrived = False
+                vc = ViolationCounter(); applied = []; positions = [np.asarray(env._ego_vs().position, float)]   # 同 shield eval 采集
+                save_traj = (si in TRAJ_IDXS and s == SEEDS[0]); traj = [] if save_traj else None
                 for step_i in range(200):
                     u_nom, _ = model.predict(tf(obs), deterministic=True)   # 策略原动作(混淆见上)
                     ev, ov = env._ego_vs(), env._obs_vs()
+                    if save_traj:
+                        traj.append(dict(step=step_i, ex=float(ev.position[0]), ey=float(ev.position[1]), eth=float(ev.orientation),
+                                         ox=(float(ov.position[0]) if ov is not None else None),
+                                         oy=(float(ov.position[1]) if ov is not None else None),
+                                         oth=(float(ov.orientation) if ov is not None else None), rho=0))
                     if ov is not None:
+                        vc.step(ev, ov)                                # COLREGs 违规(裸 §VII-A 谓词·CBF 无合规→会违=对盾真优势)
                         qp_steps += 1                                  # F9·这步会解 QP
                         ob = env._obstacles[0] if env._obstacles else None
                         if ob is not None and not hasattr(ob.obstacle_shape, "width"):   # F12·守卫(对齐金标)
@@ -235,6 +249,10 @@ def phase_run():
                         act = np.asarray(u_nom, float)
                     tot_steps += 1
                     obs, _r, term, trunc, info = env.step(act)
+                    _la = getattr(env.env, "last_action", None)        # 执行控制(平滑度素材·同 shield eval CAT7)
+                    if _la is not None:
+                        applied.append(np.asarray(_la, float))
+                    positions.append(np.asarray(env._ego_vs().position, float))
                     flags = info.get("flags", {})                      # 内层 usv_env:277 = {collision,goal,area,stopped,time}
                     if flags.get("collision"):
                         collided = True
@@ -242,14 +260,31 @@ def phase_run():
                         arrived = True
                     if term or trunc:
                         break
+                ovf = env._obs_vs()                                    # 补喂终止态(同 evaluate/shield eval·忠实官方 monitor)
+                if ovf is not None:
+                    vc.step(env._ego_vs(), ovf)
+                vc.finalize()
+                viol = int(vc.standon_violations + vc.giveway_violations)
+                cq = _control_quality(applied, positions) or {}
                 n_col += int(collided); n_arr += int(arrived)
-                fo.write(json.dumps(dict(seed=s, scn_idx=si, collided=collided, arrived=arrived)) + "\n")
-            fo.flush()
+                agg["violations"].append(viol)
+                for k in _MK:
+                    if cq.get(k) is not None:
+                        agg[k].append(cq[k])
+                fo.write(json.dumps(dict(seed=s, scn_idx=si, collided=collided, arrived=arrived, violations=viol,
+                                         **{k: cq.get(k) for k in
+                                            ("ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "ctrl_effort_norm_mean", "path_len_m")})) + "\n")
+                if save_traj:
+                    ftraj.write(json.dumps(dict(seed=s, scn_idx=si, collided=collided, arrived=arrived, traj=traj)) + "\n")
+            fo.flush(); ftraj.flush()
             print(f"  s{s}: 累计 ep={n_ep} 碰撞={n_col} 到达={n_arr} QP不可行步={infeas_steps}/{tot_steps}", flush=True)
     cr = 100*n_col/max(1, n_ep); ar = 100*n_arr/max(1, n_ep)
     ir_qp = 100*infeas_steps/max(1, qp_steps)   # F9·主口径=解过QP的步为分母
     ir_all = 100*infeas_steps/max(1, tot_steps)
-    print(f"[run B1] done · ep={n_ep} · 碰撞率={cr:.2f}%({n_col}) · 到达率={ar:.2f}% · QP不可行率={ir_qp:.2f}%(解QP步为分母·参考全步={ir_all:.2f}%) → {OUT}", flush=True)
+    _mean = lambda xs: (sum(xs) / len(xs)) if xs else float("nan")
+    print(f"[run B1] done · ep={n_ep} · 碰撞率={cr:.2f}%({n_col}) · 到达率={ar:.2f}% · 违规/局={_mean(agg['violations']):.3f} · "
+          f"jerk平滑={_mean(agg['ctrl_jerk_norm_mean']):.4f} · 转艏增量={_mean(agg['yaw_incr_mean']):.4f} · 油门增量={_mean(agg['accel_incr_mean']):.4f} · "
+          f"路径长={_mean(agg['path_len_m']):.0f}m · QP不可行率={ir_qp:.2f}%(解QP步分母·参考全步={ir_all:.2f}%) → {OUT} · 轨迹→{TRAJ_OUT}", flush=True)
     print("  ⚠️ 碰撞率+到达率【都 confounded·方向未定】(策略本盾下训练·CBF drop-in)·绝不 claim 0/单向上界·须对照我们盾同场景+论文双标混淆。", flush=True)
 
 
