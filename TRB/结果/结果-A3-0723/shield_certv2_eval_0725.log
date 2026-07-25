@@ -1,0 +1,26 @@
+[shield certv2 eval] 场景 n=40 种子=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9] 档=['off', 'certv2'] → /root/trb/结果-A3-0723/shield_certv2_eval_0725.jsonl
+  ⚠️ 纯 eval·金标策略确定性·同池同种子·只换盾终端模式。off=bit-identical 基线。
+  [off] s0: 累计 ep=40 碰撞=0 到达=37
+  [off] s1: 累计 ep=80 碰撞=0 到达=73
+  [off] s2: 累计 ep=120 碰撞=0 到达=99
+  [off] s3: 累计 ep=160 碰撞=0 到达=129
+  [off] s4: 累计 ep=200 碰撞=0 到达=163
+  [off] s5: 累计 ep=240 碰撞=0 到达=164
+  [off] s6: 累计 ep=280 碰撞=0 到达=166
+  [off] s7: 累计 ep=320 碰撞=0 到达=197
+  [off] s8: 累计 ep=360 碰撞=0 到达=226
+  [off] s9: 累计 ep=400 碰撞=0 到达=260
+[off] done · ep=400 · 碰撞率=0.00%(0) · 到达率=65.00% · 介入(非projection)率=1.28% · source={'projection': 30171, 'emergency': 332, 'collision_min': 58, 'relaxed': 1} · 终端检查[calls=0 giveway=0 rejects=0]
+  [certv2] s0: 累计 ep=40 碰撞=0 到达=37
+  [certv2] s1: 累计 ep=80 碰撞=0 到达=73
+  [certv2] s2: 累计 ep=120 碰撞=0 到达=99
+  [certv2] s3: 累计 ep=160 碰撞=0 到达=129
+  [certv2] s4: 累计 ep=200 碰撞=0 到达=163
+  [certv2] s5: 累计 ep=240 碰撞=0 到达=164
+  [certv2] s6: 累计 ep=280 碰撞=0 到达=166
+  [certv2] s7: 累计 ep=320 碰撞=0 到达=197
+  [certv2] s8: 累计 ep=360 碰撞=0 到达=226
+  [certv2] s9: 累计 ep=400 碰撞=0 到达=260
+[certv2] done · ep=400 · 碰撞率=0.00%(0) · 到达率=65.00% · 介入(非projection)率=1.28% · source={'projection': 30171, 'emergency': 332, 'collision_min': 58, 'relaxed': 1} · 终端检查[calls=30171 giveway=25 rejects=0]
+[shield certv2 eval] done → /root/trb/结果-A3-0723/shield_certv2_eval_0725.jsonl
+  判读：off 碰撞率应=现状基线(~0·regression 冒烟)；certv2 碰撞率≤off(终端门更严·不该更差)；介入率 certv2≥off(更严→更多 fallback·代价);到达率代价看差多少。
