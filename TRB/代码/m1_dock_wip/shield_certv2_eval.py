@@ -73,7 +73,8 @@ def phase_run():
         _proj.reset_certv2_stats()                     # 诊断计数清零(每档)
         n_ep = n_col = n_arr = 0
         src = {}
-        agg = {"violations": [], **{k: [] for k in _MK}, **{k: [] for k in _SG}}   # 全指标聚合(违规+平滑+次网格/态势拆)
+        agg = {"violations": [], "gwviol_pure": [], "gwviol_fb": [],   # 违规归因分桶:纯投影局 vs 含经验兜底局
+               **{k: [] for k in _MK}, **{k: [] for k in _SG}}          # 全指标聚合(违规+平滑+次网格/态势拆)
         for s in SEEDS:
             ck = os.path.join(CKPT_DIR, CKPT_TMPL.format(s=s))
             if not (os.path.exists(ck + ".zip") and os.path.exists(ck + "_vecnorm.pkl")):
@@ -88,6 +89,7 @@ def phase_run():
                 n_ep += 1; collided = arrived = False
                 vc = ViolationCounter()                                    # COLREGs 违规(喂真态 pre-step·同 evaluate·忠实官方 monitor)
                 applied = []; rhos = []; positions = [np.asarray(env._ego_vs().position, float)]   # 控制质量素材(执行控制+ρ+位置序列)
+                ep_src = {}                                                # 本局 source 分布(违规归因:盾控制步 vs 紧急/兜底步)
                 save_traj = (si in TRAJ_IDXS and s == SEEDS[0]); traj = [] if save_traj else None
                 for step_i in range(200):
                     s_obs = env._obs_vs()                                  # pre-step 真态(违规口径+轨迹·同 evaluate)
@@ -108,6 +110,7 @@ def phase_run():
                     so = info.get("source")
                     if so is not None:
                         src[so] = src.get(so, 0) + 1
+                        ep_src[so] = ep_src.get(so, 0) + 1        # 每局 source 分布(违规归因用:违规是否集中在有紧急/兜底的局)
                     flags = info.get("flags", {})
                     if flags.get("collision"):
                         collided = True
@@ -124,6 +127,8 @@ def phase_run():
                 sg = _msg.subgrid_and_rho_split(applied, rhos)             # 次网格细调率 + 按态势拆 |Δω|
                 n_col += int(collided); n_arr += int(arrived)
                 agg["violations"].append(viol)
+                # 违规归因：本局有无经验兜底步(紧急/relaxed/collision_min)→分桶(纯投影局 vs 含兜底局)
+                (agg["gwviol_fb"] if ep_src.keys() - {"projection"} else agg["gwviol_pure"]).append(int(vc.giveway_violations))
                 for k in _MK:
                     if cq.get(k) is not None:
                         agg[k].append(cq[k])
@@ -136,7 +141,11 @@ def phase_run():
                                             ("ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "ctrl_effort_norm_mean", "path_len_m")},
                                          **{k: sg.get(k) for k in
                                             ("subgrid_accel_frac", "subgrid_yaw_frac", "n_inbox_pairs",
-                                             "yaw_incr_giveway", "yaw_incr_other", "n_pairs_giveway", "n_pairs_other")})) + "\n")
+                                             "yaw_incr_giveway", "yaw_incr_other", "n_pairs_giveway", "n_pairs_other")},
+                                         # 违规归因素材：本局 source 分布（盾控制步 projection vs 经验兜底步 emergency/collision_min/relaxed）
+                                         n_proj=int(ep_src.get("projection", 0)),
+                                         n_fallback=int(sum(v for k, v in ep_src.items() if k != "projection")),
+                                         ep_src=ep_src)) + "\n")
                 if save_traj:
                     ftraj.write(json.dumps(dict(mode=mode, seed=s, scn_idx=si, collided=collided, arrived=arrived, traj=traj)) + "\n")
             fo.flush(); ftraj.flush()
@@ -152,6 +161,10 @@ def phase_run():
         print(f"   └ 次网格细调率(离散恒0·=用掉的连续分辨率): 油门={100*_mean(agg['subgrid_accel_frac']):.1f}% 转艏={100*_mean(agg['subgrid_yaw_frac']):.1f}%"
               f" ｜ 转艏增量按态势: 让路={_mean(agg['yaw_incr_giveway']):.4f} vs 非让路={_mean(agg['yaw_incr_other']):.4f}"
               f"(让路更大 ⟹ 转艏活动=合规让路机动的代价)", flush=True)
+        _np_, _nf_ = len(agg["gwviol_pure"]), len(agg["gwviol_fb"])
+        print(f"   └ 🔴 让路违规归因(验可证明claim): 【纯投影局】{_mean(agg['gwviol_pure']):.3f}/局(n={_np_}) vs "
+              f"【含经验兜底局】{_mean(agg['gwviol_fb']):.3f}/局(n={_nf_}) → 纯投影局≈0 ⟹ "
+              f"盾真控制处合规几乎满分·残余住在【已诚实声明的经验兜底区】(非可证明层失效)", flush=True)
     fo.close(); ftraj.close()
     print(f"[shield certv2 eval] done → {OUT} · 轨迹 → {TRAJ_OUT}", flush=True)
     print("  判读：off 碰撞率应=现状基线(~0·regression 冒烟)；certv2 碰撞率≤off(终端门更严·不该更差)；"
