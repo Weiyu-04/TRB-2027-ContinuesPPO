@@ -33,6 +33,8 @@ def phase_run():
     from trb_env.usv_continuous_shield import ContinuousProjectionEnv
     from trb_env.usv_scenarios import load_scenario_pool
     from trb_env import usv_projection as _proj   # 诊断计数 reset/读
+    from trb_env.usv_colregs import ViolationCounter          # COLREGs 违规(§VII-A 官方口径·复用 evaluate·非重造)
+    from trb_env.evaluate import _control_quality             # 平滑/jerk/转艏增量/油门增量/路径长(复用 evaluate CAT7·非重造)
     from run_step4e import load_manifest_split
 
     CKPT_DIR = os.environ["CKPT_DIR"]
@@ -41,6 +43,8 @@ def phase_run():
     MANIFEST = os.environ["STEP4E_MANIFEST"]
     MODES = os.environ.get("SHIELD_MODES", "off certv2").split()   # 默认 off vs certv2（加 discrete 三档全跑）
     OUT = os.environ.get("OUT_JSONL", "shield_certv2_eval.jsonl")
+    TRAJ_OUT = os.environ.get("TRAJ_JSONL", OUT[:-6] + "_traj.jsonl" if OUT.endswith(".jsonl") else OUT + "_traj.jsonl")
+    TRAJ_IDXS = set(int(x) for x in os.environ.get("TRAJ_IDXS", "0 1 2 3 4 5").split())   # 存这几个场景逐步轨迹(仅首种子·多算法轨迹对比画图用)
     bdir = os.environ.get("STEP4E_BALANCED_DIR") or os.path.dirname(os.path.abspath(MANIFEST))
     _tr, test_paths, _i = load_manifest_split(MANIFEST, bdir)
     pool = load_scenario_pool(test_paths)
@@ -59,11 +63,13 @@ def phase_run():
             raise SystemExit(f"未知 mode={mode}")
         return ContinuousProjectionEnv(sc, pp, **kw)
 
-    fo = open(OUT, "w")
+    fo = open(OUT, "w"); ftraj = open(TRAJ_OUT, "w")
+    _MK = ("ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "path_len_m")   # 平滑度/路径套件(evaluate CAT7)
     for mode in MODES:
         _proj.reset_certv2_stats()                     # 诊断计数清零(每档)
         n_ep = n_col = n_arr = 0
         src = {}
+        agg = {"violations": [], **{k: [] for k in _MK}}   # 全指标聚合(违规+平滑套件·多算法同口径可比)
         for s in SEEDS:
             ck = os.path.join(CKPT_DIR, CKPT_TMPL.format(s=s))
             if not (os.path.exists(ck + ".zip") and os.path.exists(ck + "_vecnorm.pkl")):
@@ -76,9 +82,25 @@ def phase_run():
             for si, (sc, pp) in enumerate(pool):
                 env = _mk(sc, pp, mode); obs, info = env.reset(seed=0)
                 n_ep += 1; collided = arrived = False
+                vc = ViolationCounter()                                    # COLREGs 违规(喂真态 pre-step·同 evaluate·忠实官方 monitor)
+                applied = []; positions = [np.asarray(env._ego_vs().position, float)]   # 控制质量素材(执行控制+位置序列)
+                save_traj = (si in TRAJ_IDXS and s == SEEDS[0]); traj = [] if save_traj else None
                 for step_i in range(200):
+                    s_obs = env._obs_vs()                                  # pre-step 真态(违规口径+轨迹·同 evaluate)
+                    if s_obs is not None:
+                        vc.step(env._ego_vs(), s_obs)
+                    if save_traj:
+                        _e = env._ego_vs()
+                        traj.append(dict(step=step_i, ex=float(_e.position[0]), ey=float(_e.position[1]), eth=float(_e.orientation),
+                                         ox=(float(s_obs.position[0]) if s_obs is not None else None),
+                                         oy=(float(s_obs.position[1]) if s_obs is not None else None),
+                                         oth=(float(s_obs.orientation) if s_obs is not None else None), rho=int(env._rho)))
                     act, _ = model.predict(tf(obs), deterministic=True)
                     obs, _r, term, trunc, info = env.step(np.asarray(act, float))
+                    _la = getattr(env.env, "last_action", None)           # 执行控制(=平滑度素材·同 evaluate CAT7·仅正常操作步入 jerk)
+                    if _la is not None:
+                        applied.append(np.asarray(_la, float))
+                    positions.append(np.asarray(env._ego_vs().position, float))
                     so = info.get("source")
                     if so is not None:
                         src[so] = src.get(so, 0) + 1
@@ -89,17 +111,34 @@ def phase_run():
                         arrived = True
                     if term or trunc:
                         break
+                s_obs_final = env._obs_vs()                               # 补喂终止态 @k(忠实官方离线 monitor·同 evaluate)
+                if s_obs_final is not None:
+                    vc.step(env._ego_vs(), s_obs_final)
+                vc.finalize()
+                viol = int(vc.standon_violations + vc.giveway_violations)
+                cq = _control_quality(applied, positions) or {}
                 n_col += int(collided); n_arr += int(arrived)
-                fo.write(json.dumps(dict(mode=mode, seed=s, scn_idx=si, collided=collided, arrived=arrived)) + "\n")
-            fo.flush()
+                agg["violations"].append(viol)
+                for k in _MK:
+                    if cq.get(k) is not None:
+                        agg[k].append(cq[k])
+                fo.write(json.dumps(dict(mode=mode, seed=s, scn_idx=si, collided=collided, arrived=arrived, violations=viol,
+                                         **{k: cq.get(k) for k in
+                                            ("ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "ctrl_effort_norm_mean", "path_len_m")})) + "\n")
+                if save_traj:
+                    ftraj.write(json.dumps(dict(mode=mode, seed=s, scn_idx=si, collided=collided, arrived=arrived, traj=traj)) + "\n")
+            fo.flush(); ftraj.flush()
             print(f"  [{mode}] s{s}: 累计 ep={n_ep} 碰撞={n_col} 到达={n_arr}", flush=True)
         tot_src = max(1, sum(src.values()))
         interv = 100 * (tot_src - src.get("projection", 0)) / tot_src   # 非 projection = 退兜底 = 介入
         st = dict(_proj._CERTV2_STATS)                 # 诊断：终端检查 calls/giveway/rejects
+        _mean = lambda xs: (sum(xs) / len(xs)) if xs else float("nan")
         print(f"[{mode}] done · ep={n_ep} · 碰撞率={100*n_col/max(1,n_ep):.2f}%({n_col}) · 到达率={100*n_arr/max(1,n_ep):.2f}% · "
-              f"介入(非projection)率={interv:.2f}% · source={src} · 终端检查[calls={st['calls']} giveway={st['giveway']} rejects={st['rejects']}]", flush=True)
-    fo.close()
-    print(f"[shield certv2 eval] done → {OUT}", flush=True)
+              f"介入率={interv:.2f}% · 违规/局={_mean(agg['violations']):.3f} · jerk平滑={_mean(agg['ctrl_jerk_norm_mean']):.4f} · "
+              f"转艏增量={_mean(agg['yaw_incr_mean']):.4f} · 油门增量={_mean(agg['accel_incr_mean']):.4f} · 路径长={_mean(agg['path_len_m']):.0f}m · "
+              f"source={src} · 终端检查[calls={st['calls']} giveway={st['giveway']} rejects={st['rejects']}]", flush=True)
+    fo.close(); ftraj.close()
+    print(f"[shield certv2 eval] done → {OUT} · 轨迹 → {TRAJ_OUT}", flush=True)
     print("  判读：off 碰撞率应=现状基线(~0·regression 冒烟)；certv2 碰撞率≤off(终端门更严·不该更差)；"
           "介入率 certv2≥off(更严→更多 fallback·代价);到达率代价看差多少。", flush=True)
 
