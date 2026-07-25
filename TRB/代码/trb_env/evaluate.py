@@ -19,11 +19,10 @@ from __future__ import annotations
 
 import numpy as np
 
-import numpy as np
-
 from .usv_colregs import RHO_EMERGENCY, ViolationCounter, _vessel_circumradius
 from .usv_dynamics import make_vessel_params as _mk_vp
 from .usv_env import A_NORMAL_ACCEL_MAX as _A_RANGE, A_NORMAL_OMEGA_MAX as _W_RANGE  # RL 动作箱半宽(±0.048/±0.018)=控制质量归一化尺度(CAT7)
+from .metrics_subgrid import subgrid_and_rho_split as _subgrid_metrics   # 🆕 次网格细调率+按态势拆转艏（纯模块·本机6单测过·`03` L203）
 
 # 本船外接圆半径（CPA 安全裕度用·disk 模型与 colregs r_m/d_safe 同口径·EGO_WIDTH=25.4）
 _EGO_CIRC = _vessel_circumradius(float(_mk_vp().l), 25.4)
@@ -160,10 +159,16 @@ def _control_quality(applied, positions):
     return out
 
 
+# 🆕 次网格细调率 + 按态势拆转艏（2026-07-25 later·`03` L203·additive·四臂共用同口径→钱图/绘图层可比）：
+#   连续臂"油门赢 5.4×"的机理量化(做离散做不到的次网格细调) + "转艏输18%是合规代价"的证据(让路步转艏更大)。
+#   ⚠️ 离散臂 subgrid_* 恒 0 by construction(格点动作)=预期·非 bug(诚实口径见 metrics_subgrid 模块 docstring)。
+_SUBGRID_KEYS = ("subgrid_accel_frac", "subgrid_yaw_frac", "yaw_incr_giveway", "yaw_incr_other")
+
+
 def _agg_ctrl(per):
     """聚合控制质量（各局均值·跳 None·additive）。某指标全 None→该键 None（不编）。"""
     out = {}
-    for k in _CTRL_KEYS:
+    for k in _CTRL_KEYS + _SUBGRID_KEYS:
         vals = [p[k] for p in per if p.get(k) is not None]
         out[k] = (round(sum(vals) / len(vals), 6) if vals else None)
     return out
@@ -283,6 +288,7 @@ def run_episode(env, policy, *, seed=None, deterministic=True, max_steps=10_000,
     cpa_step = -1
     traj = [] if record_traj else None                        # Node L CAT5：示例轨迹（仅 record_traj=True 累积）
     applied = []                                              # CAT7：逐步执行控制 u=(a,ω)（env.env.last_action·全局记=控制质量）
+    act_rhos = []                                             # 🆕 与 applied 同步的 ρ@t（按态势拆转艏用·`03` L203）
     positions = [np.asarray(env._ego_vs().position, dtype=float)]  # CAT7：本船位置序列（起点+逐步）→ 路径长
     flags = None                                              # last-mile 诊断（`03` L88）：循环后持终止步 5 旗（直证 f_stopped）
     while steps < max_steps:
@@ -310,6 +316,8 @@ def run_episode(env, policy, *, seed=None, deterministic=True, max_steps=10_000,
         # 紧急步%口径 = rho_acting（ρ@t，本步动作所处态势）——pre-step，与连续臂/C_EMERGENCY reward 同源（D40 #1）；
         # info["rho"] 离散侧是 post-step ρ@(t+1)（配 next mask），用它计会跨臂差 1 步污染钱图；rho_acting 缺则回退 rho。
         _ract = info.get("rho_acting", info.get("rho"))
+        if _la is not None:                                   # 🆕 与 applied 严格同 if 条件 append（防错位·`03` L203）
+            act_rhos.append(int(_ract) if _ract is not None else -1)
         if _ract in rho_hist:
             rho_hist[_ract] += 1
         if _ract == RHO_EMERGENCY:
@@ -348,6 +356,7 @@ def run_episode(env, policy, *, seed=None, deterministic=True, max_steps=10_000,
         "cpa_step": cpa_step,
     }
     out.update(_control_quality(applied, positions))          # CAT7 控制质量（additive·5 列钱图不受影响）
+    out.update({k: _subgrid_metrics(applied, act_rhos).get(k) for k in _SUBGRID_KEYS})   # 🆕 次网格细调率+按态势拆转艏（additive·`03` L203）
     out.update(_terminal_diag(env, flags, steps))             # last-mile 诊断（`03` L88·additive·term_flags/end_state/goal_geom·钱图 5 列不受影响）
     if record_traj:                                           # Node L CAT5：仅请求时带 traj/goal 键（默认不带→返回 dict 逐位不变）
         out["traj"] = traj
@@ -413,6 +422,7 @@ def run_episode_continuous(env, model, *, seed=None, deterministic=True, max_ste
     corrections = []                                         # CAT4 投影修正量 ‖u_applied−u_desired‖（盾介入步）
     traj = [] if record_traj else None                       # CAT5：示例轨迹（仅 record_traj=True 累积）
     applied = []                                              # CAT7：逐步执行控制 u=(a,ω)（=投影+限幅后 u_safe·env.env.last_action）
+    act_rhos = []                                             # 🆕 与 applied 同步的 ρ@t（按态势拆转艏用·`03` L203）
     positions = [np.asarray(env._ego_vs().position, dtype=float)]  # CAT7：本船位置序列（起点+逐步）→ 路径长
     headings = [float(env._ego_vs().orientation)]             # Step-0 进近诊断：本船朝向序列（与 positions 同索引·起点+逐步）→ heading_err/in_box_aligned
     speeds = [float(getattr(env._ego_vs(), "velocity", float("nan")))]   # Step-0 速度维度：本船速度序列（与 positions 同索引）→ speed_at_min/max_speed（猛冲vs减速）
@@ -437,6 +447,8 @@ def run_episode_continuous(env, model, *, seed=None, deterministic=True, max_ste
         headings.append(float(env._ego_vs().orientation))     # Step-0：post-step 朝向（与 positions 同索引对齐）
         speeds.append(float(getattr(env._ego_vs(), "velocity", float("nan"))))   # Step-0：post-step 速度（同索引）
         _ract = info.get("rho_acting", info.get("rho"))
+        if _la is not None:                                            # 🆕 与 applied 严格同 if 条件 append（防错位·`03` L203）
+            act_rhos.append(int(_ract) if _ract is not None else -1)
         if _ract in rho_hist:
             rho_hist[_ract] += 1
         if _ract == RHO_EMERGENCY:                                     # 紧急步%：pre-step ρ@t（同离散臂 D40#1）
@@ -495,6 +507,7 @@ def run_episode_continuous(env, model, *, seed=None, deterministic=True, max_ste
         "n_shield_steps": (0 if _corr is None else int(_corr.size)),
     }
     out.update(_control_quality(applied, positions))          # CAT7 控制质量（additive·5 列钱图不受影响）
+    out.update({k: _subgrid_metrics(applied, act_rhos).get(k) for k in _SUBGRID_KEYS})   # 🆕 次网格细调率+按态势拆转艏（additive·`03` L203）
     out.update(_terminal_diag(env, flags, steps))             # last-mile 诊断（`03` L88·additive·term_flags/end_state/goal_geom·钱图 5 列不受影响）
     out.update(_approach_diag(positions, headings, out.get("goal_geom"), speeds=speeds))  # Step-0 进近诊断（additive·复用已算 goal_geom·失败局机制分类+速度·钱图不受影响）
     if record_traj:                                           # Node L CAT5：仅请求时带 traj/goal 键（默认不带→返回 dict 逐位不变）
