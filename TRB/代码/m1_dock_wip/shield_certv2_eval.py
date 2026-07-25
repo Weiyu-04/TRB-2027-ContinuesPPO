@@ -123,6 +123,7 @@ def phase_run():
                     if cq.get(k) is not None:
                         agg[k].append(cq[k])
                 fo.write(json.dumps(dict(mode=mode, seed=s, scn_idx=si, collided=collided, arrived=arrived, violations=viol,
+                                         giveway_violations=int(vc.giveway_violations), standon_violations=int(vc.standon_violations),
                                          **{k: cq.get(k) for k in
                                             ("ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "ctrl_effort_norm_mean", "path_len_m")})) + "\n")
                 if save_traj:
