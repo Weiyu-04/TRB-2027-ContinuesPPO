@@ -66,7 +66,7 @@ from collections import Counter, defaultdict
 
 # 🔴 脚本版本号：**每次改动必手动 +1**。服务器同步后用 `grep SCRIPT_REV <文件>` 一眼验是不是最新
 #    （靠"我几点同步的"判断不可靠——已踩过）。跑起来时也会打印，log 里永久留痕。
-SCRIPT_REV = "r5-2026-07-26"   # r5: 卖点指标自动发现(次网格细调率/按态势拆转艏/平滑度套件) + 版本号
+SCRIPT_REV = "r6-2026-07-26"   # r6: 违规拆分(让路/直航)进聚合——r5 把它排除了·总数输了却分不出病灶
 
 # ---------- 开关 ----------
 _CODE = os.environ.get("STEP4E_CODE_DIR", ".")
@@ -317,8 +317,11 @@ def _emergency_pct(p):
 #    （`03` L203 接指标那次的 commit 原话："否则四方头条拿不到=跑完要返工"；本脚本 2026-07-26 又犯一次）。
 #    自动发现 ⟹ 以后 evaluate 再加指标，这里【自动就带上】，不会再漏。
 _AGG_SKIP = {"scenario_idx", "reached", "collided", "traj", "term_flags", "end_state", "goal_geom",
-             "ep_src", "scenario_type", "scenario_file", "violations", "emergency_pct",
-             "giveway_violations", "standon_violations"}
+             "ep_src", "scenario_type", "scenario_file", "violations", "emergency_pct"}
+# 🔴 `giveway_violations` / `standon_violations` **必须留在聚合里**（2026-07-26 修）：
+#   头条行只给"违规/局"总数 ⟹ 一旦总数输了，**分不出是"让路方向违规"还是"直航保向违规"**，
+#   而这两者的含义天差地别——我们的盾**只约束让路步的方向**，**直航保向根本不在盾的作用域**
+#   （CLAUDE.md §0 红线口径）。缺这个拆分 ⟹ 诊断不下去、论文也没法把作用域讲清楚。
 
 
 def _is_num(v):
