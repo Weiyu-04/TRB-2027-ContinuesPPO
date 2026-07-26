@@ -782,7 +782,8 @@ def _read_continuous_algo(base):
     return None
 
 
-def replay_eval(base, kind, weight, test_pool, *, continuous_algo=None, return_per=False, traj_idxs=None):
+def replay_eval(base, kind, weight, test_pool, *, continuous_algo=None, return_per=False, traj_idxs=None,
+                policy_wrap=None):
     """从 checkpoint（base.zip + base_vecnorm.pkl）重载 model+VecNorm → eval（不重训）→ agg。
     供【不重跑总保险】+ smoke 验"存→重放逐位复现 final"。eval 确定性(deterministic=True) → 同 model+同 VecNorm 快照
     +同 test_pool ⟹ agg 逐位复现训练末段 final。obs_transform 由 saved vecnorm 经 VecNormalize.load 重建
@@ -797,6 +798,13 @@ def replay_eval(base, kind, weight, test_pool, *, continuous_algo=None, return_p
                另一个能采轨迹的 harness（`shield_certv2_eval.py`）只能跑 manifest 池、跑不了官方池。
                ⟹ 在此加一个默认关掉的透传，是改动最小、且**离散臂与连续臂共用同一个位姿函数 `_traj_pose`**
                ⟹ 四臂 + 离散臂出来的轨迹**同格式、可直接叠在一张图上**。
+    policy_wrap：**默认 None = 逐位不变**。给一个 `model -> model` 的可调用对象时，在【模型载入之后、交给
+               evaluate 之前】把它包一层 ⟹ 用于**纯评估期**的控制器侧改造（`03` L218：转向低通滤波治抖）。
+               🔴 为什么装在这里、而不是塞进盾或 env：滤波是**控制器的一部分**，作用在 u_desired 上、**盾仍在最后**
+                  ⟹ `usv_continuous_shield.py` / `usv_projection.py`（安全关键文件）**一行都不用改**
+                  ⟹ 安全与合规保证是**按构造不变**，不是靠论证不变。这是刻意的架构选择，**别改成"塞进 env"**。
+               ⚠️ **仅连续臂**：离散臂的动作是网格下标（整数），对它做连续量滤波无意义 ⟹ 给了就 fail-fast，
+                  **不静默忽略**（静默忽略 = 报出一个"以为滤过、其实没滤"的数）。
     🔧 连续臂算法分派（`03` L108·复审抓的钱图地雷）：连续臂主臂已从 SAC 换成 PPO（L69）·但本函数原硬编 load_sac_for_eval
        → 对 PPO checkpoint【崩】（zip 结构/policy 类不符）。修=按算法分派：① 显式 continuous_algo 实参优先（钱图调用方从 jsonl
        record['continuous_algo'] 透传）② 缺则读 checkpoint 旁 progress.json 的 config_sig.continuous_algo（sidecar 自描述）
@@ -823,10 +831,15 @@ def replay_eval(base, kind, weight, test_pool, *, continuous_algo=None, return_p
         else:                                                      # SAC（脚注臂）·鲁棒载跳优化器（BRO wd>0 checkpoint 不崩·L67-续8/二审 BRO-3）
             from trb_env.usv_sac_train import load_sac_for_eval
             model = load_sac_for_eval(base + ".zip", device="cpu")
+        if policy_wrap is not None:
+            model = policy_wrap(model)          # 控制器侧包装（盾仍在最后·安全关键文件一行不动·`03` L218）
         agg, per = evaluate_continuous(lambda sc, pp: ContinuousProjectionEnv(sc, pp, shield=_CONTINUOUS_SHIELD, goal_cone_half=_GOAL_CONE_HALF_RAD, goal_v_floor=_GOAL_V_FLOOR, augment_rho=_AUGMENT_RHO, goal_ignore_orientation=_GOAL_IGNORE_ORIENT), model, test_pool, obs_transform=tf, traj_idxs=traj_idxs)   # 🆕 P0 盾开关 + ρ0 锥 + 腿1 态势增广（replay eval 须与训练同 shield/cone/augment·靠同 env 变量）
     else:
         from sb3_contrib import MaskablePPO
         from trb_env.evaluate import evaluate
+        if policy_wrap is not None:              # 离散动作是网格下标·连续量滤波无意义 ⟹ fail-fast 不静默忽略
+            raise SystemExit(f"🔒 policy_wrap 只支持连续臂，但 {os.path.basename(base)} 的 kind={kind}（离散）。"
+                             "静默忽略会报出一个『以为滤过、其实没滤』的数 ⟹ 中止。")
         model = MaskablePPO.load(base + ".zip", device="cpu")
         agg, per = evaluate(lambda sc, pp: env_cls(sc, pp, colregs_weight=weight), model, test_pool, obs_transform=tf, traj_idxs=traj_idxs)
     return (agg, per) if return_per else agg

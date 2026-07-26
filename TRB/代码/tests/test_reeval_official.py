@@ -32,6 +32,17 @@ _BALANCED = os.path.join(_TRB, "balanced_pool")
 _SCEN = os.path.join(_TRB, "scenarios")
 
 
+class _FakeInnerModel:
+    """给 `policy_wrap` 套的极简内层模型：`.predict()` 返回固定 (a, ω)。"""
+
+    def __init__(self, w=0.018):
+        self.w = float(w)
+
+    def predict(self, obs, deterministic=True, **kw):
+        import numpy as _np
+        return _np.array([0.0, self.w], dtype=float), None
+
+
 # ---------------- 桩 ----------------
 def _install_stubs(*, replay_arrival=None, anchor_arrival=None, n_anchor=40, augment_rho=False):
     """把三个重依赖换成桩。replay_arrival→到达局数；anchor_arrival→锚点重评到达率%；augment_rho=非金标 knob。"""
@@ -56,8 +67,10 @@ def _install_stubs(*, replay_arrival=None, anchor_arrival=None, n_anchor=40, aug
     # ⚠️ 桩的签名必须跟真 `replay_eval` 一起改（r8 加了 traj_idxs）——否则脚本一传新参数、桩就 TypeError，
     #    而那是"测试自己坏了"、不是脚本坏了，很容易误判。`_traj_seen` 记录传进来的下标供断言。
     _traj_seen = []
+    _wrap_seen = []
 
-    def _replay(base, kind, weight, pool, *, continuous_algo=None, return_per=False, traj_idxs=None):
+    def _replay(base, kind, weight, pool, *, continuous_algo=None, return_per=False, traj_idxs=None,
+                policy_wrap=None):
         n = len(pool)
         if n == n_anchor and anchor_arrival is not None:                       # 锚点池
             k = round(anchor_arrival / 100.0 * n)
@@ -66,6 +79,9 @@ def _install_stubs(*, replay_arrival=None, anchor_arrival=None, n_anchor=40, aug
             k = replay_arrival if replay_arrival is not None else n // 2
             per = _fake_per(n, k)
         _traj_seen.append(None if traj_idxs is None else sorted(traj_idxs))
+        _wrap_seen.append(policy_wrap)
+        if policy_wrap is not None:      # 真 replay_eval 会把它套在载入的模型上；桩这里只验它能被正常调用
+            policy_wrap(_FakeInnerModel())
         if traj_idxs:                                       # 模拟 evaluate 的行为：只给请求的那几局加 traj 键
             for p in per:
                 if p["scenario_idx"] in traj_idxs:
@@ -75,6 +91,7 @@ def _install_stubs(*, replay_arrival=None, anchor_arrival=None, n_anchor=40, aug
 
     R.replay_eval = _replay
     R._traj_seen = _traj_seen
+    R._wrap_seen = _wrap_seen
 
     def _lms(mp, bdir=None):
         """桩 load_manifest_split：manifest 池模式返回该 manifest 的真测试路径；锚点模式返回 n_anchor 个。"""
@@ -396,6 +413,121 @@ class TestTrajCollection(unittest.TestCase):
         # 两个调用点（连续臂 evaluate_continuous / 离散臂 evaluate）都必须把它透传下去
         self.assertEqual(len(re.findall(r"traj_idxs=traj_idxs", src)), 2,
                          "replay_eval 里应恰好有 2 处 traj_idxs=traj_idxs（连续臂 + 离散臂）")
+
+
+class TestYawLowPass(unittest.TestCase):
+    """r9 新增（`03` L218）：转向低通滤波（纯评估期治抖·安全关键文件一行不改）。"""
+
+    def setUp(self):
+        os.environ["REEVAL_MANIFEST_DIRS"] = _BALANCED
+        self.mod = importlib.reload(importlib.import_module("reeval_official"))
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.tmp = os.path.join(self.tmpdir.name, "checkpoints")
+        self.out = os.path.join(self.tmpdir.name, "out.json")
+        self.base_env = {"REEVAL_CKDIRS": self.tmp, "REEVAL_MANIFEST_DIRS": _BALANCED,
+                         "REEVAL_OUT": self.out, "STEP4E_SDIR": _SCEN, "REEVAL_ANCHOR": "0",
+                         "REEVAL_TRAJ_KEYS": "", "REEVAL_YAW_LOWPASS": ""}
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    # ── 滤波器本体（纯逻辑·不需要 env） ──
+    def test_alpha_one_is_bit_identical(self):
+        """🔴 最关键一条：α=1 必须【逐位】等于不滤波——否则"对照组"本身就带偏差，整条曲线没意义。"""
+        import numpy as np
+        raw = [0.018, -0.012, 0.006, -0.018, 0.0]
+        inner = _FakeInnerModel()
+        pol = self.mod.YawLowPassPolicy(inner, 1.0)
+        got = []
+        for w in raw:
+            inner.w = w
+            u, _ = pol.predict(np.zeros(27, np.float32))
+            got.append(float(u[1]))
+        self.assertEqual(got, raw, "α=1 竟然改了动作 → 对照组不干净")
+
+    def test_filter_is_convex_combination(self):
+        import numpy as np
+        inner = _FakeInnerModel(0.018)
+        pol = self.mod.YawLowPassPolicy(inner, 0.5)
+        u1, _ = pol.predict(np.zeros(27, np.float32))
+        self.assertAlmostEqual(float(u1[1]), 0.018)      # 第一步无历史 → 原样
+        inner.w = -0.018
+        u2, _ = pol.predict(np.zeros(27, np.float32))
+        self.assertAlmostEqual(float(u2[1]), 0.5 * 0.018 + 0.5 * (-0.018))   # = 0.0
+        inner.w = -0.018
+        u3, _ = pol.predict(np.zeros(27, np.float32))
+        self.assertAlmostEqual(float(u3[1]), 0.5 * 0.0 + 0.5 * (-0.018))
+
+    def test_stays_in_action_box(self):
+        """凸组合 ⟹ 永不越箱（越箱会被 env 夹取、悄悄改变语义）。"""
+        import numpy as np
+        W_BOX = 0.018
+        inner = _FakeInnerModel()
+        pol = self.mod.YawLowPassPolicy(inner, 0.3)
+        for w in (0.018, -0.018) * 20:
+            inner.w = w
+            u, _ = pol.predict(np.zeros(27, np.float32))
+            self.assertLessEqual(abs(float(u[1])), W_BOX + 1e-12)
+
+    def test_state_reset_per_episode(self):
+        """🔴 逐局必须清记忆：不清就把上一局的舵角带进下一局（跨局污染·且聚合上看不出来）。"""
+        import numpy as np
+        inner = _FakeInnerModel(0.018)
+        pol = self.mod.YawLowPassPolicy(inner, 0.5)
+        pol.predict(np.zeros(27, np.float32))            # 建立历史 0.018
+        pol.bind_env(object())                            # 新的一局
+        inner.w = -0.018
+        u, _ = pol.predict(np.zeros(27, np.float32))
+        self.assertAlmostEqual(float(u[1]), -0.018, msg="bind_env 没清掉上一局的滤波记忆")
+
+    def test_bad_alpha_rejected(self):
+        for bad in (0.0, -0.1, 1.5):
+            with self.assertRaises(ValueError):
+                self.mod.YawLowPassPolicy(_FakeInnerModel(), bad)
+
+    # ── 接线（走 main·桩 replay_eval 记录收到了什么） ──
+    def test_default_off_passes_no_wrap(self):
+        _make_ckpt(self.tmp, "Continuous-safe_s0_gold")
+        p = _run({**self.base_env}, replay_arrival=400)
+        import run_step4e as R
+        self.assertTrue(all(w is None for w in R._wrap_seen), "不设 REEVAL_YAW_LOWPASS 却传了 policy_wrap")
+        self.assertEqual(list(p["结果"]), ["Continuous-safe_s0_gold"], "键名不该带 @lp 后缀")
+
+    def test_sweep_produces_one_entry_per_alpha(self):
+        _make_ckpt(self.tmp, "Continuous-safe_s0_gold")
+        p = _run({**self.base_env, "REEVAL_YAW_LOWPASS": "1.0,0.5,0.3"}, replay_arrival=400)
+        self.assertEqual(sorted(p["结果"]),
+                         sorted(["Continuous-safe_s0_gold@lp1", "Continuous-safe_s0_gold@lp0.5",
+                                 "Continuous-safe_s0_gold@lp0.3"]))
+        self.assertEqual(p["结果"]["Continuous-safe_s0_gold@lp0.5"]["yaw_lowpass_alpha"], 0.5)
+        for k in p["结果"]:
+            self.assertEqual(p["结果"][k]["strict"]["n"], 563, k)
+
+    def test_anchor_pass_never_filtered(self):
+        """🔴 锚点是拿来比训练记录的 ⟹ 必须【不滤波】，否则一定对不上、还会被判成配置错。"""
+        _make_ckpt(self.tmp, "Continuous-safe_s0_gold")
+        _run({**self.base_env, "REEVAL_ANCHOR": "1", "REEVAL_YAW_LOWPASS": "0.5"},
+             replay_arrival=400, anchor_arrival=82.5)
+        import run_step4e as R
+        self.assertIsNone(R._wrap_seen[0], "锚点那趟带了滤波 → 必然对不上训练记录、被误判成配置错")
+        self.assertIsNotNone(R._wrap_seen[1], "正式池那趟没带滤波")
+
+    def test_discrete_arm_skipped(self):
+        """离散臂动作是网格下标 ⟹ 跳过滤波档（而不是静默产出一个"以为滤过"的数）。"""
+        _make_ckpt(self.tmp, "Discrete-safe_s0", kind="shielded", party="Discrete-safe")
+        p = _run({**self.base_env, "REEVAL_YAW_LOWPASS": "0.5"}, replay_arrival=400)
+        self.assertEqual(p["结果"], {}, "离散臂不该产出滤波档")
+
+    def test_replay_eval_really_has_policy_wrap(self):
+        """契约：真 `run_step4e.replay_eval` 必须真的有 policy_wrap，且只在连续臂分支施加。"""
+        with open(os.path.join(_CODE, "run_step4e.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        m = re.search(r"^def replay_eval\(([^)]*)\)", src, re.M | re.S)
+        self.assertIsNotNone(m)
+        self.assertIn("policy_wrap", m.group(1))
+        self.assertIn("model = policy_wrap(model)", src)
+        # 离散分支必须 fail-fast（不静默忽略）
+        self.assertIn("policy_wrap 只支持连续臂", src)
 
 
 if __name__ == "__main__":

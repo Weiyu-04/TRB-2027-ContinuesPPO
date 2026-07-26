@@ -66,7 +66,8 @@ from collections import Counter, defaultdict
 
 # 🔴 脚本版本号：**每次改动必手动 +1**。服务器同步后用 `grep SCRIPT_REV <文件>` 一眼验是不是最新
 #    （靠"我几点同步的"判断不可靠——已踩过）。跑起来时也会打印，log 里永久留痕。
-SCRIPT_REV = "r8-2026-07-26"   # r8: REEVAL_TRAJ_KEYS —— 采几个场景的逐步轨迹（多算法轨迹对比图·`03` L215-G·user 拍）
+SCRIPT_REV = "r9-2026-07-26"   # r9: REEVAL_YAW_LOWPASS —— 转向低通滤波权衡曲线（治抖·纯评估期·`03` L218·user 拍）
+#                                r8: REEVAL_TRAJ_KEYS —— 采几个场景的逐步轨迹（多算法轨迹对比图·`03` L215-G·user 拍）
 #                                r7: 会遇类型分型提成 `classify_pool`（外部基线 runner 共用·分型判据只准有一处）
 #                                r6: 违规拆分(让路/直航)进聚合——r5 把它排除了·总数输了却分不出病灶
 #                                ⚠️ r7 是**纯提取**（同一段代码搬进函数·调用点等价）· r8 **不设 TRAJ_KEYS 时一行都不动**
@@ -90,6 +91,10 @@ FORCE_DATASET = os.environ.get("REEVAL_FORCE_DATASET", "").strip()
 #    不设 = 一行记录块都不执行 = 与 r6/r7 逐位相同。轨迹另落一个文件，**不塞进主 json**（免把它撑大）。
 TRAJ_KEYS = [s.strip() for s in os.environ.get("REEVAL_TRAJ_KEYS", "").replace(",", " ").split() if s.strip()]
 TRAJ_OUT = os.environ.get("REEVAL_TRAJ_OUT", "").strip()
+# 🆕 r9（`03` L218）：转向低通滤波【权衡曲线】。给一串 α（逗号/空格分隔），每个 α 在同一池上评一遍
+#    ⟹ 一趟就出"转艏平顺度 vs 到达率"的曲线。**α=1.0 = 不滤波 = 对照组**（建议总把 1.0 写进去，同趟拿对照）。
+#    不设 = 完全不进这条路 = 与 r6/r7/r8 逐位相同。**纯评估期·零训练算力·安全关键文件一行不改。**
+YAW_LOWPASS = [float(x) for x in os.environ.get("REEVAL_YAW_LOWPASS", "").replace(",", " ").split() if x.strip()]
 if SMOKE:
     CLEAN_N = 30
 
@@ -377,6 +382,71 @@ def agg_of(per, idx_filter=None):
     return out
 
 
+class YawLowPassPolicy:
+    """转向指令**低通滤波**包装器（`03` L218·纯评估期·零训练算力）。
+
+    ═══ 治什么 ═══
+    我们唯一输给离散臂的指标是**转艏增量**（0.0150 vs 0.0122 = 输 1.23×）。机理已查实（`03` L203）：
+    船转极慢（ω_max=1.7°/s），想让路或对准目标就得几乎打满舵 ⟹ 每步平均动掉 83.6% 的动作箱。
+
+    ═══ 怎么做（一行公式）═══
+        ω_filt[k] = (1−α)·ω_filt[k−1] + α·ω_raw[k]     · α ∈ (0, 1]
+    α=1 ⟹ `ω_filt ≡ ω_raw` ⟹ **与不加滤波【逐位相同】**（回归测试钉死这条）。α 越小越平滑、跟随越慢。
+
+    ═══ 🔴 为什么安全保证一字不动 ═══
+    本包装器只改 **u_desired**（策略想做的动作），**盾仍在最后**：
+        观测 → 策略 → **本滤波器** → 状态机 + zonotope 安全集 + 二次规划投影 → 执行
+    ⟹ 盾的输入变了、盾本身没变 ⟹ 「每让路步方向合规 + 远场单步无碰」这些命题**按构造仍然成立**
+       （它们是对**任意**输入动作的性质，不依赖输入怎么来）。
+    ⟹ 且 `usv_continuous_shield.py` / `usv_projection.py` **一行都没改**（`03` L218 刻意的架构选择）。
+    ⚠️ **但"保证不变"≠"数字不变"**：滤波会改变轨迹 ⟹ 到达率/碰撞率都可能动。
+       **判读硬红线：碰撞率不许上升。** 若上升 ⟹ 说明滤波把船拖进了盾也救不回的几何 ⟹ 该 α 直接判死。
+
+    ═══ 逐局状态必须清 ═══
+    滤波器有记忆（ω_filt[k−1]）⟹ **跨局不清就会把上一局的舵角带进下一局**。
+    `evaluate.run_episode_continuous` 每局 reset 后会调 `bind_env` ⟹ 用它当局边界清状态
+    （`03` L215-A 的教训：这个钩子名字叫 `bind_env` 不叫 `bind`，写错了官方评估器根本不会调）。
+    """
+
+    def __init__(self, model, alpha):
+        a = float(alpha)
+        if not (0.0 < a <= 1.0):
+            raise ValueError(f"低通系数 α 须 ∈ (0,1]，得到 {a}（α=1 表示不滤波）")
+        import numpy                                       # 本模块刻意不在顶层 import numpy（纯逻辑自检不需要重依赖）
+        self._np = numpy
+        self.model, self.alpha = model, a
+        self._prev = None
+        self.n_steps = 0
+
+    def bind_env(self, env):
+        """每局开头清滤波器记忆（否则上一局的舵角会漏进这一局）。"""
+        self._prev = None
+        inner = getattr(self.model, "bind_env", None)      # 内层若也有这个钩子（如朴素基线）→ 一并转发
+        if callable(inner):
+            inner(env)
+        return env
+
+    def predict(self, obs, deterministic=True, **kw):
+        u, state = self.model.predict(obs, deterministic=deterministic, **kw)
+        arr = self._np.asarray(u, dtype=float).copy()
+        if arr.shape[-1] != 2:                            # 只认 (a, ω)；形状不对宁可原样放行也不猜
+            return u, state
+        w_raw = float(arr[..., 1])
+        prev = self._prev
+        w = w_raw if prev is None else (1.0 - self.alpha) * prev + self.alpha * w_raw
+        # 凸组合守卫：α∈(0,1] ⟹ w 必落在 prev 与 w_raw 之间 ⟹ 两个箱内值之间也在箱内 ⟹ 不需额外夹取。
+        # 断言在这里，是为了将来谁改公式（比如改成带增益的滤波）会当场炸，而不是静默越箱。
+        if prev is not None:
+            assert min(prev, w_raw) - 1e-12 <= w <= max(prev, w_raw) + 1e-12, (prev, w_raw, w, self.alpha)
+        self._prev = w
+        arr[..., 1] = w
+        self.n_steps += 1
+        return arr, state
+
+    def __getattr__(self, name):                          # 其余属性透传给内层模型（policy/observation_space…）
+        return getattr(self.model, name)
+
+
 def classify_pool(pool, keys, type_of=None, np=None):
     """池 → `{池序 i: 会遇类型}`。**外部基线与我们四臂必须共用本函数**（`03` L215-D）。
 
@@ -564,6 +634,7 @@ def main():
 
     # ---- 逐 checkpoint：锚点复现检查 → 正式评 ----
     results = {}
+    _ALPHA_OF = {}                                              # out_name → 该档用的低通 α（进 json 供画权衡曲线）
 
     def _dump(final=False):
         """**每评完一个 checkpoint 就落盘一次**（本项目两次被中途打断咬过：欠费 / SSH SIGHUP·`03` L193/L192-C）
@@ -590,6 +661,45 @@ def main():
             with open(tp + ".tmp", "w", encoding="utf-8") as fh:
                 json.dump(trajs, fh, ensure_ascii=False)
             os.replace(tp + ".tmp", tp)
+
+    def _run_one(base, kind, weight, algo, out_name, sc, anchor, wrap):
+        """评一个（checkpoint × 转向滤波档）→ 落进 results[out_name] 并刷盘。
+
+        抽成函数是为了让 r9 的 α 循环复用同一段口径（三口径切子集 / 分型 / 卖点指标 / 落盘）——
+        **同一段代码跑所有档**，免得"对照组和滤波组走了两条略不同的路"这种最难查的错。
+        """
+        agg, per = R.replay_eval(base, kind, weight, pool, continuous_algo=algo, return_per=True,
+                                 traj_idxs=traj_idxs, policy_wrap=wrap)
+        if traj_idxs:
+            trajs[out_name] = {str(keys[p["scenario_idx"]]): p.get("traj")
+                               for p in per if p.get("scenario_idx") in traj_idxs and p.get("traj")}
+        by_type, by_type_clean = {}, {}
+        if types:
+            g = defaultdict(set)
+            for i, t in types.items():
+                g[t].add(i)
+            by_type = {t: agg_of(per, ix) for t, ix in sorted(g.items())}
+            by_type_clean = {t: agg_of(per, ix & clean_idx) for t, ix in sorted(g.items())}
+        results[out_name] = {"kind": kind, "party": sc.get("party"), "seed": sc.get("seed"),
+                             "num_timesteps": sc.get("num_timesteps"),
+                             "dataset": (sc.get("config_sig") or {}).get("dataset"),
+                             "anchor": anchor,
+                             "yaw_lowpass_alpha": (None if wrap is None else _ALPHA_OF.get(out_name)),
+                             "全部": agg_of(per), "clean": agg_of(per, clean_idx),
+                             "strict": agg_of(per, strict_idx), "看过的": agg_of(per, seen_idx),
+                             "分型_全部": by_type, "分型_clean": by_type_clean}
+        r = results[out_name]
+        print(fmt("全部", r["全部"]))
+        print(fmt("clean（没训练过）", r["clean"]))
+        print(fmt("strict（真一眼没见过）", r["strict"]))
+        _cl = fmt_ctrl(r["strict"])                            # 卖点指标（平滑/次网格/按态势拆转艏）·`03` L203
+        if _cl:
+            print(_cl)
+        if r["看过的"]:
+            print(fmt("对照：训练/验证见过的", r["看过的"]))
+        for t, m in (r["分型_clean"] or r["分型_全部"] or {}).items():
+            print(fmt(f"  · {t}", m))
+        _dump()                                                # 🔴 每评完一档就落盘（中途被杀也留得住）
 
     for b in ckpts:
         sc, name = sidecars[b], os.path.basename(b)
@@ -652,39 +762,20 @@ def main():
 
         # 🔴 traj_idxs 只给【正式池】这一趟；上面的**锚点**那趟用的是另一个池（自记 40 场景）⟹ 下标含义不同、
         #    绝不能把同一组下标传给它（传了就会记错场景的轨迹）。
-        agg, per = R.replay_eval(b, kind, weight, pool, continuous_algo=algo, return_per=True,
-                                 traj_idxs=traj_idxs)
-        if traj_idxs:
-            trajs[name] = {str(keys[p["scenario_idx"]]): p.get("traj")
-                           for p in per if p.get("scenario_idx") in traj_idxs and p.get("traj")}
-        by_type = {}
-        if types:
-            g = defaultdict(set)
-            for i, t in types.items():
-                g[t].add(i)
-            by_type = {t: agg_of(per, ix) for t, ix in sorted(g.items())}
-            by_type_clean = {t: agg_of(per, ix & clean_idx) for t, ix in sorted(g.items())}
-        else:
-            by_type_clean = {}
-        results[name] = {"kind": kind, "party": sc.get("party"), "seed": sc.get("seed"),
-                         "num_timesteps": sc.get("num_timesteps"),
-                         "dataset": (sc.get("config_sig") or {}).get("dataset"),
-                         "anchor": anchor,
-                         "全部": agg_of(per), "clean": agg_of(per, clean_idx),
-                         "strict": agg_of(per, strict_idx), "看过的": agg_of(per, seen_idx),
-                         "分型_全部": by_type, "分型_clean": by_type_clean}
-        r = results[name]
-        print(fmt("全部", r["全部"]))
-        print(fmt("clean（没训练过）", r["clean"]))
-        print(fmt("strict（真一眼没见过）", r["strict"]))
-        _cl = fmt_ctrl(r["strict"])                            # 卖点指标（平滑/次网格/按态势拆转艏）·`03` L203
-        if _cl:
-            print(_cl)
-        if r["看过的"]:
-            print(fmt("对照：训练/验证见过的", r["看过的"]))
-        for t, m in (r["分型_clean"] or r["分型_全部"] or {}).items():
-            print(fmt(f"  · {t}", m))
-        _dump()                                                # 🔴 每评完一个就落盘（中途被杀也留得住已评出的臂）
+        # 🆕 r9：α 列表为空 ⟹ 只跑一趟、`policy_wrap=None` ⟹ 与 r8 逐位相同。非空 ⟹ 每个 α 各评一趟。
+        for _alpha in (YAW_LOWPASS or [None]):
+            if _alpha is None:
+                _wrap, _suffix = None, ""
+            elif kind != "continuous":
+                print(f"  ⚠️ {name} 是离散臂 → 跳过转向滤波档（网格下标做连续滤波无意义）", flush=True)
+                continue
+            else:
+                _wrap = (lambda m, _a=_alpha: YawLowPassPolicy(m, _a))
+                _suffix = f"@lp{_alpha:g}"
+                _ALPHA_OF[name + _suffix] = _alpha
+                print(f"  ── 转向低通 α={_alpha:g}"
+                      + ("（=不滤波·对照组）" if _alpha >= 1.0 else "") , flush=True)
+            _run_one(b, kind, weight, algo, name + _suffix, sc, anchor, _wrap)
 
     # ---- 🔴 锚点【汇总】：真正的配置错会让所有种子【系统性同向偏移】；单种子的 1-3 局翻转只是浮点噪声 ----
     _anc = [v["anchor"] for v in results.values() if v.get("anchor") and "有符号差" in v["anchor"]]
