@@ -21,6 +21,9 @@
      (A_MAX .24 / W_MAX .03)，而我方 RL 臂与 VO 用**正常操作箱** (.048/.018) ⟹ 两条外部基线**互相都不可比**。
      ⟹ 本文件用 `BASELINE_BOX` 统一：`rl`(默认·同我方箱=同等操作权限) / `full`(给基线全物理量程=**更慷慨**)。
      **两档都跑、都报** —— 只报对基线不利的那档 = 打稻草人 = 红线。
+     ⚠️ **`full` 档是真能执行的**（已核实·非幻觉）：连续动作在 `usv_env._map_action` 只被截到**物理** ±a_max/±w_max
+        (.24/.03)，不是 RL 箱 ⟹ 给基线全量程确实生效。（b2 修：VO 原先只有候选集跟着放大、**标称**却仍钉在
+        RL 箱 ⟹ full 档 VO 被人为压小 = 第三处口径不对称，已修·见 `usv_vo_baseline.vo_action` docstring。）
   ② **参数必须扫、取基线【最好】的配置报**：CBF 的 (a1,a2,d_safe) · VO 的 (tau, safety_margin)。
   ③ framing 恒为 **Pareto 前沿 / 各有所长**，**不是"我们样样赢"**。
 
@@ -55,7 +58,10 @@ from usv_vo_baseline import nominal_pd, vo_action, A_BOX, W_BOX, circum         
 from block3_partition_probe import A_MAX, W_MAX, L_SHIP, W_SHIP, DECISION_DT
 import b1_cbf_baseline as CBF                                                     # CBF 数学件（复用·不重造）
 
-SCRIPT_REV = "b1-2026-07-26"          # 同 reeval_official 的做法：同步后 grep 一眼验版本
+SCRIPT_REV = "b2-2026-07-26"          # 同 reeval_official 的做法：同步后 grep 一眼验版本
+# b2（`03` L215）：闭环接线时抓出三处问题 → ① 补 `bind_env` 钩子（官方评估器按这个名字找·原来永不绑定）
+#                 ② 动作箱/标称真透传进 VO（原来 full 档 VO 被钉在 RL 箱 = 第三处口径不对称）
+#                 ③ 加逐局计数（不可行率要能按 strict/clean/分型切子集·不能只有整趟累计）
 
 BOXES = {"rl": (A_BOX, W_BOX),        # 与我方 RL 臂同等操作权限（默认·主口径）
          "full": (A_MAX, W_MAX)}      # 给基线全物理量程（更慷慨·反稻草人对照）
@@ -71,13 +77,21 @@ class GeometricPolicy:
 
     def __init__(self, method, *, box="rl", variant="colregs", params=None, rl_model=None, obs_tf=None):
         self.method, self.variant = method, variant
+        self.box_name = box
         self.a_box, self.w_box = BOXES[box]
         self.params = dict(params or {})
         self.rl_model, self.obs_tf = rl_model, obs_tf     # 路A：标称改用我们训的策略（当消融）
         self.env = self.goal = None
         self.stats = {"steps": 0, "infeasible": 0}
+        # 逐局计数（`03` L215-C）：`stats` 是**整趟累计**，但报数要按 strict/clean/分型【切子集】
+        # ⟹ 必须能按局对齐。`run_episode_continuous` 每局 reset 后调一次 bind_env ⟹ 用它当局边界。
+        self.ep_stats = []                                # [{steps, infeasible}, ...] 与 evaluate 的 per 行同序
+        self._ep_open = None
 
     def bind(self, env):
+        """绑定本局 env（几何控制器要读真实位姿·见类 docstring）。**同时关掉上一局的计数、开新局。**"""
+        self._close_episode()
+        self._ep_open = {"steps": 0, "infeasible": 0}
         self.env = env
         try:
             g = env.env.obs_builder.goal_center           # 与 evaluate._goal_xy 同源
@@ -85,6 +99,27 @@ class GeometricPolicy:
         except Exception:                                  # noqa: BLE001
             self.goal = None
         return env
+
+    # 🔴 `evaluate.run_episode_continuous` 找的钩子名是 **`bind_env`**（`if hasattr(model, "bind_env")`，
+    #    为 P1 朴素基线 PursuitNaivePolicy 留的口）。本类原来只有 `bind` ⟹ **官方评估器根本不会调**
+    #    ⟹ `self.env` 恒为 None ⟹ 第一次 `predict` 就 `AttributeError: 'NoneType' has no '_ego_vs'`。
+    #    这是"本机自检全过、真闭环第一步就崩"的典型（`03` L202 教训：infra 必服务器冒烟才算真验）。
+    bind_env = bind
+
+    def _close_episode(self):
+        if self._ep_open is not None:
+            self.ep_stats.append(self._ep_open)
+            self._ep_open = None
+
+    def finalize(self):
+        """整趟评完后调一次，把最后一局的计数收口（否则最后一局的不可行率会丢）。"""
+        self._close_episode()
+        return self.ep_stats
+
+    def _bump(self, key):
+        self.stats[key] += 1
+        if self._ep_open is not None:
+            self._ep_open[key] += 1
 
     def _clip(self, u):
         return np.array([float(np.clip(u[0], -self.a_box, self.a_box)),
@@ -98,7 +133,7 @@ class GeometricPolicy:
         psi = float(ev.orientation)
         v = float(getattr(ev, "velocity", 0.0))
         goal = self.goal if self.goal is not None else p + np.array([math.cos(psi), math.sin(psi)]) * 1e4
-        self.stats["steps"] += 1
+        self._bump("steps")
 
         if self.rl_model is not None:                      # ── 路A：标称 = 我们训的策略（消融·confounded）
             a_obs = obs if self.obs_tf is None else self.obs_tf(obs)
@@ -118,13 +153,17 @@ class GeometricPolicy:
         vo_ = float(getattr(ov, "velocity", 0.0))
 
         if self.method == "vo":
+            # 🔴 `u_nom=` / `a_box=` / `w_box=` 必须显式传（`03` L215-B）：不传的话 `vo_action` 会**自己重算**
+            #    一个用【默认 RL 箱】的 PD 标称 ⟹ ① full 档下 VO 的标称被钉在小箱、CBF/PD 却按大箱
+            #    = 我们替对手绑手 ② 路 A（标称=我们训的策略）会被静默换回 PD = 报出一个名不副实的数。
             u, info = vo_action((p, psi, v), (po, pso, vo_), goal,
                                 variant=self.variant,
                                 tau=self.params.get("tau", 60.0),
                                 safety_margin=self.params.get("margin", 0.0),
-                                cand=self._cands())
+                                cand=self._cands(), u_nom=u_nom,
+                                a_box=self.a_box, w_box=self.w_box)
             if not info["vo_feasible"]:
-                self.stats["infeasible"] += 1
+                self._bump("infeasible")
             return self._clip(u), None
 
         if self.method == "cbf":
@@ -141,7 +180,7 @@ class GeometricPolicy:
                 # 🔴 兜底取【最小化约束违反】= CBF 文献标准的松弛做法，也与 VO 的"穿透最浅"**对称**
                 #    （不能让两条外部基线一个用宽容兜底、一个用严苛兜底=不公平）。
                 #    min g·u s.t. u∈box 是箱上线性规划 → 解在角点：g_i>0 取下界、g_i<0 取上界。
-                self.stats["infeasible"] += 1
+                self._bump("infeasible")
                 u = np.array([-self.a_box if g[0] > 0 else self.a_box,
                               -self.w_box if g[1] > 0 else self.w_box], float)
             return self._clip(u), None
@@ -223,6 +262,51 @@ def phase_selftest():
     pol.predict(np.zeros(27, np.float32))
     chk("T5 不可行计数在工作", pol.stats["steps"] == 1 and pol.stats["infeasible"] >= 0,
         f"{pol.stats}")
+
+    # ───── 以下 T6-T9 = 2026-07-26 闭环接线时抓出的三处问题的回归钉子（`03` L215）─────
+    # T6 官方评估器找的钩子名是 `bind_env`（不是 `bind`）——缺它 ⟹ env 永不绑定 ⟹ 真跑第一步 AttributeError
+    pol = GeometricPolicy("pd", box="rl")
+    chk("T6 有 `bind_env` 钩子（evaluate.run_episode_continuous 按这个名字找）",
+        hasattr(pol, "bind_env") and callable(pol.bind_env))
+    pol.bind_env(env)
+    u6, _ = pol.predict(np.zeros(27, np.float32))
+    chk("T6b bind_env 真绑上了（能读到 env 与 goal）",
+        pol.env is env and pol.goal is not None, f"goal={pol.goal}")
+
+    # T7 动作箱要真透传到 VO 的【标称】——原实现 VO 内部自算标称、恒用 RL 箱 ⟹ full 档 VO 被绑手
+    #    构造：目标在正左（要大左转）· 他船远且远离（无 VO 冲突）⟹ 输出应≈标称、随箱放大
+    ego7 = _FakeVS([0.0, 0.0], 0.0, 9.5)
+    obs7 = _FakeVS([-3000.0, 0.0], math.pi, 9.5)               # 正后方、朝反向远离 = 不构成速度障碍
+    env7 = _FakeEnv(ego7, obs7, [0.0, 6000.0])                 # 目标正左 → 标称要满左舵
+    outs = {}
+    for bx in ("rl", "full"):
+        pol = GeometricPolicy("vo", box=bx, variant="colregs")
+        pol.bind_env(env7)
+        outs[bx], _ = pol.predict(np.zeros(27, np.float32))
+    chk("T7 full 档 VO 能开到 RL 箱之外（箱真的传进了标称）",
+        abs(outs["full"][1]) > W_BOX + 1e-9 >= abs(outs["rl"][1]) - 1e-9,
+        f"rl ω={outs['rl'][1]:+.4f} · full ω={outs['full'][1]:+.4f} （RL 箱 {W_BOX}）")
+
+    # T8 注入标称要真被采纳（路 A：标称=我们训的策略）——原实现会静默丢弃、换回内部 PD
+    from usv_vo_baseline import vo_action as _vo
+    ego8 = (np.array([0.0, 0.0]), 0.0, 9.5)
+    obs8 = (np.array([-3000.0, 0.0]), math.pi, 9.5)
+    u_left, _ = _vo(ego8, obs8, np.array([6000.0, 0.0]), u_nom=np.array([0.0, +W_BOX]))
+    u_right, _ = _vo(ego8, obs8, np.array([6000.0, 0.0]), u_nom=np.array([0.0, -W_BOX]))
+    chk("T8 vo_action 采纳注入的标称（路 A 不会被静默换成 PD）",
+        u_left[1] > 0 > u_right[1], f"注入左舵→{u_left[1]:+.4f} · 注入右舵→{u_right[1]:+.4f}")
+
+    # T9 逐局计数按 bind_env 切局（报数要按 strict/clean 切子集 ⟹ 必须能按局对齐·不能只有整趟累计）
+    pol = GeometricPolicy("vo", box="rl")
+    for _ep in range(3):
+        pol.bind_env(env)
+        for _s in range(2):
+            pol.predict(np.zeros(27, np.float32))
+    eps = pol.finalize()
+    chk("T9 逐局计数按局切分且与整趟累计自洽",
+        len(eps) == 3 and all(e["steps"] == 2 for e in eps)
+        and sum(e["steps"] for e in eps) == pol.stats["steps"],
+        f"{eps} 总 {pol.stats}")
 
     print("  " + ("✅ selftest 通过（接线/箱约束/口径对称均对·闭环须服务器真跑）" if ok else "🔴 有洞"))
     return 0 if ok else 1

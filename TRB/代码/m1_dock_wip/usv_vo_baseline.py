@@ -137,15 +137,21 @@ def _step_state(p, psi, v, u, T=DT, sub=10):
     return p, psi, v
 
 
-def _candidates(n_a=5, n_w=9):
-    """一步可达的动作候选网格（在 RL 动作箱内·两条外部基线同箱=公平）。"""
+def _candidates(n_a=5, n_w=9, a_box=None, w_box=None):
+    """一步可达的动作候选网格（默认在 RL 动作箱内·两条外部基线同箱=公平）。
+
+    a_box/w_box 默认 None → A_BOX/W_BOX = 原行为逐位不变；显式给箱时候选随箱一起放大
+    （否则 `vo_action(a_box=.24)` 会出现"标称按大箱算、候选仍在小箱里"的自相矛盾）。
+    """
+    a_box = A_BOX if a_box is None else float(a_box)
+    w_box = W_BOX if w_box is None else float(w_box)
     return [np.array([a, w], float)
-            for a in np.linspace(-A_BOX, A_BOX, n_a)
-            for w in np.linspace(-W_BOX, W_BOX, n_w)]
+            for a in np.linspace(-a_box, a_box, n_a)
+            for w in np.linspace(-w_box, w_box, n_w)]
 
 
 def vo_action(ego, obs, goal, *, variant="colregs", tau=180.0, safety_margin=0.0,
-              starboard_bonus=0.35, cand=None):
+              starboard_bonus=0.35, cand=None, u_nom=None, a_box=None, w_box=None):
     """VO 反应式避碰的一步动作。
 
     ego / obs = (p, psi, v)；goal = 目标点。返回 (u, info)。
@@ -153,9 +159,23 @@ def vo_action(ego, obs, goal, *, variant="colregs", tau=180.0, safety_margin=0.0
     · 对每个一步可达候选：推一步得到**新速度矢量**，判它是否落进速度障碍锥（视界 tau）。
     · 锥外候选里挑"离标称最近"（COLREGs 变体：让路态给右转候选打折=偏好）；**全在锥内则挑穿透最浅的**。
     · `tau=180s` 与本项目 `is_emergency` 的可达集视界同源（Krasowski Table II）⟹ 与我们同一时间尺度。
+
+    🔴 `u_nom` / `a_box` / `w_box`（2026-07-26 补·闭环接线时抓出两处口径不对称·`03` L215-B）：
+      ① **`a_box`/`w_box` 必须能传进来**：原实现内部调 `nominal_pd(...)` **不带箱参数** ⟹ 恒用默认 RL 箱
+         (.048/.018)。而 `usv_baseline_runner` 的反稻草人对照档 `BASELINE_BOX=full` 给基线**全物理量程**
+         (.24/.03) —— 于是 **CBF/PD 的标称按 full 箱算、VO 的标称却被钉在 rl 箱** ⟹ full 档里 VO 的"目标"
+         被人为压小 = **我们又一次替对手绑手**（正是 `03` L213-I 记的那类错，第三次）。
+      ② **`u_nom` 必须能注入**：路 A 消融（标称 = 我们训的 RL 策略）下，调用方算好的 RL 标称原本被本函数
+         **静默丢弃**、改用内部 PD ⟹ 会报出一个标着"VO 过滤 RL 策略"、实际是"VO + PD 标称"的数。
+      ⟹ 两者默认值都保持原行为（`u_nom=None` 内部自算 · 箱 None → `nominal_pd` 取 A_BOX/W_BOX）
+         ⟹ **rl 档逐位不变**（bit-identical），只有 full 档与路 A 被修正。
     """
     p_e, psi_e, v_e = np.asarray(ego[0], float), float(ego[1]), float(ego[2])
-    u_nom = nominal_pd(p_e, psi_e, v_e, goal, obs=obs, variant=variant)
+    a_eff = A_BOX if a_box is None else float(a_box)
+    w_eff = W_BOX if w_box is None else float(w_box)
+    if u_nom is None:
+        u_nom = nominal_pd(p_e, psi_e, v_e, goal, obs=obs, variant=variant, a_box=a_eff, w_box=w_eff)
+    u_nom = np.asarray(u_nom, float)
     info = {"vo_feasible": True, "n_free": 0, "fallback": False}
     if obs is None:
         return u_nom, info
@@ -171,11 +191,14 @@ def vo_action(ego, obs, goal, *, variant="colregs", tau=180.0, safety_margin=0.0
         prefer_stbd = (-math.pi / 2 <= beta <= math.pi * 5 / 8)       # 右舷~正前的宽扇区=让路侧
 
     best, best_cost, deepest, deep_cost = None, math.inf, None, math.inf
-    for u in (cand if cand is not None else _candidates()):
+    for u in (cand if cand is not None else _candidates(a_box=a_eff, w_box=w_eff)):
         p1, psi1, v1 = _step_state(p_e, psi_e, v_e, u)
         vel_e1 = np.array([math.cos(psi1), math.sin(psi1)]) * v1
         hit, _t, d_min = in_velocity_obstacle(p_rel, vel_o - vel_e1, R, tau)   # 🔴 他船相对本船（见函数 docstring）
-        dev = float(np.linalg.norm((u - u_nom) / np.array([A_BOX, W_BOX])))   # 归一化偏离标称
+        # 归一化偏离标称：按【本次实际可用的箱】归一（箱 None → A_BOX/W_BOX ⟹ rl 档逐位不变）。
+        # 用有效箱而非硬编 RL 箱，是为了让 a/ω 两轴的相对权重与"允许的操作权限"成比例——否则 full 档下
+        # 候选跨 ±.24/±.03、却拿 ±.048/±.018 去量，两轴权重与可用行程脱钩。
+        dev = float(np.linalg.norm((u - u_nom) / np.array([a_eff, w_eff])))
         if prefer_stbd and u[1] < 0:
             dev *= (1.0 - starboard_bonus)                                     # 右转候选打折=偏好
         if not hit:

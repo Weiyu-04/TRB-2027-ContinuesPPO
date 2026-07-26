@@ -66,7 +66,9 @@ from collections import Counter, defaultdict
 
 # 🔴 脚本版本号：**每次改动必手动 +1**。服务器同步后用 `grep SCRIPT_REV <文件>` 一眼验是不是最新
 #    （靠"我几点同步的"判断不可靠——已踩过）。跑起来时也会打印，log 里永久留痕。
-SCRIPT_REV = "r6-2026-07-26"   # r6: 违规拆分(让路/直航)进聚合——r5 把它排除了·总数输了却分不出病灶
+SCRIPT_REV = "r7-2026-07-26"   # r7: 会遇类型分型提成 `classify_pool`（外部基线 runner 共用·分型判据只准有一处）
+#                                r6: 违规拆分(让路/直航)进聚合——r5 把它排除了·总数输了却分不出病灶
+#                                ⚠️ r7 是**纯提取**（同一段代码搬进函数·调用点等价）⟹ 数字与 r6 逐位相同
 
 # ---------- 开关 ----------
 _CODE = os.environ.get("STEP4E_CODE_DIR", ".")
@@ -369,6 +371,42 @@ def agg_of(per, idx_filter=None):
     return out
 
 
+def classify_pool(pool, keys, type_of=None, np=None):
+    """池 → `{池序 i: 会遇类型}`。**外部基线与我们四臂必须共用本函数**（`03` L215-D）。
+
+    · `type_of` 非空（manifest 模式）→ 直接用 manifest 的标注（比几何分类可靠）。
+    · 否则（官方池）→ 用 `classify_scenarios.classify` 的判据，**不另写规则**（复制一份 = 口径漂移的起点：
+      我们的臂和外部基线若各自分型，"对遇/交叉"这两列就不可比了）。
+    · 分类失败 → 返回 `{}`（只报总体、不报分型）——**分型不该拖垮主指标**。
+    """
+    types = {}
+    if type_of:
+        return {i: type_of.get(k, "unknown") for i, k in enumerate(keys)}
+    if np is None:
+        import numpy as np                                     # noqa: PLC0415 —— 本机自检不需 numpy 时不 import
+    try:
+        from classify_scenarios import classify as _classify
+        for i, (sc_obj, pp_obj) in enumerate(pool):
+            init = pp_obj.initial_state
+            try:
+                gc = np.asarray(getattr(pp_obj.goal.state_list[0].position, "center", None), dtype=float)
+            except Exception:                                  # noqa: BLE001
+                gc = None
+            obs = sc_obj.dynamic_obstacles
+            if not obs:
+                types[i] = "no-obstacle"
+                continue
+            o0 = obs[0].initial_state
+            types[i] = _classify(np.asarray(init.position, dtype=float), float(init.orientation),
+                                 float(getattr(init, "velocity", 5.0)), gc,
+                                 np.asarray(o0.position, dtype=float), float(o0.orientation),
+                                 float(getattr(o0, "velocity", 5.0)))[0]
+    except Exception as e:                                     # noqa: BLE001 —— 分型失败不该拖垮主指标
+        print(f"  ⚠️ 会遇类型分类失败（{e}）→ 只报总体、不报分型", flush=True)
+        return {}
+    return types
+
+
 def fmt(label, m):
     if not m:
         return f"  {label:<26} （空）"
@@ -500,30 +538,8 @@ def main():
           f" ； 再 − 验证泄漏 {len(clean_idx) - len(strict_idx)} = **strict {len(strict_idx)}**", flush=True)
 
     # ---- 会遇类型：manifest 模式用标注；官方模式用几何分类（复用 classify_scenarios 判据·不另写规则） ----
-    types = {}
-    if type_of:
-        types = {i: type_of.get(k, "unknown") for i, k in enumerate(keys)}
-    else:
-        try:
-            from classify_scenarios import classify as _classify
-            for i, (sc_obj, pp_obj) in enumerate(pool):
-                init = pp_obj.initial_state
-                try:
-                    gc = np.asarray(getattr(pp_obj.goal.state_list[0].position, "center", None), dtype=float)
-                except Exception:                              # noqa: BLE001
-                    gc = None
-                obs = sc_obj.dynamic_obstacles
-                if not obs:
-                    types[i] = "no-obstacle"
-                    continue
-                o0 = obs[0].initial_state
-                types[i] = _classify(np.asarray(init.position, dtype=float), float(init.orientation),
-                                     float(getattr(init, "velocity", 5.0)), gc,
-                                     np.asarray(o0.position, dtype=float), float(o0.orientation),
-                                     float(getattr(o0, "velocity", 5.0)))[0]
-        except Exception as e:                                 # noqa: BLE001 —— 分型失败不该拖垮主指标
-            print(f"  ⚠️ 会遇类型分类失败（{e}）→ 只报总体、不报分型", flush=True)
-            types = {}
+    #      🔴 已提成 `classify_pool` 供外部基线 runner 共用 —— 分型判据必须**只有一处**（`03` L215-D）。
+    types = classify_pool(pool, keys, type_of, np)
     if types:
         print(f"[分型] {dict(Counter(types.values()))}", flush=True)
 
