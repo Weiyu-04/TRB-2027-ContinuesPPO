@@ -499,7 +499,8 @@ class TestYawLowPass(unittest.TestCase):
         self.assertEqual(sorted(p["结果"]),
                          sorted(["Continuous-safe_s0_gold@lp1", "Continuous-safe_s0_gold@lp0.5",
                                  "Continuous-safe_s0_gold@lp0.3"]))
-        self.assertEqual(p["结果"]["Continuous-safe_s0_gold@lp0.5"]["yaw_lowpass_alpha"], 0.5)
+        self.assertEqual(p["结果"]["Continuous-safe_s0_gold@lp0.5"]["平滑档"],
+                         {"mode": "lp", "value": 0.5})
         for k in p["结果"]:
             self.assertEqual(p["结果"][k]["strict"]["n"], 563, k)
 
@@ -528,6 +529,88 @@ class TestYawLowPass(unittest.TestCase):
         self.assertIn("model = policy_wrap(model)", src)
         # 离散分支必须 fail-fast（不静默忽略）
         self.assertIn("policy_wrap 只支持连续臂", src)
+
+
+class TestYawSlewLimit(unittest.TestCase):
+    """r10 新增（`03` L221）：舵速率限制——第二个平滑旋钮，比低通更有物理依据。"""
+
+    def setUp(self):
+        os.environ["REEVAL_MANIFEST_DIRS"] = _BALANCED
+        self.mod = importlib.reload(importlib.import_module("reeval_official"))
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.tmp = os.path.join(self.tmpdir.name, "checkpoints")
+        self.out = os.path.join(self.tmpdir.name, "out.json")
+        self.base_env = {"REEVAL_CKDIRS": self.tmp, "REEVAL_MANIFEST_DIRS": _BALANCED,
+                         "REEVAL_OUT": self.out, "STEP4E_SDIR": _SCEN, "REEVAL_ANCHOR": "0",
+                         "REEVAL_TRAJ_KEYS": "", "REEVAL_YAW_LOWPASS": "", "REEVAL_YAW_SLEW": ""}
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_frac_one_is_bit_identical(self):
+        """🔴 系数=1 必须【逐位】等于不限速（对照组必须干净）。箱宽=2×0.018 ⟹ 一步足以从满左翻满右。"""
+        import numpy as np
+        raw = [0.018, -0.018, 0.018, -0.006, 0.012]
+        inner = _FakeInnerModel(); pol = self.mod.YawSlewLimitPolicy(inner, 1.0)
+        got = []
+        for w in raw:
+            inner.w = w
+            u, _ = pol.predict(np.zeros(27, np.float32)); got.append(round(float(u[1]), 12))
+        self.assertEqual(got, raw)
+        self.assertEqual(pol.n_clipped, 0)
+
+    def test_half_box_limits_reversal(self):
+        """系数 0.5 ⟹ 每步最多动半个箱（0.018）⟹ 满左到满右要两步。"""
+        import numpy as np
+        inner = _FakeInnerModel(0.018); pol = self.mod.YawSlewLimitPolicy(inner, 0.5)
+        u1, _ = pol.predict(np.zeros(27, np.float32))
+        self.assertAlmostEqual(float(u1[1]), 0.018)          # 首步不限
+        inner.w = -0.018
+        u2, _ = pol.predict(np.zeros(27, np.float32))
+        self.assertAlmostEqual(float(u2[1]), 0.018 - 0.018)  # = 0.0（被限速拉住）
+        u3, _ = pol.predict(np.zeros(27, np.float32))
+        self.assertAlmostEqual(float(u3[1]), -0.018)         # 第二步才到满右
+        self.assertEqual(pol.n_clipped, 1)
+
+    def test_never_exceeds_box(self):
+        import numpy as np
+        inner = _FakeInnerModel(); pol = self.mod.YawSlewLimitPolicy(inner, 0.3)
+        for w in (0.018, -0.018) * 25:
+            inner.w = w
+            u, _ = pol.predict(np.zeros(27, np.float32))
+            self.assertLessEqual(abs(float(u[1])), 0.018 + 1e-12)
+
+    def test_state_reset_per_episode(self):
+        import numpy as np
+        inner = _FakeInnerModel(0.018); pol = self.mod.YawSlewLimitPolicy(inner, 0.25)
+        pol.predict(np.zeros(27, np.float32))
+        pol.bind_env(object())
+        inner.w = -0.018
+        u, _ = pol.predict(np.zeros(27, np.float32))
+        self.assertAlmostEqual(float(u[1]), -0.018, msg="bind_env 没清掉上一局的舵角")
+
+    def test_bad_frac_rejected(self):
+        for bad in (0.0, -0.2, 1.4):
+            with self.assertRaises(ValueError):
+                self.mod.YawSlewLimitPolicy(_FakeInnerModel(), bad)
+
+    def test_two_knobs_in_one_run(self):
+        """两个旋钮可以同一趟一起扫 ⟹ 一次拿两条权衡曲线（键名分别带 @lp / @sl）。"""
+        _make_ckpt(self.tmp, "Continuous-safe_s0_gold")
+        p = _run({**self.base_env, "REEVAL_YAW_LOWPASS": "1.0,0.5",
+                  "REEVAL_YAW_SLEW": "1.0,0.5"}, replay_arrival=400)
+        self.assertEqual(sorted(p["结果"]), sorted([
+            "Continuous-safe_s0_gold@lp1", "Continuous-safe_s0_gold@lp0.5",
+            "Continuous-safe_s0_gold@sl1", "Continuous-safe_s0_gold@sl0.5"]))
+        self.assertEqual(p["结果"]["Continuous-safe_s0_gold@sl0.5"]["平滑档"],
+                         {"mode": "sl", "value": 0.5})
+        for k in p["结果"]:
+            self.assertEqual(p["结果"][k]["strict"]["n"], 563, k)
+
+    def test_discrete_arm_skipped(self):
+        _make_ckpt(self.tmp, "Discrete-safe_s0", kind="shielded", party="Discrete-safe")
+        p = _run({**self.base_env, "REEVAL_YAW_SLEW": "0.5"}, replay_arrival=400)
+        self.assertEqual(p["结果"], {})
 
 
 if __name__ == "__main__":

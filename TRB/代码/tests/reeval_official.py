@@ -66,7 +66,8 @@ from collections import Counter, defaultdict
 
 # 🔴 脚本版本号：**每次改动必手动 +1**。服务器同步后用 `grep SCRIPT_REV <文件>` 一眼验是不是最新
 #    （靠"我几点同步的"判断不可靠——已踩过）。跑起来时也会打印，log 里永久留痕。
-SCRIPT_REV = "r9-2026-07-26"   # r9: REEVAL_YAW_LOWPASS —— 转向低通滤波权衡曲线（治抖·纯评估期·`03` L218·user 拍）
+SCRIPT_REV = "r10-2026-07-26"  # r10: REEVAL_YAW_SLEW —— 舵速率限制（第二个平滑旋钮·有物理依据·`03` L221）
+#                                r9: REEVAL_YAW_LOWPASS —— 转向低通滤波权衡曲线（治抖·纯评估期·`03` L218·user 拍）
 #                                r8: REEVAL_TRAJ_KEYS —— 采几个场景的逐步轨迹（多算法轨迹对比图·`03` L215-G·user 拍）
 #                                r7: 会遇类型分型提成 `classify_pool`（外部基线 runner 共用·分型判据只准有一处）
 #                                r6: 违规拆分(让路/直航)进聚合——r5 把它排除了·总数输了却分不出病灶
@@ -95,6 +96,11 @@ TRAJ_OUT = os.environ.get("REEVAL_TRAJ_OUT", "").strip()
 #    ⟹ 一趟就出"转艏平顺度 vs 到达率"的曲线。**α=1.0 = 不滤波 = 对照组**（建议总把 1.0 写进去，同趟拿对照）。
 #    不设 = 完全不进这条路 = 与 r6/r7/r8 逐位相同。**纯评估期·零训练算力·安全关键文件一行不改。**
 YAW_LOWPASS = [float(x) for x in os.environ.get("REEVAL_YAW_LOWPASS", "").replace(",", " ").split() if x.strip()]
+# 🆕 r10（`03` L221）：**舵速率限制**——每步转向指令的变化不许超过「动作箱 × 该系数」。
+#    给一串系数（1.0 = 允许从满左直接翻到满右 = 不限 = 现状；0.5 = 每步最多动半个箱）。
+#    比低通更有物理依据：**真船的舵机本来就有最大转舵速率**，而本仿真允许 ω 一步从 +0.018 翻到 −0.018
+#    （相当于舵机瞬间从满左打到满右）⟹ 加这个限制不是为了刷指标，是在补一条本来缺失的物理约束。
+YAW_SLEW = [float(x) for x in os.environ.get("REEVAL_YAW_SLEW", "").replace(",", " ").split() if x.strip()]
 if SMOKE:
     CLEAN_N = 30
 
@@ -447,6 +453,70 @@ class YawLowPassPolicy:
         return getattr(self.model, name)
 
 
+class YawSlewLimitPolicy:
+    """转向指令**速率限制**包装器（`03` L221·纯评估期·安全关键文件一行不改）。
+
+    ═══ 一行公式 ═══
+        ω_out[k] = clip(ω_raw[k], ω_out[k−1] ± Δmax)   ·   Δmax = frac × W_BOX
+    `frac=1.0` ⟹ 允许一步从满左翻到满右（= 现状）⟹ **与不加限制逐位相同**（回归钉死）。
+
+    ═══ 🔴 为什么这个比低通更站得住 ═══
+    **真船的舵机有最大转舵速率**（几度每秒），不可能一步从满左打到满右。而本仿真的动作空间
+    只限 |ω| ≤ ω_max、**不限 |Δω|** ⟹ 策略学出的「满左 / 满右 交替」在真实舵机上物理上做不到。
+    ⟹ 加这条限制 = **补一条本来缺失的执行器物理约束**，不是为了把某个指标做好看。
+    ⚠️ **但仍必须诚实**：本基准（Krasowski）的动作空间确实允许瞬时翻转，我们**只对自己这条臂加限制**
+       ⟹ 这是**自我设限**（只可能让我们其它指标变差或不变），写作时要写明"我们的控制器额外施加了舵速率限制"。
+    ⚠️ 且：`|Δω|` 正是「转艏增量」这个指标本身 ⟹ **这个旋钮 by construction 会改善那个指标**
+       ⟹ **绝不能写成"我们在转艏上赢了离散臂"**，只能写成"存在一条可调的平顺度—到达率权衡曲线"
+       （而离散臂**结构上没有这个旋钮**：它的动作是固定格点，滤过就不再是合法离散动作了）。
+
+    ═══ 逐局状态必须清 ═══
+    同低通：靠 `bind_env` 当局边界（`03` L215-A 的教训——钩子名字是 `bind_env`）。
+    """
+
+    def __init__(self, model, frac, w_box=0.018):
+        f = float(frac)
+        if not (0.0 < f <= 1.0):
+            raise ValueError(f"速率限制系数须 ∈ (0,1]，得到 {f}（1.0 表示不限）")
+        import numpy
+        self._np = numpy
+        self.model, self.frac = model, f
+        self.dmax = f * 2.0 * float(w_box)      # 箱宽 = 2·W_BOX（从 −W_BOX 到 +W_BOX）
+        self._prev = None
+        self.n_steps = self.n_clipped = 0
+
+    def bind_env(self, env):
+        self._prev = None
+        inner = getattr(self.model, "bind_env", None)
+        if callable(inner):
+            inner(env)
+        return env
+
+    def predict(self, obs, deterministic=True, **kw):
+        u, state = self.model.predict(obs, deterministic=deterministic, **kw)
+        arr = self._np.asarray(u, dtype=float).copy()
+        if arr.shape[-1] != 2:
+            return u, state
+        w_raw = float(arr[..., 1])
+        if self._prev is None:
+            w = w_raw                            # 首步无历史 ⟹ 不限（否则等于凭空规定初始舵角）
+        else:
+            lo, hi = self._prev - self.dmax, self._prev + self.dmax
+            w = min(max(w_raw, lo), hi)
+            if w != w_raw:
+                self.n_clipped += 1
+        # 限速只会把值往【上一步的值】拉近 ⟹ 必落在 [min(prev,raw), max(prev,raw)] ⟹ 不可能越箱
+        if self._prev is not None:
+            assert min(self._prev, w_raw) - 1e-12 <= w <= max(self._prev, w_raw) + 1e-12, (self._prev, w_raw, w)
+        self._prev = w
+        arr[..., 1] = w
+        self.n_steps += 1
+        return arr, state
+
+    def __getattr__(self, name):
+        return getattr(self.model, name)
+
+
 def classify_pool(pool, keys, type_of=None, np=None):
     """池 → `{池序 i: 会遇类型}`。**外部基线与我们四臂必须共用本函数**（`03` L215-D）。
 
@@ -684,7 +754,7 @@ def main():
                              "num_timesteps": sc.get("num_timesteps"),
                              "dataset": (sc.get("config_sig") or {}).get("dataset"),
                              "anchor": anchor,
-                             "yaw_lowpass_alpha": (None if wrap is None else _ALPHA_OF.get(out_name)),
+                             "平滑档": (None if wrap is None else _ALPHA_OF.get(out_name)),
                              "全部": agg_of(per), "clean": agg_of(per, clean_idx),
                              "strict": agg_of(per, strict_idx), "看过的": agg_of(per, seen_idx),
                              "分型_全部": by_type, "分型_clean": by_type_clean}
@@ -762,19 +832,27 @@ def main():
 
         # 🔴 traj_idxs 只给【正式池】这一趟；上面的**锚点**那趟用的是另一个池（自记 40 场景）⟹ 下标含义不同、
         #    绝不能把同一组下标传给它（传了就会记错场景的轨迹）。
-        # 🆕 r9：α 列表为空 ⟹ 只跑一趟、`policy_wrap=None` ⟹ 与 r8 逐位相同。非空 ⟹ 每个 α 各评一趟。
-        for _alpha in (YAW_LOWPASS or [None]):
-            if _alpha is None:
+        # 🆕 r9/r10：两个平滑旋钮共用同一段口径。两个都不设 ⟹ 只跑一趟、`policy_wrap=None`
+        #    ⟹ 与 r8 逐位相同。设了就每档各评一趟（键名带 @lp / @sl 后缀）。
+        _specs = []
+        for _a in YAW_LOWPASS:
+            _specs.append(("lp", _a, (lambda m, v=_a: YawLowPassPolicy(m, v))))
+        for _f in YAW_SLEW:
+            _specs.append(("sl", _f, (lambda m, v=_f: YawSlewLimitPolicy(m, v))))
+        if not _specs:
+            _specs = [(None, None, None)]
+        for _kindtag, _val, _mk in _specs:
+            if _kindtag is None:
                 _wrap, _suffix = None, ""
             elif kind != "continuous":
-                print(f"  ⚠️ {name} 是离散臂 → 跳过转向滤波档（网格下标做连续滤波无意义）", flush=True)
+                print(f"  ⚠️ {name} 是离散臂 → 跳过平滑档（网格下标做连续量平滑无意义）", flush=True)
                 continue
             else:
-                _wrap = (lambda m, _a=_alpha: YawLowPassPolicy(m, _a))
-                _suffix = f"@lp{_alpha:g}"
-                _ALPHA_OF[name + _suffix] = _alpha
-                print(f"  ── 转向低通 α={_alpha:g}"
-                      + ("（=不滤波·对照组）" if _alpha >= 1.0 else "") , flush=True)
+                _wrap = _mk
+                _suffix = f"@{_kindtag}{_val:g}"
+                _ALPHA_OF[name + _suffix] = {"mode": _kindtag, "value": _val}
+                _label = "转向低通 α" if _kindtag == "lp" else "舵速率限制 系数"
+                print(f"  ── {_label}={_val:g}" + ("（=不施加·对照组）" if _val >= 1.0 else ""), flush=True)
             _run_one(b, kind, weight, algo, name + _suffix, sc, anchor, _wrap)
 
     # ---- 🔴 锚点【汇总】：真正的配置错会让所有种子【系统性同向偏移】；单种子的 1-3 局翻转只是浮点噪声 ----
