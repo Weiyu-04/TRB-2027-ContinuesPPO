@@ -224,6 +224,24 @@ def read_sidecar(base):
         return None
 
 
+def _sidecar_in_sync(base, sc):
+    """progress.json 写入时记了当时 .zip 的 mtime+size（`ckpt_fingerprint`）→ 与现在的 zip 比对。
+
+    对不上 = 模型文件比进度记录【新】（run 被杀在"存 zip"与"写 progress.json 提交点"之间·或事后覆盖）
+    ⟹ `trend[-1]` 描述的不是这个模型 ⟹ 锚点比对无意义。缺指纹（老 ckpt）→ 视为同步（无从判断·不冤枉）。
+    """
+    fp = (sc or {}).get("ckpt_fingerprint")
+    if not fp or "zip_size" not in fp:
+        return True
+    z = base + ".zip"
+    if not os.path.exists(z):
+        return True
+    stt = os.stat(z)
+    if int(stt.st_size) != int(fp["zip_size"]):
+        return False
+    return abs(float(stt.st_mtime) - float(fp.get("zip_mtime", stt.st_mtime))) <= 1.0   # 1s 容差（拷贝/文件系统精度）
+
+
 def discover_ckpts():
     """在 CKDIRS 里找所有 `*.zip` 且有同名 `_vecnorm.pkl` 的 checkpoint → [base, ...]（按 basename 去重·保序）。"""
     out, seen = [], set()
@@ -503,22 +521,35 @@ def main():
             if mp is None or want is None:
                 print(f"  ⚠️ 锚点检查跳过（数据集={ds!r}·manifest={'找到' if mp else '没找到'}·trend={'有' if trend else '无'}）"
                       " → **本 ckpt 的 eval 配置未经验证**，数字请谨慎采信。", flush=True)
+            elif not _sidecar_in_sync(b, sc):
+                # progress.json 里记着写它那一刻的 .zip 指纹（mtime+size）。对不上 ⟹ 模型文件比进度记录【新】
+                #   （典型成因：run 被杀在 "存 zip" 与 "写 progress.json 提交点" 之间·或事后续跑覆盖了 zip）
+                #   ⟹ trend[-1] 描述的不是这个模型 ⟹ **锚点比对本身无效**，不是配置错 ⟹ 只警告不中止。
+                print(f"  ⚠️ 锚点检查跳过：sidecar 与 ckpt **不同步**（progress.json 记的 zip 指纹 ≠ 现在的 zip）"
+                      " → `trend[-1]` 描述的不是这个模型，比了也没意义。**本 ckpt 的 eval 配置未经锚点验证。**", flush=True)
+                anchor = {"skipped": "sidecar_out_of_sync"}
             else:
                 _tp, a_paths, _i = R.load_manifest_split(mp, os.path.dirname(mp))
                 a_pool = load_scenario_pool(a_paths)
                 a_agg, _ap = R.replay_eval(b, kind, weight, a_pool, continuous_algo=algo, return_per=True)
                 got, one_ep = a_agg["到达率%"], 100.0 / max(len(a_pool), 1)
-                d, tol = abs(got - want), max(ANCHOR_TOL, 100.0 / max(len(a_pool), 1))
-                anchor = {"n": len(a_pool), "记录值": want, "重评值": got, "差": d,
+                d = abs(got - want)
+                # 🔴 容差取【本项目实测的重放噪声】而非"零容忍"：`03` L192-C 实测同 ckpt/同 40 场景重放
+                #   最大偏移 ±7.5pp（3/40 局判定翻转·浮点平台差非 bug）⟹ 逐种子零容忍会被噪声误杀
+                #   （2026-07-26 实证：热启动 s1 差 2 局即被误判中止，而同批金标 6/6 逐位复现=配置本就没错）。
+                #   真正的配置错会【所有种子系统性偏移】⟹ 靠下面的「锚点汇总」抓，不靠单种子。
+                tol = max(ANCHOR_TOL, 4.0 * one_ep)            # 4 局 = 实测最大噪声 3 局 + 1 局余量
+                anchor = {"n": len(a_pool), "记录值": want, "重评值": got, "差": d, "有符号差": got - want,
                           "容差": tol, "差几局": round(d / one_ep, 2), "通过": d <= tol}
                 tag = ("✅ 逐位复现" if d == 0.0 else
-                       f"🟡 差 {d / one_ep:.0f} 局（容差内·浮点噪声）" if d <= tol else "❌ 对不上")
+                       f"🟡 差 {d / one_ep:.0f} 局（实测重放噪声内·`03` L192-C）" if d <= tol else "❌ 对不上")
                 print(f"  [锚点] 自记测试集 N={len(a_pool)}：记录 {want:.2f}% vs 重评 {got:.2f}%（差 {d:.2f}pt）{tag}", flush=True)
                 if d > tol:
-                    msg = (f"🔒 锚点复现失败（{name}）：差 {d:.2f}pt = {d / one_ep:.1f} 局 > 容差 {tol:.2f}pt。\n"
-                           "   含义：本次 eval 的环境配置与训练时【不一致】（连续臂 shield/cone/augment_rho/去朝向门这些"
-                           "不进 config_sig 的 knob 最可能），此时数字【不可信】。\n"
-                           "   先查这些 STEP4E_* 变量；确认容差合理再用 REEVAL_ANCHOR_TOL / REEVAL_ANCHOR_SOFT=1 放行。")
+                    msg = (f"🔒 锚点复现失败（{name}）：差 {d:.2f}pt = {d / one_ep:.1f} 局 > 容差 {tol:.2f}pt"
+                           f"（= {tol / one_ep:.0f} 局·已按 `03` L192-C 实测重放噪声放宽）。\n"
+                           "   含义：超出浮点噪声可解释的范围 → eval 环境配置可能与训练时【不一致】"
+                           "（连续臂 shield/cone/augment_rho/去朝向门这些不进 config_sig 的 knob 最可能）。\n"
+                           "   先查这些 STEP4E_* 变量；确认无误再用 REEVAL_ANCHOR_TOL / REEVAL_ANCHOR_SOFT=1 放行。")
                     if ANCHOR_SOFT:
                         print("  ⚠️ " + msg, flush=True)
                     else:
@@ -550,6 +581,21 @@ def main():
         for t, m in (r["分型_clean"] or r["分型_全部"] or {}).items():
             print(fmt(f"  · {t}", m))
         _dump()                                                # 🔴 每评完一个就落盘（中途被杀也留得住已评出的臂）
+
+    # ---- 🔴 锚点【汇总】：真正的配置错会让所有种子【系统性同向偏移】；单种子的 1-3 局翻转只是浮点噪声 ----
+    _anc = [v["anchor"] for v in results.values() if v.get("anchor") and "有符号差" in v["anchor"]]
+    if _anc:
+        sg = [a["有符号差"] for a in _anc]
+        mean_sg = sum(sg) / len(sg)
+        worst = max(abs(x) for x in sg)
+        pos, neg = sum(1 for x in sg if x > 0), sum(1 for x in sg if x < 0)
+        print("\n" + "─" * 104)
+        print(f"■ 锚点汇总（{len(sg)} 个 ckpt）：平均有符号差 {mean_sg:+.2f}pt · 最大绝对差 {worst:.2f}pt · "
+              f"{sum(1 for x in sg if x == 0)} 个逐位复现 / {pos} 偏高 / {neg} 偏低")
+        print("  判读：平均差 ≈ 0 且正负混杂 ⟹ 只是浮点重放噪声，**eval 配置正确**；"
+              "若平均差明显偏离 0 且方向一致 ⟹ 配置很可能真的错了，别信本次数字。", flush=True)
+        payload_extra = {"n": len(sg), "平均有符号差": mean_sg, "最大绝对差": worst, "逐位复现数": sum(1 for x in sg if x == 0)}
+        results["_锚点汇总"] = payload_extra
 
     _dump(final=True)
     print(f"\n[reeval_official] 完成 → {OUT}", flush=True)

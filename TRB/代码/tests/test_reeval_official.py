@@ -220,6 +220,28 @@ class TestEndToEndStubbed(unittest.TestCase):
         with self.assertRaises(SystemExit):
             _run({**self.base_env}, replay_arrival=400, anchor_arrival=40.0)
 
+    def test_sidecar_out_of_sync_skips_anchor_not_abort(self):
+        """progress.json 记的 zip 指纹对不上（run 被杀在存 zip 与写提交点之间）→ 跳过锚点、**不中止**。
+        实证背景：2026-07-26 热启动那趟被这条误杀过（当时是零容忍 + 无指纹检查）。"""
+        base = _make_ckpt(self.tmp, "Continuous-safe_s0_gold")
+        with open(base + ".progress.json", encoding="utf-8") as fh:
+            rec = json.load(fh)
+        rec["ckpt_fingerprint"] = {"zip_mtime": 1.0, "zip_size": 999999}   # 与真 zip(0 字节) 对不上
+        with open(base + ".progress.json", "w", encoding="utf-8") as fh:
+            json.dump(rec, fh, ensure_ascii=False)
+        p = _run({**self.base_env}, replay_arrival=400, anchor_arrival=40.0)   # 锚点差很多也不该中止
+        r = p["结果"]["Continuous-safe_s0_gold"]
+        self.assertEqual(r["anchor"], {"skipped": "sidecar_out_of_sync"})
+        self.assertEqual(r["strict"]["n"], 563)                                 # 主评照常完成
+
+    def test_anchor_tolerance_matches_measured_replay_noise(self):
+        """容差须 ≥4 局（`03` L192-C 实测重放噪声最大 3/40 局）——2 局被误杀过一次，别退回去。"""
+        _make_ckpt(self.tmp, "Continuous-safe_s0_gold", last_arrival=90.0)
+        p = _run({**self.base_env}, replay_arrival=400, anchor_arrival=97.5)    # 40 局差 3 局 = 7.5pt
+        a = p["结果"]["Continuous-safe_s0_gold"]["anchor"]
+        self.assertTrue(a["通过"], a)
+        self.assertGreaterEqual(a["容差"], 10.0 - 1e-9)                          # 4 局 × 2.5pt
+
     def test_unknown_dataset_fails_closed(self):
         _make_ckpt(self.tmp, "Continuous-safe_s0_strided", dataset="strided")
         with self.assertRaises(SystemExit):
