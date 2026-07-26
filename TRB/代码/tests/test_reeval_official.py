@@ -45,7 +45,11 @@ def _install_stubs(*, replay_arrival=None, anchor_arrival=None, n_anchor=40, aug
 
     def _fake_per(n, n_reached):
         return [{"scenario_idx": i, "reached": i < n_reached, "collided": False,
-                 "violations": 0.0, "emergency_pct": 3.0, "in_box_steps": (5 if i < n_reached else 0)}
+                 "violations": 0.0, "emergency_pct": 3.0, "in_box_steps": (5 if i < n_reached else 0),
+                 # `03` L203 的两个卖点指标 + 平滑度套件（evaluate.py 逐局真有这些键·下游必须带上）
+                 "ctrl_jerk_norm_mean": 0.9, "yaw_incr_mean": 0.015, "accel_incr_mean": 0.0036,
+                 "path_len_m": 4000.0, "subgrid_yaw_frac": 0.63, "subgrid_accel_frac": 0.44,
+                 "yaw_incr_giveway": 0.017, "yaw_incr_other": 0.012}
                 for i in range(n)]
 
     def _replay(base, kind, weight, pool, *, continuous_algo=None, return_per=False):
@@ -189,6 +193,18 @@ class TestEndToEndStubbed(unittest.TestCase):
     def mod_val_ids(self):
         m = importlib.import_module("reeval_official")
         return m.manifest_tids(m.find_manifest("manifest_hocr_200.json"))[1]
+
+    def test_selling_point_metrics_survive_to_output(self):
+        """🔴 卖点指标（次网格细调率 + 按态势拆转艏 + 平滑度套件）必须落进输出——
+        本项目已两次栽在"指标接进 evaluate 了、下游忘了取"（`03` L203 那次 / 本脚本 2026-07-26）。"""
+        _make_ckpt(self.tmp, "Continuous-safe_s0_gold")
+        p = _run({**self.base_env, "REEVAL_ANCHOR": "0"}, replay_arrival=400)
+        c = p["结果"]["Continuous-safe_s0_gold"]["strict"]["控制质量"]
+        for k in ("subgrid_yaw_frac", "subgrid_accel_frac", "yaw_incr_giveway", "yaw_incr_other",
+                  "ctrl_jerk_norm_mean", "yaw_incr_mean", "accel_incr_mean", "path_len_m"):
+            self.assertIn(k, c, f"卖点/平滑指标 {k} 被下游丢了")
+        self.assertAlmostEqual(c["subgrid_yaw_frac"], 0.63, places=6)
+        self.assertIn("控制质量_仅到达局", p["结果"]["Continuous-safe_s0_gold"]["strict"])
 
     def test_manifest_pool_mode_600_with_overtaking(self):
         """E6 用的池：均衡大集测试 600（对遇200+交叉200+追越200）·金标训练零泄漏、验证 40 个在里面。"""

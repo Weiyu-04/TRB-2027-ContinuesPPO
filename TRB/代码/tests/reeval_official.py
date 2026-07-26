@@ -308,6 +308,32 @@ def _emergency_pct(p):
     return float(p.get("emergency_pct") or 0.0)
 
 
+# 逐局里【不参与"求均值"】的键：身份/标志/嵌套结构 + 已在头条行单独报的。其余**数值键一律自动聚合**
+# —— 🔴 用"自动发现"而不是白名单，是因为本项目已经两次栽在"新指标接进 evaluate 了、但下游忘了取"
+#    （`03` L203 接指标那次的 commit 原话："否则四方头条拿不到=跑完要返工"；本脚本 2026-07-26 又犯一次）。
+#    自动发现 ⟹ 以后 evaluate 再加指标，这里【自动就带上】，不会再漏。
+_AGG_SKIP = {"scenario_idx", "reached", "collided", "traj", "term_flags", "end_state", "goal_geom",
+             "ep_src", "scenario_type", "scenario_file", "violations", "emergency_pct",
+             "giveway_violations", "standon_violations"}
+
+
+def _is_num(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _mean_extras(rows):
+    """把逐局里所有【数值型】指标自动求均值（跳 None·空则不出该键）——平滑度/次网格/按态势拆转艏/进近诊断全在里面。"""
+    keys = set()
+    for p in rows:
+        keys |= {k for k, v in p.items() if k not in _AGG_SKIP and _is_num(v)}
+    out = {}
+    for k in sorted(keys):
+        vals = [p[k] for p in rows if _is_num(p.get(k))]
+        if vals:
+            out[k] = round(sum(vals) / len(vals), 6)
+    return out
+
+
 def agg_of(per, idx_filter=None):
     """从逐局明细算聚合（口径与 evaluate/evaluate_continuous 一致：per 上取均值）。"""
     rows = [p for p in per if idx_filter is None or p.get("scenario_idx") in idx_filter]
@@ -325,6 +351,14 @@ def agg_of(per, idx_filter=None):
     ib = [p.get("in_box_steps") for p in rows if p.get("in_box_steps") is not None]
     if ib:
         out["位置进框%(宽松上界)"] = 100.0 * sum(1 for v in ib if v > 0) / len(ib)
+    # 🔴 全套指标（平滑度 jerk/转艏增量/油门增量 + **次网格细调率** + **按态势拆转艏** + 路径长/进近诊断）
+    #    `03` L203 的两个卖点指标就在这里：subgrid_*_frac（用掉多少连续分辨率·离散臂 by construction 恒 0）
+    #    与 yaw_incr_giveway/other（转艏活动是否集中在让路步 = 合规代价而非控制毛病）。
+    out["控制质量"] = _mean_extras(rows)
+    # 路径长度/平滑度须【分到达与否】看（游荡局天然更长·`evaluate._control_quality` docstring 红队 MEDIUM L72）
+    arrived_rows = [p for p in rows if p.get("reached")]
+    if arrived_rows:
+        out["控制质量_仅到达局"] = _mean_extras(arrived_rows)
     return out
 
 
@@ -336,6 +370,20 @@ def fmt(label, m):
     if "位置进框%(宽松上界)" in m:
         s += f"  位置进框(宽松) {m['位置进框%(宽松上界)']:.1f}%"
     return s
+
+
+def fmt_ctrl(m, label="控制质量_仅到达局"):
+    """卖点指标行：平滑度 + **次网格细调率** + **按态势拆转艏**（`03` L203）。"""
+    c = (m or {}).get(label) or (m or {}).get("控制质量") or {}
+    if not c:
+        return None
+    def g(k, d=3):
+        v = c.get(k)
+        return "—" if v is None else f"{v:.{d}f}"
+    return ("      平滑: jerk " + g("ctrl_jerk_norm_mean") + " 转艏Δ " + g("yaw_incr_mean", 4)
+            + " 油门Δ " + g("accel_incr_mean", 4) + " 路径 " + g("path_len_m", 0) + "m"
+            + " ｜ 次网格细调率: 转艏 " + g("subgrid_yaw_frac") + " 油门 " + g("subgrid_accel_frac")
+            + " ｜ 转艏|Δω|: 让路步 " + g("yaw_incr_giveway", 4) + " 其他步 " + g("yaw_incr_other", 4))
 
 
 # ---------------- 主流程 ----------------
@@ -576,6 +624,9 @@ def main():
         print(fmt("全部", r["全部"]))
         print(fmt("clean（没训练过）", r["clean"]))
         print(fmt("strict（真一眼没见过）", r["strict"]))
+        _cl = fmt_ctrl(r["strict"])                            # 卖点指标（平滑/次网格/按态势拆转艏）·`03` L203
+        if _cl:
+            print(_cl)
         if r["看过的"]:
             print(fmt("对照：训练/验证见过的", r["看过的"]))
         for t, m in (r["分型_clean"] or r["分型_全部"] or {}).items():
