@@ -1,0 +1,50 @@
+========================================================================================================
+发现 10 个 checkpoint：
+  Continuous-safe_s0_wsHOCRppo_s0                      臂=Continuous-safe  kind=continuous  seed=0 步=3047424 数据集=manifest_hocr_200.json 末段到达=100.0
+  Continuous-safe_s1_wsHOCRppo_s1                      臂=Continuous-safe  kind=continuous  seed=1 步=2539520 数据集=manifest_hocr_200.json 末段到达=90.0
+  Continuous-safe_s2_wsHOCRppo_s2                      臂=Continuous-safe  kind=continuous  seed=2 步=3047424 数据集=manifest_hocr_200.json 末段到达=97.5
+  Continuous-safe_s3_wsHOCRppo_s3                      臂=Continuous-safe  kind=continuous  seed=3 步=2539520 数据集=manifest_hocr_200.json 末段到达=97.5
+  Continuous-safe_s4_wsHOCRppo_s4                      臂=Continuous-safe  kind=continuous  seed=4 步=2539520 数据集=manifest_hocr_200.json 末段到达=100.0
+  Continuous-safe_s5_wsHOCRppo_s5                      臂=Continuous-safe  kind=continuous  seed=5 步=2539520 数据集=manifest_hocr_200.json 末段到达=82.5
+  Continuous-safe_s6_wsHOCRppo_s6                      臂=Continuous-safe  kind=continuous  seed=6 步=3047424 数据集=manifest_hocr_200.json 末段到达=100.0
+  Continuous-safe_s7_wsHOCRppo_s7                      臂=Continuous-safe  kind=continuous  seed=7 步=2539520 数据集=manifest_hocr_200.json 末段到达=97.5
+  Continuous-safe_s8_wsHOCRppo_s8                      臂=Continuous-safe  kind=continuous  seed=8 步=3047424 数据集=manifest_hocr_200.json 末段到达=97.5
+  Continuous-safe_s9_wsHOCRppo_s9                      臂=Continuous-safe  kind=continuous  seed=9 步=3047424 数据集=manifest_hocr_200.json 末段到达=95.0
+========================================================================================================
+[env] 连续臂 eval env：shield=True cone=None v_floor=2.0 augment_rho=False 去朝向门=False
+  [数据集] Continuous-safe_s0_wsHOCRppo_s0 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s1_wsHOCRppo_s1 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s2_wsHOCRppo_s2 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s3_wsHOCRppo_s3 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s4_wsHOCRppo_s4 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s5_wsHOCRppo_s5 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s6_wsHOCRppo_s6 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s7_wsHOCRppo_s7 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s8_wsHOCRppo_s8 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s9_wsHOCRppo_s9 ← manifest_hocr_200.json：训练 94 / 验证 40
+  …下载 200/600（失败 0）
+  …下载 400/600（失败 0）
+  …下载 600/600（失败 0）
+
+[池] 官方 1400/600 划分的测试 600（官方 2000 无追越）：N=600（请求 600）·二项 SE@p=0.8 ≈ 1.63pt
+[口径] 全部 600 − 训练泄漏 23 = **clean 577** ； 再 − 验证泄漏 14 = **strict 563**
+[分型] {'crossing': 395, 'head-on': 205}
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s0_wsHOCRppo_s0  臂=Continuous-safe kind=continuous seed=0 步=3047424
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  全部                         n= 600  到达 93.83%±0.98  碰撞 0.00%  违规/局  1.20  紧急步   3.1%  位置进框(宽松) 95.2%
+  clean（没训练过）                n= 577  到达 93.76%±1.01  碰撞 0.00%  违规/局  1.21  紧急步   3.2%  位置进框(宽松) 95.0%
+  strict（真一眼没见过）             n= 563  到达 93.61%±1.03  碰撞 0.00%  违规/局  1.20  紧急步   3.2%  位置进框(宽松) 94.8%
+  对照：训练/验证见过的                n=  37  到达 97.30%±2.67  碰撞 0.00%  违规/局  1.32  紧急步   1.2%  位置进框(宽松) 100.0%
+    · crossing               n= 384  到达 95.05%±1.11  碰撞 0.00%  违规/局  0.67  紧急步   2.4%  位置进框(宽松) 96.1%
+    · head-on                n= 193  到达 91.19%±2.04  碰撞 0.00%  违规/局  2.26  紧急步   4.9%  位置进框(宽松) 92.7%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s1_wsHOCRppo_s1  臂=Continuous-safe kind=continuous seed=1 步=2539520
+  [锚点] 自记测试集 N=40：记录 90.00% vs 重评 95.00%（差 5.00pt）❌ 对不上
+🔒 锚点复现失败（Continuous-safe_s1_wsHOCRppo_s1）：差 5.00pt = 2.0 局 > 容差 2.50pt。
+   含义：本次 eval 的环境配置与训练时【不一致】（连续臂 shield/cone/augment_rho/去朝向门这些不进 config_sig 的 knob 最可能），此时数字【不可信】。
+   先查这些 STEP4E_* 变量；确认容差合理再用 REEVAL_ANCHOR_TOL / REEVAL_ANCHOR_SOFT=1 放行。

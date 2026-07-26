@@ -1,0 +1,101 @@
+========================================================================================================
+发现 10 个 checkpoint：
+  Continuous-safe_s0_L1rateON_ppo_s0                   臂=Continuous-safe  kind=continuous  seed=0 步=5079040 数据集=manifest_hocr_200.json 末段到达=92.5
+  Continuous-safe_s1_L1rateON_ppo_s1                   臂=Continuous-safe  kind=continuous  seed=1 步=5079040 数据集=manifest_hocr_200.json 末段到达=90.0
+  Continuous-safe_s2_L1rateON_ppo_s2                   臂=Continuous-safe  kind=continuous  seed=2 步=5079040 数据集=manifest_hocr_200.json 末段到达=65.0
+  Continuous-safe_s3_L1rateON_ppo_s3                   臂=Continuous-safe  kind=continuous  seed=3 步=5079040 数据集=manifest_hocr_200.json 末段到达=72.5
+  Continuous-safe_s4_L1rateON_ppo_s4                   臂=Continuous-safe  kind=continuous  seed=4 步=5079040 数据集=manifest_hocr_200.json 末段到达=82.5
+  Continuous-safe_s5_L1rateON_ppo_s5                   臂=Continuous-safe  kind=continuous  seed=5 步=5079040 数据集=manifest_hocr_200.json 末段到达=2.5
+  Continuous-safe_s6_L1rateON_ppo_s6                   臂=Continuous-safe  kind=continuous  seed=6 步=5079040 数据集=manifest_hocr_200.json 末段到达=0.0
+  Continuous-safe_s7_L1rateON_ppo_s7                   臂=Continuous-safe  kind=continuous  seed=7 步=5079040 数据集=manifest_hocr_200.json 末段到达=77.5
+  Continuous-safe_s8_L1rateON_ppo_s8                   臂=Continuous-safe  kind=continuous  seed=8 步=5079040 数据集=manifest_hocr_200.json 末段到达=70.0
+  Continuous-safe_s9_L1rateON_ppo_s9                   臂=Continuous-safe  kind=continuous  seed=9 步=5079040 数据集=manifest_hocr_200.json 末段到达=87.5
+========================================================================================================
+[env] 连续臂 eval env：shield=True cone=None v_floor=2.0 augment_rho=False 去朝向门=False
+  [数据集] Continuous-safe_s0_L1rateON_ppo_s0 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s1_L1rateON_ppo_s1 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s2_L1rateON_ppo_s2 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s3_L1rateON_ppo_s3 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s4_L1rateON_ppo_s4 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s5_L1rateON_ppo_s5 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s6_L1rateON_ppo_s6 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s7_L1rateON_ppo_s7 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s8_L1rateON_ppo_s8 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s9_L1rateON_ppo_s9 ← manifest_hocr_200.json：训练 94 / 验证 40
+  …下载 200/600（失败 0）
+  …下载 400/600（失败 0）
+  …下载 600/600（失败 0）
+
+[池] 官方 1400/600 划分的测试 600（官方 2000 无追越）：N=600（请求 600）·二项 SE@p=0.8 ≈ 1.63pt
+[口径] 全部 600 − 训练泄漏 23 = **clean 577** ； 再 − 验证泄漏 14 = **strict 563**
+[分型] {'crossing': 395, 'head-on': 205}
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s0_L1rateON_ppo_s0  臂=Continuous-safe kind=continuous seed=0 步=5079040
+  [锚点] 自记测试集 N=40：记录 92.50% vs 重评 92.50%（差 0.00pt）✅ 逐位复现
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  全部                         n= 600  到达 73.83%±1.79  碰撞 0.17%  违规/局  1.59  紧急步   5.5%  位置进框(宽松) 91.7%
+  clean（没训练过）                n= 577  到达 73.66%±1.83  碰撞 0.17%  违规/局  1.60  紧急步   5.7%  位置进框(宽松) 91.7%
+  strict（真一眼没见过）             n= 563  到达 73.36%±1.86  碰撞 0.18%  违规/局  1.61  紧急步   5.8%  位置进框(宽松) 91.5%
+  对照：训练/验证见过的                n=  37  到达 81.08%±6.44  碰撞 0.00%  违规/局  1.38  紧急步   1.3%  位置进框(宽松) 94.6%
+    · crossing               n= 384  到达 73.70%±2.25  碰撞 0.26%  违规/局  1.22  紧急步   5.8%  位置进框(宽松) 91.4%
+    · head-on                n= 193  到达 73.58%±3.17  碰撞 0.00%  违规/局  2.36  紧急步   5.4%  位置进框(宽松) 92.2%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s1_L1rateON_ppo_s1  臂=Continuous-safe kind=continuous seed=1 步=5079040
+  [锚点] 自记测试集 N=40：记录 90.00% vs 重评 90.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 88.17%±1.32  碰撞 0.00%  违规/局  1.22  紧急步   3.2%  位置进框(宽松) 90.5%
+  clean（没训练过）                n= 577  到达 88.04%±1.35  碰撞 0.00%  违规/局  1.22  紧急步   3.2%  位置进框(宽松) 90.3%
+  strict（真一眼没见过）             n= 563  到达 87.92%±1.37  碰撞 0.00%  违规/局  1.20  紧急步   3.3%  位置进框(宽松) 90.2%
+  对照：训练/验证见过的                n=  37  到达 91.89%±4.49  碰撞 0.00%  违规/局  1.51  紧急步   2.3%  位置进框(宽松) 94.6%
+    · crossing               n= 384  到达 93.23%±1.28  碰撞 0.00%  违规/局  0.67  紧急步   2.5%  位置进框(宽松) 95.1%
+    · head-on                n= 193  到达 77.72%±3.00  碰撞 0.00%  违规/局  2.30  紧急步   4.6%  位置进框(宽松) 80.8%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s2_L1rateON_ppo_s2  臂=Continuous-safe kind=continuous seed=2 步=5079040
+  [锚点] 自记测试集 N=40：记录 65.00% vs 重评 65.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 57.50%±2.02  碰撞 0.17%  违规/局  1.42  紧急步   4.2%  位置进框(宽松) 71.8%
+  clean（没训练过）                n= 577  到达 57.37%±2.06  碰撞 0.17%  违规/局  1.44  紧急步   4.4%  位置进框(宽松) 71.9%
+  strict（真一眼没见过）             n= 563  到达 56.84%±2.09  碰撞 0.18%  违规/局  1.44  紧急步   4.4%  位置进框(宽松) 71.8%
+  对照：训练/验证见过的                n=  37  到达 67.57%±7.70  碰撞 0.00%  违规/局  1.16  紧急步   0.7%  位置进框(宽松) 73.0%
+    · crossing               n= 384  到达 65.89%±2.42  碰撞 0.00%  违规/局  0.75  紧急步   3.9%  位置进框(宽松) 78.1%
+    · head-on                n= 193  到达 40.41%±3.53  碰撞 0.52%  违规/局  2.82  紧急步   5.2%  位置进框(宽松) 59.6%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s3_L1rateON_ppo_s3  臂=Continuous-safe kind=continuous seed=3 步=5079040
+  [锚点] 自记测试集 N=40：记录 72.50% vs 重评 72.50%（差 0.00pt）✅ 逐位复现
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  全部                         n= 600  到达 70.83%±1.86  碰撞 0.17%  违规/局  1.59  紧急步   5.7%  位置进框(宽松) 73.8%
+  clean（没训练过）                n= 577  到达 70.88%±1.89  碰撞 0.17%  违规/局  1.58  紧急步   5.7%  位置进框(宽松) 73.8%
+  strict（真一眼没见过）             n= 563  到达 70.69%±1.92  碰撞 0.18%  违规/局  1.58  紧急步   5.8%  位置进框(宽松) 73.7%
+  对照：训练/验证见过的                n=  37  到达 72.97%±7.30  碰撞 0.00%  违规/局  1.73  紧急步   4.6%  位置进框(宽松) 75.7%
+    · crossing               n= 384  到达 71.88%±2.29  碰撞 0.26%  违规/局  0.93  紧急步   5.0%  位置进框(宽松) 75.3%
+    · head-on                n= 193  到达 68.91%±3.33  碰撞 0.00%  违规/局  2.88  紧急步   7.3%  位置进框(宽松) 71.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s4_L1rateON_ppo_s4  臂=Continuous-safe kind=continuous seed=4 步=5079040
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 82.50% vs 重评 82.50%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 78.50%±1.68  碰撞 0.00%  违规/局  1.32  紧急步   4.3%  位置进框(宽松) 83.5%
+  clean（没训练过）                n= 577  到达 78.34%±1.71  碰撞 0.00%  违规/局  1.31  紧急步   4.4%  位置进框(宽松) 83.4%
+  strict（真一眼没见过）             n= 563  到达 77.98%±1.75  碰撞 0.00%  违规/局  1.29  紧急步   4.4%  位置进框(宽松) 83.1%
+  对照：训练/验证见过的                n=  37  到达 86.49%±5.62  碰撞 0.00%  违规/局  1.76  紧急步   2.0%  位置进框(宽松) 89.2%
+    · crossing               n= 384  到达 85.68%±1.79  碰撞 0.00%  违规/局  0.69  紧急步   3.3%  位置进框(宽松) 88.5%
+    · head-on                n= 193  到达 63.73%±3.46  碰撞 0.00%  违规/局  2.54  紧急步   6.6%  位置进框(宽松) 73.1%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s5_L1rateON_ppo_s5  臂=Continuous-safe kind=continuous seed=5 步=5079040
+  [锚点] 自记测试集 N=40：记录 2.50% vs 重评 2.50%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达  0.83%±0.37  碰撞 0.00%  违规/局  0.72  紧急步   1.1%  位置进框(宽松) 43.7%
+  clean（没训练过）                n= 577  到达  0.87%±0.39  碰撞 0.00%  违规/局  0.73  紧急步   1.2%  位置进框(宽松) 44.2%
+  strict（真一眼没见过）             n= 563  到达  0.89%±0.40  碰撞 0.00%  违规/局  0.74  紧急步   1.2%  位置进框(宽松) 44.8%
+  对照：训练/验证见过的                n=  37  到达  0.00%±0.00  碰撞 0.00%  违规/局  0.41  紧急步   0.2%  位置进框(宽松) 27.0%
+    · crossing               n= 384  到达  1.04%±0.52  碰撞 0.00%  违规/局  0.38  紧急步   1.5%  位置进框(宽松) 44.5%
+    · head-on                n= 193  到达  0.52%±0.52  碰撞 0.00%  违规/局  1.43  紧急步   0.4%  位置进框(宽松) 43.5%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s6_L1rateON_ppo_s6  臂=Continuous-safe kind=continuous seed=6 步=5079040
+  [锚点] 自记测试集 N=40：记录 0.00% vs 重评 0.00%（差 0.00pt）✅ 逐位复现
