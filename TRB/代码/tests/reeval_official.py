@@ -64,6 +64,10 @@ import random
 import sys
 from collections import Counter, defaultdict
 
+# 🔴 脚本版本号：**每次改动必手动 +1**。服务器同步后用 `grep SCRIPT_REV <文件>` 一眼验是不是最新
+#    （靠"我几点同步的"判断不可靠——已踩过）。跑起来时也会打印，log 里永久留痕。
+SCRIPT_REV = "r5-2026-07-26"   # r5: 卖点指标自动发现(次网格细调率/按态势拆转艏/平滑度套件) + 版本号
+
 # ---------- 开关 ----------
 _CODE = os.environ.get("STEP4E_CODE_DIR", ".")
 SELFTEST = os.environ.get("REEVAL_SELFTEST", "0") == "1"
@@ -179,7 +183,7 @@ def manifest_tids(manifest_path):
 
 def selftest():
     """纯逻辑自检（本机可跑）：官方划分 + 泄漏剔除 + 计数断言。"""
-    print("【SELFTEST】官方划分 + 泄漏剔除（纯逻辑·不碰模型/场景文件）", flush=True)
+    print(f"【SELFTEST】{SCRIPT_REV} · 官方划分 + 泄漏剔除（纯逻辑·不碰模型/场景文件）", flush=True)
     tr, te = official_split(None)
     assert len(tr) == 1400 and len(te) == 600, (len(tr), len(te))
     assert not (set(tr) & set(te)), "官方 train/test 重叠"
@@ -399,7 +403,7 @@ def main():
     sidecars = {b: read_sidecar(b) for b in ckpts}
 
     print("=" * 104)
-    print(f"发现 {len(ckpts)} 个 checkpoint：")
+    print(f"[reeval_official {SCRIPT_REV}] 发现 {len(ckpts)} 个 checkpoint：")
     for b in ckpts:
         print("  " + describe(b, sidecars[b]))
     print("=" * 104, flush=True)
