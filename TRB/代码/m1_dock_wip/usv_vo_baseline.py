@@ -51,21 +51,46 @@ def circum(l, w):
 
 
 # ────────────────────────── 标称控制器（目标导引 PD·两条外部基线共用） ──────────────────────────
-def nominal_pd(p, psi, v, goal, *, v_des=None, k_psi=0.45, k_v=0.35):
-    """朝目标的 PD 标称控制 u=(a, ω)，输出**夹进 RL 动作箱**。
+def is_giveway_like(p, psi, obs, *, sector_deg=60.0, rng_max=2500.0):
+    """粗略让路态判据（他船在前方扇区 ∧ 正在接近 ∧ 近场）——与 `b1_cbf_baseline.colregs_nominal` 同款条件。
 
-    · 航向：ω = clip(k_psi · wrap(θ_goal − ψ) / DT, ±W_BOX) —— 除 DT 是因为 ω 是角**速度**、一步作用 DT 秒。
-    · 速度：接近目标时降速（避免冲过头——本项目"临门一脚"老毛病），远场巡航 v_des。
-    **它不做任何避碰**——避碰交给外面的 VO / CBF 滤波器。这样"标称"在两条外部基线间完全一致 = 公平。
+    ⚠️ 这是**外部基线自带的简易判据**，不是我们的 `ColregsStatechart`。故意如此：外部基线是独立方法，
+       不该借用我们的状态机（借了就不"独立"了）。两条外部基线用**同一个**判据 ⟹ 彼此对称。
     """
+    if obs is None:
+        return False
+    p_o, psi_o, v_o = np.asarray(obs[0], float), float(obs[1]), float(obs[2])
+    p_rel = p_o - np.asarray(p, float)
+    rng = float(np.linalg.norm(p_rel))
+    beta = (math.atan2(p_rel[1], p_rel[0]) - psi + math.pi) % (2 * math.pi) - math.pi
+    return abs(beta) < math.radians(sector_deg) and rng < rng_max
+
+
+def nominal_pd(p, psi, v, goal, *, v_des=None, k_psi=0.45, k_v=0.35,
+               obs=None, variant="plain", a_box=None, w_box=None):
+    """朝目标的 PD 标称控制 u=(a, ω)，输出**夹进动作箱**。**两条外部基线共用** ⟹ 标称一致 = 公平。
+
+    · 航向：ω = clip(k_psi · wrap(θ_goal − ψ) / DT, ±w_box) —— 除 DT 是因为 ω 是角**速度**、一步作用 DT 秒。
+    · 速度：接近目标时降速（避免冲过头——本项目"临门一脚"老毛病），远场巡航 v_des。
+    · `variant='colregs'` + 让路态 → **标称偏满右转（starboard）**。
+      🔴 这条必须在**共用标称**里，不能只给某一条基线：
+         `b1_cbf_baseline.colregs_nominal` 原本就是靠这个偏置**修 CBF 正对遇退化**
+         （正对遇时 HOCBF 的 ω 系数恒等于 0 ⟹ CBF 自己只会减速、不会转·`03` L200-F / L205-补2）。
+         我第一版把标称统一成纯 PD，**等于把 CBF 的这个修复删掉了**，被自检 T2 抓出。
+    **它不做任何避碰**——避碰交给外面的 VO / CBF 滤波器。
+    """
+    a_box = A_BOX if a_box is None else a_box
+    w_box = W_BOX if w_box is None else w_box
     d = np.asarray(goal, float) - np.asarray(p, float)
     dist = float(np.linalg.norm(d))
     if v_des is None:
         v_des = min(V_MAX, max(1.5, 0.06 * dist))          # 近目标自动降速（600m→~9m/s·100m→1.5m/s）
     psi_goal = math.atan2(d[1], d[0]) if dist > 1e-9 else psi
     e_psi = (psi_goal - psi + math.pi) % (2 * math.pi) - math.pi
-    omega = float(np.clip(k_psi * e_psi / DT, -W_BOX, W_BOX))
-    accel = float(np.clip(k_v * (v_des - v) / DT, -A_BOX, A_BOX))
+    omega = float(np.clip(k_psi * e_psi / DT, -w_box, w_box))
+    accel = float(np.clip(k_v * (v_des - v) / DT, -a_box, a_box))
+    if variant == "colregs" and is_giveway_like(p, psi, obs):
+        omega = -w_box                                      # 满右转标称（starboard·同 colregs_nominal 口径）
     return np.array([accel, omega], float)
 
 
@@ -130,7 +155,7 @@ def vo_action(ego, obs, goal, *, variant="colregs", tau=180.0, safety_margin=0.0
     · `tau=180s` 与本项目 `is_emergency` 的可达集视界同源（Krasowski Table II）⟹ 与我们同一时间尺度。
     """
     p_e, psi_e, v_e = np.asarray(ego[0], float), float(ego[1]), float(ego[2])
-    u_nom = nominal_pd(p_e, psi_e, v_e, goal)
+    u_nom = nominal_pd(p_e, psi_e, v_e, goal, obs=obs, variant=variant)
     info = {"vo_feasible": True, "n_free": 0, "fallback": False}
     if obs is None:
         return u_nom, info
