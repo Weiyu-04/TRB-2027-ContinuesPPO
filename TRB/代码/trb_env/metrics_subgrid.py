@@ -32,6 +32,17 @@ A_GRID_STEP = 0.016    # 离散油门最小非零格步（A_ACC 相邻间距）
 W_GRID_STEP = 0.006    # 离散转艏最小非零格步（A_OMEGA 相邻间距）
 GIVEWAY_RHOS = (2, 3, 4)   # RHO_HEAD_ON / RHO_CROSSING / RHO_OVERTAKE
 
+# 🔴🔴 判据容差（2026-07-26 修·`03` L224）——**没有它，本模块对离散臂给出的数就是错的**：
+#   `abs(-0.018 - -0.012) = 0.005999999999999998 < 0.006` —— 二进制浮点表示不出 0.006，
+#   于是"整整挪一格"被 `< W_GRID_STEP` 判成"比一格还细"。实测后果：离散臂 subgrid_yaw_frac
+#   本该恒 0，实得 2.5%-12.1%（5 个 ckpt·均值 5.4%），而 subgrid_accel_frac 恰好正常（=0.0），
+#   **因为油门格点两两之差最小恰好 = 0.016 精确可表示、转艏的 ±0.012↔±0.018 那两对不可表示**。
+#   缝宽只有 1.7e-18 ⟹ 连续臂几乎不受影响（它的 |Δ| 连续分布·落进这条缝的概率≈0），
+#   但离散臂的 |Δ| **全部堆在格点倍数上**，正好踩中 ⟹ 只污染离散臂 = 最难看出来的那种错。
+#   取 1e-9：比浮点残差(~1e-18)大九个量级、比任何有物理意义的指令差(~1e-5 rad/s)小四个量级。
+#   两侧都用它 ⟹ 上界不再把"整格"误判成"次格"，下界不再把 1e-15 级的数值噪声当成"精细操作"。
+_GRID_TOL = 1e-9
+
 
 def assert_grid_matches(a_acc, a_omega):
     """调用方(有 vesselmodels)校验本模块镜像常量 == usv_env 真相源·防静默漂移（同 uterm 的 DECISION_DT 守卫范式）。"""
@@ -66,9 +77,13 @@ def subgrid_and_rho_split(applied, rhos=None):
         return out
     dU = np.abs(np.diff(U, axis=0))[adj]               # |Δa|,|Δω|（仅箱内相邻对）
     n = int(dU.shape[0]); out["n_inbox_pairs"] = n
-    # ① 次网格细调率：0 < |Δ| < 离散最小非零格步（严格小于=离散做不到的细度；|Δ|=0 排除因离散也能"重复同动作"）
-    out["subgrid_accel_frac"] = round(float(np.mean((dU[:, 0] > 0.0) & (dU[:, 0] < A_GRID_STEP))), 6)
-    out["subgrid_yaw_frac"] = round(float(np.mean((dU[:, 1] > 0.0) & (dU[:, 1] < W_GRID_STEP))), 6)
+    # ① 次网格细调率：_GRID_TOL < |Δ| < 格步−_GRID_TOL（=离散做不到的细度；|Δ|≈0 排除因离散也能"重复同动作"）
+    #    🔴 两侧容差【非可选】：见 _GRID_TOL 注释——少了上界容差，"整整挪一格"会被判成"比一格还细"，
+    #    离散臂本该恒 0 的指标实测变成 5.4%（且只坏转向那一维），聚合数字上完全看不出来。
+    out["subgrid_accel_frac"] = round(float(np.mean(
+        (dU[:, 0] > _GRID_TOL) & (dU[:, 0] < A_GRID_STEP - _GRID_TOL))), 6)
+    out["subgrid_yaw_frac"] = round(float(np.mean(
+        (dU[:, 1] > _GRID_TOL) & (dU[:, 1] < W_GRID_STEP - _GRID_TOL))), 6)
     # ② 按态势拆 |Δω|：变化归属 ρ[k+1]（新动作被选时的态势）
     if rhos is not None and len(rhos) == len(U):
         r_next = np.asarray(rhos, dtype=int)[1:][adj]

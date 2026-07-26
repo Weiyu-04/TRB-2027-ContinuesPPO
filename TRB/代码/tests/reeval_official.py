@@ -66,7 +66,7 @@ from collections import Counter, defaultdict
 
 # 🔴 脚本版本号：**每次改动必手动 +1**。服务器同步后用 `grep SCRIPT_REV <文件>` 一眼验是不是最新
 #    （靠"我几点同步的"判断不可靠——已踩过）。跑起来时也会打印，log 里永久留痕。
-SCRIPT_REV = "r11-2026-07-26"  # r11: 自审修 4 处（锚点汇总去重 / __getattr__ 递归 / 箱常量取真相源 / 参考舵位改用【盾后实际施加值】·`03` L222）
+SCRIPT_REV = "r12-2026-07-26"  # r12: 补 `分型_strict`（此前分型只有 600/577 两档·缺 563 ⟹ 汇报里混了分母·`03` L224）
 #                                r10: REEVAL_YAW_SLEW —— 舵速率限制（第二个平滑旋钮·有物理依据·`03` L221）
 #                                r9: REEVAL_YAW_LOWPASS —— 转向低通滤波权衡曲线（治抖·纯评估期·`03` L218·user 拍）
 #                                r8: REEVAL_TRAJ_KEYS —— 采几个场景的逐步轨迹（多算法轨迹对比图·`03` L215-G·user 拍）
@@ -809,13 +809,18 @@ def main():
         if traj_idxs:
             trajs[out_name] = {str(keys[p["scenario_idx"]]): p.get("traj")
                                for p in per if p.get("scenario_idx") in traj_idxs and p.get("traj")}
-        by_type, by_type_clean = {}, {}
+        by_type, by_type_clean, by_type_strict = {}, {}, {}
         if types:
             g = defaultdict(set)
             for i, t in types.items():
                 g[t].add(i)
             by_type = {t: agg_of(per, ix) for t, ix in sorted(g.items())}
             by_type_clean = {t: agg_of(per, ix & clean_idx) for t, ix in sorted(g.items())}
+            # 🔴 r12 补 strict 分型（`03` L224）——**之前只有全部(600)/clean(577)两档，唯独缺 strict(563)**，
+            #    于是「按会遇态势拆开」那张表只能拿 clean 577 的数去填，而全文其它每一个数字都是 strict 563
+            #    ⟹ 同一份汇报里混了两个分母，且表面上看不出来（两档差 14 局·数字只差 0.1-0.8pt）。
+            #    strict_idx 本来就在手边，纯 additive 加一行 ⟹ 下一趟重评自动拿到、零额外算力。
+            by_type_strict = {t: agg_of(per, ix & strict_idx) for t, ix in sorted(g.items())}
         results[out_name] = {"kind": kind, "party": sc.get("party"), "seed": sc.get("seed"),
                              "num_timesteps": sc.get("num_timesteps"),
                              "dataset": (sc.get("config_sig") or {}).get("dataset"),
@@ -823,7 +828,8 @@ def main():
                              "平滑档": (None if wrap is None else _ALPHA_OF.get(out_name)),
                              "全部": agg_of(per), "clean": agg_of(per, clean_idx),
                              "strict": agg_of(per, strict_idx), "看过的": agg_of(per, seen_idx),
-                             "分型_全部": by_type, "分型_clean": by_type_clean}
+                             "分型_全部": by_type, "分型_clean": by_type_clean,
+                             "分型_strict": by_type_strict}
         r = results[out_name]
         print(fmt("全部", r["全部"]))
         print(fmt("clean（没训练过）", r["clean"]))
@@ -833,8 +839,10 @@ def main():
             print(_cl)
         if r["看过的"]:
             print(fmt("对照：训练/验证见过的", r["看过的"]))
-        for t, m in (r["分型_clean"] or r["分型_全部"] or {}).items():
-            print(fmt(f"  · {t}", m))
+        # 打印用 strict 分型（与上面 strict 那行同分母·`03` L224）；老数据没这个键时回落 clean/全部
+        _bt_src = ("strict" if r["分型_strict"] else "clean" if r["分型_clean"] else "全部")
+        for t, m in (r["分型_strict"] or r["分型_clean"] or r["分型_全部"] or {}).items():
+            print(fmt(f"  · {t}（{_bt_src}）", m))
         _dump()                                                # 🔴 每评完一档就落盘（中途被杀也留得住）
 
     for b in ckpts:

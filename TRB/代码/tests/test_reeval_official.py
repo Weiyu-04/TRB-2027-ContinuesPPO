@@ -251,6 +251,13 @@ class TestEndToEndStubbed(unittest.TestCase):
         self.assertEqual((r["全部"]["n"], r["clean"]["n"], r["strict"]["n"]), (600, 600, 560))
         self.assertEqual({t: m["n"] for t, m in r["分型_全部"].items()},
                          {"对遇": 200, "交叉": 200, "追越": 200})
+        # 🔴 分型必须**加起来等于同名那一档的分母**（`03` L224）——这条不变量本可以早点抓到那个错：
+        #    汇报里「按会遇态势拆开」那张表用的是 clean(577) 的数，配文却写 600 的类型个数，
+        #    而全文其它数字都是 strict(563) ⟹ 一份汇报里混了三个分母，聚合数字上完全看不出来。
+        for lvl, bt in (("全部", "分型_全部"), ("clean", "分型_clean"), ("strict", "分型_strict")):
+            self.assertTrue(r[bt], f"{bt} 是空的 —— 分型没算出来，下游只能去借别档的数填表")
+            self.assertEqual(sum(m["n"] for m in r[bt].values()), r[lvl]["n"],
+                             f"{bt} 各类型局数之和 ≠ {lvl} 的分母 —— 拆开的表和总表对不上")
 
     def test_anchor_one_episode_off_passes_with_warning(self):
         """差一局 = 浮点噪声 → 放行（否则会因单局翻转白白中止一趟 eval）。"""
