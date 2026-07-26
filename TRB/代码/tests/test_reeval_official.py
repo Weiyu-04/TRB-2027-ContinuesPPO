@@ -555,8 +555,9 @@ class TestYawSlewLimit(unittest.TestCase):
         got = []
         for w in raw:
             inner.w = w
-            u, _ = pol.predict(np.zeros(27, np.float32)); got.append(round(float(u[1]), 12))
-        self.assertEqual(got, raw)
+            u, _ = pol.predict(np.zeros(27, np.float32)); got.append(float(u[1]))
+        # 🔴 不许 round：原先用 round(...,12) 会把 1e-18 级的削值掩盖掉（自审发现·`03` L222）
+        self.assertEqual(got, raw, "系数=1 竟然改了动作（逐位比对，未取整）")
         self.assertEqual(pol.n_clipped, 0)
 
     def test_half_box_limits_reversal(self):
@@ -611,6 +612,150 @@ class TestYawSlewLimit(unittest.TestCase):
         _make_ckpt(self.tmp, "Discrete-safe_s0", kind="shielded", party="Discrete-safe")
         p = _run({**self.base_env, "REEVAL_YAW_SLEW": "0.5"}, replay_arrival=400)
         self.assertEqual(p["结果"], {})
+
+
+class TestSmoothRefIsAppliedAction(unittest.TestCase):
+    """r11 自审修（`03` L222）：参考舵位必须取【盾之后真正施加】的 ω，不是我们发出的指令。"""
+
+    class _Env:
+        """最小站位 env：`env.env.last_action` = 盾之后真正施加的 (a, ω)。"""
+        def __init__(self, applied_w=0.0):
+            self.env = types.SimpleNamespace(last_action=[0.0, float(applied_w)])
+        def set_applied(self, w):
+            self.env.last_action = [0.0, float(w)]
+
+    def setUp(self):
+        os.environ["REEVAL_MANIFEST_DIRS"] = _BALANCED
+        self.mod = importlib.reload(importlib.import_module("reeval_official"))
+
+    def test_slew_limits_against_applied_not_commanded(self):
+        """盾把动作改写成 −0.012 后，限速必须相对【实际施加的 −0.012】，而不是相对我们上次的指令。
+
+        这里刻意用**箱内**的施加值，好把"参考取施加值"这件事与"越箱要夹回"分开测
+        （越箱那条由 `test_output_never_leaves_rl_box_even_after_shield_override` 专门盯）。
+        """
+        import numpy as np
+        env = self._Env(applied_w=-0.012)         # 盾把上一步改写成了 −0.012（箱内）
+        inner = _FakeInnerModel(0.018)            # 策略这一步想要满左 +0.018
+        pol = self.mod.YawSlewLimitPolicy(inner, 0.25)   # Δmax = 0.25×0.036 = 0.009
+        pol.bind_env(env)
+        u, _ = pol.predict(np.zeros(27, np.float32))
+        self.assertAlmostEqual(float(u[1]), -0.012 + 0.009, places=12,
+                               msg="限速没有以【实际施加值】为参考")
+        self.assertGreaterEqual(pol.n_ref_from_env, 1, "根本没读到 env 里的施加值")
+        self.assertEqual(pol.n_ref_clamped, 0, "箱内的施加值不该被夹")
+
+        # 反证：若参考错用了"我们自己上一步的输出"，第一步没有历史 ⟹ 会原样放行 +0.018
+        env2 = self._Env(applied_w=-0.012)
+        pol2 = self.mod.YawSlewLimitPolicy(_FakeInnerModel(0.018), 0.25)
+        pol2.bind_env(env2)
+        self.assertNotAlmostEqual(float(pol2.predict(np.zeros(27, np.float32))[0][1]), 0.018,
+                                  msg="看起来仍在用指令值当参考（首步原样放行了）")
+
+    def test_lowpass_uses_applied_reference(self):
+        import numpy as np
+        env = self._Env(applied_w=0.0)
+        inner = _FakeInnerModel(0.018)
+        pol = self.mod.YawLowPassPolicy(inner, 0.5)
+        pol.bind_env(env)
+        u, _ = pol.predict(np.zeros(27, np.float32))
+        # 首步 env 的 last_action 是 [0,0]（reset 时舵居中）⟹ 相对 0 滤波 = 物理正确
+        self.assertAlmostEqual(float(u[1]), 0.5 * 0.0 + 0.5 * 0.018, places=12)
+
+    def test_noop_settings_still_bit_identical_with_env(self):
+        """🔴 关键：绑了 env、参考舵位改了之后，『不施加』那两档仍必须逐位不变。"""
+        import numpy as np
+        for mk in (lambda m: self.mod.YawLowPassPolicy(m, 1.0),
+                   lambda m: self.mod.YawSlewLimitPolicy(m, 1.0)):
+            env = self._Env(0.0)
+            inner = _FakeInnerModel(); pol = mk(inner); pol.bind_env(env)
+            for w in (0.018, -0.018, 0.006, -0.018, 0.018, 0.0):
+                inner.w = w
+                u, _ = pol.predict(np.zeros(27, np.float32))
+                env.set_applied(float(u[1]))       # 模拟盾透传：施加值 = 指令值
+                self.assertEqual(float(u[1]), w, f"{pol.__class__.__name__} 不施加档竟然改了动作")
+
+    def test_falls_back_when_env_absent(self):
+        """未绑 env（或 env 没有那个属性）→ 回退成『首步不限』，不炸。"""
+        import numpy as np
+        inner = _FakeInnerModel(0.018)
+        pol = self.mod.YawSlewLimitPolicy(inner, 0.25)
+        u, _ = pol.predict(np.zeros(27, np.float32))
+        self.assertAlmostEqual(float(u[1]), 0.018)
+        self.assertEqual(pol.n_ref_from_env, 0)
+        pol.bind_env(object())                     # 有 env 但没有 .env.last_action
+        inner.w = -0.018
+        u2, _ = pol.predict(np.zeros(27, np.float32))
+        self.assertAlmostEqual(float(u2[1]), -0.018)
+        self.assertEqual(pol.n_ref_from_env, 0)
+
+    def test_output_never_leaves_rl_box_even_after_shield_override(self):
+        """🔴🔴 不可协商的不变量（自审第二轮抓出的真 bug·`03` L222-B）：
+
+        紧急控制器/盾走**物理满程 ±0.03**，超出 RL 箱 ±0.018。若拿它当参考而不夹回箱内，
+        窗口整段可能落在箱外 ⟹ 我们的指令越箱 ⟹ **偷用了超出四臂对照口径的操作权限**。
+        实测（修前）：低通 α=0.5 输出 0.024、限速系数 0.25 输出 0.021，都越箱。
+        """
+        import numpy as np
+        W = 0.018
+        for mk in [lambda m: self.mod.YawLowPassPolicy(m, a) for a in (0.7, 0.5, 0.3)] + \
+                  [lambda m: self.mod.YawSlewLimitPolicy(m, f) for f in (0.5, 0.33, 0.25)]:
+            for applied in (0.03, -0.03, 0.025, -0.025):       # 盾/紧急控制器可能施加的越箱值
+                for want in (0.018, -0.018, 0.0):
+                    env = self._Env(applied)
+                    pol = mk(_FakeInnerModel(want)); pol.bind_env(env)
+                    w = float(pol.predict(np.zeros(27, np.float32))[0][1])
+                    self.assertLessEqual(abs(w), W + 1e-12,
+                                         f"{pol.__class__.__name__} 在施加值 {applied} 下输出 {w} 越出 RL 箱")
+                    self.assertGreaterEqual(pol.n_ref_clamped, 1, "越箱的参考没有被夹回")
+
+    def test_getattr_guard_no_recursion(self):
+        """🔴 半构造对象访问属性必须给 AttributeError，不能无限递归（自审实测过原实现会 RecursionError）。"""
+        for cls in (self.mod.YawLowPassPolicy, self.mod.YawSlewLimitPolicy):
+            obj = cls.__new__(cls)
+            with self.assertRaises(AttributeError):
+                obj.anything
+            with self.assertRaises(AttributeError):
+                obj.model
+
+    def test_w_box_matches_truth_or_aborts(self):
+        """箱常量必须与真相源一致；显式传一个错的箱 → 本机导不到真相源时允许，导得到时必须中止。"""
+        w, from_truth = self.mod._resolve_w_box(None)
+        self.assertAlmostEqual(w, 0.018)
+        if from_truth:
+            with self.assertRaises(SystemExit):
+                self.mod._resolve_w_box(0.05)
+
+
+class TestAnchorSummaryDedup(unittest.TestCase):
+    """r11 自审修（`03` L222）：扫平滑档时，锚点汇总必须按 checkpoint 去重。"""
+
+    def setUp(self):
+        os.environ["REEVAL_MANIFEST_DIRS"] = _BALANCED
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.tmp = os.path.join(self.tmpdir.name, "checkpoints")
+        self.out = os.path.join(self.tmpdir.name, "out.json")
+        self.base_env = {"REEVAL_CKDIRS": self.tmp, "REEVAL_MANIFEST_DIRS": _BALANCED,
+                         "REEVAL_OUT": self.out, "STEP4E_SDIR": _SCEN, "REEVAL_ANCHOR": "1",
+                         "REEVAL_TRAJ_KEYS": "", "REEVAL_YAW_LOWPASS": "", "REEVAL_YAW_SLEW": ""}
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_one_ckpt_four_levels_counts_once(self):
+        _make_ckpt(self.tmp, "Continuous-safe_s0_gold")
+        p = _run({**self.base_env, "REEVAL_YAW_LOWPASS": "1.0,0.5,0.3", "REEVAL_YAW_SLEW": "0.5"},
+                 replay_arrival=400, anchor_arrival=82.5)
+        self.assertEqual(len([k for k in p["结果"] if not k.startswith("_")]), 4, "应产出 4 档")
+        self.assertEqual(p["结果"]["_锚点汇总"]["n"], 1,
+                         "锚点只做过 1 次，汇总却计了多次 ⟹ 群体判据的样本量被放大（L212-C 那道闸被削弱）")
+
+    def test_two_ckpts_counts_twice(self):
+        _make_ckpt(self.tmp, "Continuous-safe_s0_gold")
+        _make_ckpt(self.tmp, "Continuous-safe_s1_gold", seed=1)
+        p = _run({**self.base_env, "REEVAL_YAW_LOWPASS": "1.0,0.5"},
+                 replay_arrival=400, anchor_arrival=82.5)
+        self.assertEqual(p["结果"]["_锚点汇总"]["n"], 2)
 
 
 if __name__ == "__main__":

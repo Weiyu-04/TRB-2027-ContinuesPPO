@@ -66,7 +66,8 @@ from collections import Counter, defaultdict
 
 # 🔴 脚本版本号：**每次改动必手动 +1**。服务器同步后用 `grep SCRIPT_REV <文件>` 一眼验是不是最新
 #    （靠"我几点同步的"判断不可靠——已踩过）。跑起来时也会打印，log 里永久留痕。
-SCRIPT_REV = "r10-2026-07-26"  # r10: REEVAL_YAW_SLEW —— 舵速率限制（第二个平滑旋钮·有物理依据·`03` L221）
+SCRIPT_REV = "r11-2026-07-26"  # r11: 自审修 4 处（锚点汇总去重 / __getattr__ 递归 / 箱常量取真相源 / 参考舵位改用【盾后实际施加值】·`03` L222）
+#                                r10: REEVAL_YAW_SLEW —— 舵速率限制（第二个平滑旋钮·有物理依据·`03` L221）
 #                                r9: REEVAL_YAW_LOWPASS —— 转向低通滤波权衡曲线（治抖·纯评估期·`03` L218·user 拍）
 #                                r8: REEVAL_TRAJ_KEYS —— 采几个场景的逐步轨迹（多算法轨迹对比图·`03` L215-G·user 拍）
 #                                r7: 会遇类型分型提成 `classify_pool`（外部基线 runner 共用·分型判据只准有一处）
@@ -388,7 +389,104 @@ def agg_of(per, idx_filter=None):
     return out
 
 
-class YawLowPassPolicy:
+def _resolve_w_box(w_box=None):
+    """转向动作箱半宽 —— **取真相源**，不在本文件另写一份（`03` L222 自审发现的漂移风险）。
+
+    真相源 = `trb_env.usv_env.A_NORMAL_OMEGA_MAX`（= 从离散动作网格 `A_OMEGA` 程序化抽出的最大值）。
+    本机纯逻辑自检时导不到 trb_env ⟹ 允许回退到字面量，**但一旦导得到就硬比对，不一致直接中止**
+    （同 `metrics_subgrid._assert_grid_consistency` 的做法：宁可停下，不要静默用错的箱）。
+    """
+    lit = 0.018 if w_box is None else float(w_box)
+    try:
+        from trb_env.usv_env import A_NORMAL_OMEGA_MAX as truth
+    except Exception:                                          # noqa: BLE001 —— 本机自检无 trb_env
+        return lit, False
+    if abs(float(truth) - lit) > 1e-12:
+        raise SystemExit(f"🔒 转向动作箱不一致：本文件用 {lit}，而真相源 usv_env.A_NORMAL_OMEGA_MAX={truth} "
+                         "→ 网格常量变了，平滑旋钮的强度会算错，中止（改这里的字面量或查网格）。")
+    return float(truth), True
+
+
+class _YawSmoothBase:
+    """两个平滑包装器的共同骨架（`03` L222 自审：原先两份各写一遍，三处缺陷都是重复出现的）。
+
+    ═══ 🔴 参考舵位 = 【盾之后真正施加】的那个 ω，不是我们发出的指令 ═══
+    自审发现的设计错：原实现拿"自己上一步的输出"当参考。但盾会改写约 7% 的步
+    （`proj_correction_zero_frac ≈ 0.93`），一旦改写，我们的内部状态就与**舵实际在的位置**脱节。
+    · **物理上**：舵速率限制约束的是舵机能多快转动 ⟹ 必须相对**舵当前真实位置**。
+    · **口径上**：转艏增量这个指标量的是**施加值**之间的差 ⟹ 以施加值为参考，限速才真正给出
+      "相邻施加值之差 ≤ Δmax"（在盾透传的步上）这个硬上界；以指令值为参考则一旦被改写就失效。
+    · 首步：env 在 reset 时把 `last_action` 置 `[0,0]`（舵居中）⟹ **首步相对 0 限速也是物理正确的**
+      （真舵不可能一步从居中打到满舵）。拿不到 env 时回退成"首步不限"。
+    """
+
+    def _init_common(self, model, w_box=None):
+        import numpy                                           # 本模块刻意不在顶层 import numpy
+        self._np = numpy
+        self.model = model
+        self.env = None
+        self._fallback_prev = None          # 拿不到 env 时用的参考（= 自己上一步的输出）
+        self.n_steps = 0
+        self.n_ref_from_env = 0             # 有多少步真的读到了施加值（判读时看它，别假设）
+        self.n_ref_clamped = 0              # 有多少步的参考被夹回 RL 箱（= 盾/紧急控制器越箱施加过）
+        self.w_box, self.w_box_from_truth = _resolve_w_box(w_box)
+
+    def bind_env(self, env):
+        """每局开头：清状态 + 记住 env（用来读真实舵位）。钩子名必须叫 `bind_env`（`03` L215-A）。"""
+        self._fallback_prev = None
+        self.env = env
+        inner = getattr(self.model, "bind_env", None)
+        if callable(inner):
+            inner(env)
+        return env
+
+    def _ref_omega(self):
+        """参考舵位：优先读 env 里【盾之后真正施加】的 ω；读不到 → 回退自己上一步的输出（可能是 None）。
+
+        🔴🔴 **必须夹回 RL 动作箱**（自审第二轮发现的真 bug·`03` L222-B）：
+        紧急控制器/盾走的是**物理满程 ±0.03**，超出 RL 正常操作箱 ±0.018。若直接拿 ±0.03 当参考，
+        窗口 `[参考−Δ, 参考+Δ]` 整段可能都落在 RL 箱之外 ⟹ 我们的指令会**越箱**
+        （实测：低通 α=0.5 输出 0.024、限速系数 0.25 输出 0.021，都 > 0.018）。
+        **而 RL 箱正是四臂公平比较的口径**（`03` L213-H①）⟹ 越箱 = 我们偷用了更大的操作权限 = 口径污染。
+        ⟹ 取"施加值在**我们自己权限**内的投影"当参考：平滑器模的是**我们这个控制器**的执行器，
+           紧急控制器的物理满程不在我们的作用域里，只跟到自己的箱边为止。
+        """
+        try:
+            la = self.env.env.last_action
+            if la is not None:
+                w = float(la[1])
+                self.n_ref_from_env += 1
+                if abs(w) > self.w_box:
+                    self.n_ref_clamped += 1
+                    w = self.w_box if w > 0 else -self.w_box
+                return w
+        except Exception:                                      # noqa: BLE001 —— 未绑 env / env 无该属性
+            pass
+        return self._fallback_prev
+
+    def _finish(self, arr, w):
+        # 🔴 不可协商的不变量：**输出永远在 RL 动作箱内**，不管盾刚才做了什么。
+        #    这是四臂公平比较的口径底线；上面的夹取已保证它，这里再断言一次防将来改公式破坏。
+        assert abs(w) <= self.w_box + 1e-12, (
+            f"平滑器输出 {w} 越出 RL 动作箱 ±{self.w_box} —— 这会让我们偷用超出对照口径的操作权限")
+        self._fallback_prev = w
+        arr[..., 1] = w
+        self.n_steps += 1
+        return arr
+
+    def __getattr__(self, name):
+        """其余属性透传给内层模型。
+
+        🔴 必须挡住下划线开头与 `model`/`env` 本身：否则**半构造状态下访问任何属性都会无限递归**
+        （`self.model` 不在 `__dict__` → 触发 `__getattr__('model')` → 又访问 `self.model` → …）。
+        自审实测过：不加这层守卫会得到 RecursionError，而不是一句清楚的 AttributeError。
+        """
+        if name.startswith("_") or name in ("model", "env"):
+            raise AttributeError(name)
+        return getattr(self.model, name)
+
+
+class YawLowPassPolicy(_YawSmoothBase):
     """转向指令**低通滤波**包装器（`03` L218·纯评估期·零训练算力）。
 
     ═══ 治什么 ═══
@@ -418,19 +516,8 @@ class YawLowPassPolicy:
         a = float(alpha)
         if not (0.0 < a <= 1.0):
             raise ValueError(f"低通系数 α 须 ∈ (0,1]，得到 {a}（α=1 表示不滤波）")
-        import numpy                                       # 本模块刻意不在顶层 import numpy（纯逻辑自检不需要重依赖）
-        self._np = numpy
-        self.model, self.alpha = model, a
-        self._prev = None
-        self.n_steps = 0
-
-    def bind_env(self, env):
-        """每局开头清滤波器记忆（否则上一局的舵角会漏进这一局）。"""
-        self._prev = None
-        inner = getattr(self.model, "bind_env", None)      # 内层若也有这个钩子（如朴素基线）→ 一并转发
-        if callable(inner):
-            inner(env)
-        return env
+        self._init_common(model)
+        self.alpha = a
 
     def predict(self, obs, deterministic=True, **kw):
         u, state = self.model.predict(obs, deterministic=deterministic, **kw)
@@ -438,22 +525,16 @@ class YawLowPassPolicy:
         if arr.shape[-1] != 2:                            # 只认 (a, ω)；形状不对宁可原样放行也不猜
             return u, state
         w_raw = float(arr[..., 1])
-        prev = self._prev
+        prev = self._ref_omega()
         w = w_raw if prev is None else (1.0 - self.alpha) * prev + self.alpha * w_raw
         # 凸组合守卫：α∈(0,1] ⟹ w 必落在 prev 与 w_raw 之间 ⟹ 两个箱内值之间也在箱内 ⟹ 不需额外夹取。
         # 断言在这里，是为了将来谁改公式（比如改成带增益的滤波）会当场炸，而不是静默越箱。
         if prev is not None:
             assert min(prev, w_raw) - 1e-12 <= w <= max(prev, w_raw) + 1e-12, (prev, w_raw, w, self.alpha)
-        self._prev = w
-        arr[..., 1] = w
-        self.n_steps += 1
-        return arr, state
-
-    def __getattr__(self, name):                          # 其余属性透传给内层模型（policy/observation_space…）
-        return getattr(self.model, name)
+        return self._finish(arr, w), state
 
 
-class YawSlewLimitPolicy:
+class YawSlewLimitPolicy(_YawSmoothBase):
     """转向指令**速率限制**包装器（`03` L221·纯评估期·安全关键文件一行不改）。
 
     ═══ 一行公式 ═══
@@ -474,23 +555,14 @@ class YawSlewLimitPolicy:
     同低通：靠 `bind_env` 当局边界（`03` L215-A 的教训——钩子名字是 `bind_env`）。
     """
 
-    def __init__(self, model, frac, w_box=0.018):
+    def __init__(self, model, frac, w_box=None):
         f = float(frac)
         if not (0.0 < f <= 1.0):
             raise ValueError(f"速率限制系数须 ∈ (0,1]，得到 {f}（1.0 表示不限）")
-        import numpy
-        self._np = numpy
-        self.model, self.frac = model, f
-        self.dmax = f * 2.0 * float(w_box)      # 箱宽 = 2·W_BOX（从 −W_BOX 到 +W_BOX）
-        self._prev = None
-        self.n_steps = self.n_clipped = 0
-
-    def bind_env(self, env):
-        self._prev = None
-        inner = getattr(self.model, "bind_env", None)
-        if callable(inner):
-            inner(env)
-        return env
+        self._init_common(model, w_box)         # 箱取真相源·不一致就中止
+        self.frac = f
+        self.dmax = f * 2.0 * self.w_box        # 箱宽 = 2·W_BOX（从 −W_BOX 到 +W_BOX）
+        self.n_clipped = 0
 
     def predict(self, obs, deterministic=True, **kw):
         u, state = self.model.predict(obs, deterministic=deterministic, **kw)
@@ -498,23 +570,17 @@ class YawSlewLimitPolicy:
         if arr.shape[-1] != 2:
             return u, state
         w_raw = float(arr[..., 1])
-        if self._prev is None:
-            w = w_raw                            # 首步无历史 ⟹ 不限（否则等于凭空规定初始舵角）
+        prev = self._ref_omega()
+        if prev is None:
+            w = w_raw                            # 拿不到参考舵位（未绑 env）⟹ 不限
         else:
-            lo, hi = self._prev - self.dmax, self._prev + self.dmax
+            lo, hi = prev - self.dmax, prev + self.dmax
             w = min(max(w_raw, lo), hi)
             if w != w_raw:
                 self.n_clipped += 1
-        # 限速只会把值往【上一步的值】拉近 ⟹ 必落在 [min(prev,raw), max(prev,raw)] ⟹ 不可能越箱
-        if self._prev is not None:
-            assert min(self._prev, w_raw) - 1e-12 <= w <= max(self._prev, w_raw) + 1e-12, (self._prev, w_raw, w)
-        self._prev = w
-        arr[..., 1] = w
-        self.n_steps += 1
-        return arr, state
-
-    def __getattr__(self, name):
-        return getattr(self.model, name)
+            # 限速只会把值往【参考舵位】拉近 ⟹ 必落在 [min(prev,raw), max(prev,raw)]
+            assert min(prev, w_raw) - 1e-12 <= w <= max(prev, w_raw) + 1e-12, (prev, w_raw, w)
+        return self._finish(arr, w), state
 
 
 def classify_pool(pool, keys, type_of=None, np=None):
@@ -841,6 +907,11 @@ def main():
             _specs.append(("sl", _f, (lambda m, v=_f: YawSlewLimitPolicy(m, v))))
         if not _specs:
             _specs = [(None, None, None)]
+        elif not any(v >= 1.0 for v in (YAW_LOWPASS + YAW_SLEW)):
+            # 权衡曲线必须自带干净对照（同一趟同一套口径），不许拿历史数字当对照（`03` L212-H 硬规矩）
+            print("  ⚠️⚠️ 平滑档里【没有『不施加』那一档】（低通 α=1.0 或 限速系数=1.0）"
+                  " → 这趟拿不到同口径对照、只能跟历史数字比 = 违反『同一套流程评所有臂』这条硬规矩"
+                  "（`03` L212-H）。强烈建议把 1.0 加进列表重跑。", flush=True)
         for _kindtag, _val, _mk in _specs:
             if _kindtag is None:
                 _wrap, _suffix = None, ""
@@ -856,7 +927,18 @@ def main():
             _run_one(b, kind, weight, algo, name + _suffix, sc, anchor, _wrap)
 
     # ---- 🔴 锚点【汇总】：真正的配置错会让所有种子【系统性同向偏移】；单种子的 1-3 局翻转只是浮点噪声 ----
-    _anc = [v["anchor"] for v in results.values() if v.get("anchor") and "有符号差" in v["anchor"]]
+    # 🔴 按【checkpoint】去重（`03` L222 自审发现）：扫平滑档时同一个 ckpt 会产出多条结果，
+    #    但锚点只做过一次、被复制进了每一档 ⟹ 不去重就把样本量和"逐位复现数"一起放大，
+    #    而这个汇总正是 L212-C 用来抓"系统性同向偏移"的群体判据，放大它等于削弱这道闸。
+    _seen_anc, _anc = set(), []
+    for _k, _v in results.items():
+        if _k.startswith("_") or not (_v.get("anchor") and "有符号差" in _v["anchor"]):
+            continue
+        _ckname = _k.split("@")[0]
+        if _ckname in _seen_anc:
+            continue
+        _seen_anc.add(_ckname)
+        _anc.append(_v["anchor"])
     if _anc:
         sg = [a["有符号差"] for a in _anc]
         mean_sg = sum(sg) / len(sg)
