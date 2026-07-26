@@ -164,7 +164,14 @@ def _control_quality(applied, positions):
 # 🆕 次网格细调率 + 按态势拆转艏（2026-07-25 later·`03` L203·additive·四臂共用同口径→钱图/绘图层可比）：
 #   连续臂"油门赢 5.4×"的机理量化(做离散做不到的次网格细调) + "转艏输18%是合规代价"的证据(让路步转艏更大)。
 #   ⚠️ 离散臂 subgrid_* 恒 0 by construction(格点动作)=预期·非 bug(诚实口径见 metrics_subgrid 模块 docstring)。
-_SUBGRID_KEYS = ("subgrid_accel_frac", "subgrid_yaw_frac", "yaw_incr_giveway", "yaw_incr_other")
+#   🔴 2026-07-26（`03` L216-D）：**必须连样本量键一起取**。原先只取上面 4 个指标键，把 `subgrid_and_rho_split`
+#   已经算好的三个样本量键（`n_inbox_pairs` / `n_pairs_giveway` / `n_pairs_other`）全丢了 ⟹ 当某组样本量为 0 时，
+#   指标值是 None、聚合里那个键**直接消失**，于是"没采到"和"采到了但样本量是 0"**分不开**。
+#   实际后果：`yaw_incr_giveway` 在两条连续臂的 5630 个回合里全为 None（离散臂却有值），静默了整整一批实验，
+#   而"转艏活动集中在让路步 = 合规代价"这个卖点级论证正是靠它 ⟹ 论证一个数据点都没有，还没人看得见。
+#   ⟹ 纪律：**新增指标必须连它的样本量/有效性字段一起进输出**（纯 additive·不改任何已有键的值）。
+_SUBGRID_KEYS = ("subgrid_accel_frac", "subgrid_yaw_frac", "yaw_incr_giveway", "yaw_incr_other",
+                 "n_inbox_pairs", "n_pairs_giveway", "n_pairs_other")
 
 
 def _agg_ctrl(per):

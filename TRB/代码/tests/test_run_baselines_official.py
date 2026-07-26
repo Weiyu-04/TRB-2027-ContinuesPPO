@@ -301,6 +301,10 @@ class TestClosedLoop(unittest.TestCase):
                     self.assertIn(k, ctrl, (t, k))
                 # 不可行率（这条线的看点之一）必须逐局注入并被聚合
                 self.assertIn("baseline_infeasible_pct", ctrl, t)
+                # 🔴 样本量键必须在（`03` L216-D 的事故）：缺了它们，指标为 None 时键直接消失
+                #    ⟹「没采到」和「采到了但样本量是 0」分不开，能静默整整一批实验。
+                for k in ("n_inbox_pairs", "n_pairs_giveway", "n_pairs_other"):
+                    self.assertIn(k, ctrl, f"{t} 缺样本量键 {k} —— 指标为空时就分不清是没采到还是样本量为 0")
             # 分型（用的是 reeval_official.classify_pool·与四臂同判据）
             self.assertTrue(pay["会遇类型计数"])
             self.assertTrue(pay["结果"][tags[0]]["分型_clean"])
