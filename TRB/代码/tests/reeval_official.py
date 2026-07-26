@@ -66,9 +66,11 @@ from collections import Counter, defaultdict
 
 # 🔴 脚本版本号：**每次改动必手动 +1**。服务器同步后用 `grep SCRIPT_REV <文件>` 一眼验是不是最新
 #    （靠"我几点同步的"判断不可靠——已踩过）。跑起来时也会打印，log 里永久留痕。
-SCRIPT_REV = "r7-2026-07-26"   # r7: 会遇类型分型提成 `classify_pool`（外部基线 runner 共用·分型判据只准有一处）
+SCRIPT_REV = "r8-2026-07-26"   # r8: REEVAL_TRAJ_KEYS —— 采几个场景的逐步轨迹（多算法轨迹对比图·`03` L215-G·user 拍）
+#                                r7: 会遇类型分型提成 `classify_pool`（外部基线 runner 共用·分型判据只准有一处）
 #                                r6: 违规拆分(让路/直航)进聚合——r5 把它排除了·总数输了却分不出病灶
-#                                ⚠️ r7 是**纯提取**（同一段代码搬进函数·调用点等价）⟹ 数字与 r6 逐位相同
+#                                ⚠️ r7 是**纯提取**（同一段代码搬进函数·调用点等价）· r8 **不设 TRAJ_KEYS 时一行都不动**
+#                                   ⟹ 两者数字都与 r6 逐位相同
 
 # ---------- 开关 ----------
 _CODE = os.environ.get("STEP4E_CODE_DIR", ".")
@@ -84,6 +86,10 @@ OUT = os.environ.get("REEVAL_OUT", "reeval_official.json")
 ENVCFG_ACK = os.environ.get("REEVAL_ENVCFG_ACK", "0") == "1"
 FORCE_KIND = os.environ.get("REEVAL_FORCE_KIND", "").strip()
 FORCE_DATASET = os.environ.get("REEVAL_FORCE_DATASET", "").strip()
+# 🆕 r8（`03` L215-G）：要采逐步轨迹的**池键**（T-id·空格或逗号分隔）→ 多算法轨迹对比图用。
+#    不设 = 一行记录块都不执行 = 与 r6/r7 逐位相同。轨迹另落一个文件，**不塞进主 json**（免把它撑大）。
+TRAJ_KEYS = [s.strip() for s in os.environ.get("REEVAL_TRAJ_KEYS", "").replace(",", " ").split() if s.strip()]
+TRAJ_OUT = os.environ.get("REEVAL_TRAJ_OUT", "").strip()
 if SMOKE:
     CLEAN_N = 30
 
@@ -543,6 +549,19 @@ def main():
     if types:
         print(f"[分型] {dict(Counter(types.values()))}", flush=True)
 
+    # ---- 🆕 r8：要采轨迹的场景（多算法轨迹对比图·`03` L215-G）。不设 REEVAL_TRAJ_KEYS ⟹ traj_idxs=None ⟹ 逐位不变 ----
+    traj_idxs, trajs = None, {}
+    if TRAJ_KEYS:
+        kmap = {str(k): i for i, k in enumerate(keys)}
+        miss = [k for k in TRAJ_KEYS if k not in kmap]
+        if miss:
+            # fail-closed：跑完几千局才发现"想画的那几个场景不在池里"= 白跑一趟
+            raise SystemExit(f"🔒 REEVAL_TRAJ_KEYS 里这些键不在本池内：{miss}（池里共 {len(keys)} 个）→ "
+                             "画不出图还静默跑完，中止（先看 json 的 `strict键` 挑）。")
+        traj_idxs = {kmap[k] for k in TRAJ_KEYS}
+        print(f"[轨迹] 记 {sorted(TRAJ_KEYS)} 这几个场景的逐步轨迹（`04 §1.5` 第⑥条·离散臂与连续臂同格式可叠图）",
+              flush=True)
+
     # ---- 逐 checkpoint：锚点复现检查 → 正式评 ----
     results = {}
 
@@ -566,6 +585,11 @@ def main():
         with open(tmp, "w", encoding="utf-8") as fh:          # 原子写：半写被杀不留损坏 json
             json.dump(payload, fh, ensure_ascii=False, indent=1)
         os.replace(tmp, OUT)
+        if trajs:                                             # 🆕 r8：轨迹单独一个文件（不塞主 json·免撑大）·同样原子写
+            tp = TRAJ_OUT or ((OUT[:-5] if OUT.endswith(".json") else OUT) + "_traj.json")
+            with open(tp + ".tmp", "w", encoding="utf-8") as fh:
+                json.dump(trajs, fh, ensure_ascii=False)
+            os.replace(tp + ".tmp", tp)
 
     for b in ckpts:
         sc, name = sidecars[b], os.path.basename(b)
@@ -626,7 +650,13 @@ def main():
                     else:
                         raise SystemExit(msg)
 
-        agg, per = R.replay_eval(b, kind, weight, pool, continuous_algo=algo, return_per=True)
+        # 🔴 traj_idxs 只给【正式池】这一趟；上面的**锚点**那趟用的是另一个池（自记 40 场景）⟹ 下标含义不同、
+        #    绝不能把同一组下标传给它（传了就会记错场景的轨迹）。
+        agg, per = R.replay_eval(b, kind, weight, pool, continuous_algo=algo, return_per=True,
+                                 traj_idxs=traj_idxs)
+        if traj_idxs:
+            trajs[name] = {str(keys[p["scenario_idx"]]): p.get("traj")
+                           for p in per if p.get("scenario_idx") in traj_idxs and p.get("traj")}
         by_type = {}
         if types:
             g = defaultdict(set)
@@ -673,6 +703,9 @@ def main():
 
     _dump(final=True)
     print(f"\n[reeval_official] 完成 → {OUT}", flush=True)
+    if trajs:
+        tp = TRAJ_OUT or ((OUT[:-5] if OUT.endswith(".json") else OUT) + "_traj.json")
+        print(f"[轨迹] {len(trajs)} 个 checkpoint × {len(TRAJ_KEYS)} 个场景 → {tp}", flush=True)
     if SMOKE or CLEAN_N:
         print("⚠️ 这是【冒烟/截断】跑，不是正式数——正式跑请清掉 REEVAL_SMOKE / REEVAL_N。", flush=True)
 

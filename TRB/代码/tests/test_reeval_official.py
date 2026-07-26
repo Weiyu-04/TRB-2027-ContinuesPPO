@@ -16,6 +16,7 @@
 import importlib
 import json
 import os
+import re
 import sys
 import tempfile
 import types
@@ -52,7 +53,11 @@ def _install_stubs(*, replay_arrival=None, anchor_arrival=None, n_anchor=40, aug
                  "yaw_incr_giveway": 0.017, "yaw_incr_other": 0.012}
                 for i in range(n)]
 
-    def _replay(base, kind, weight, pool, *, continuous_algo=None, return_per=False):
+    # ⚠️ 桩的签名必须跟真 `replay_eval` 一起改（r8 加了 traj_idxs）——否则脚本一传新参数、桩就 TypeError，
+    #    而那是"测试自己坏了"、不是脚本坏了，很容易误判。`_traj_seen` 记录传进来的下标供断言。
+    _traj_seen = []
+
+    def _replay(base, kind, weight, pool, *, continuous_algo=None, return_per=False, traj_idxs=None):
         n = len(pool)
         if n == n_anchor and anchor_arrival is not None:                       # 锚点池
             k = round(anchor_arrival / 100.0 * n)
@@ -60,10 +65,16 @@ def _install_stubs(*, replay_arrival=None, anchor_arrival=None, n_anchor=40, aug
         else:
             k = replay_arrival if replay_arrival is not None else n // 2
             per = _fake_per(n, k)
+        _traj_seen.append(None if traj_idxs is None else sorted(traj_idxs))
+        if traj_idxs:                                       # 模拟 evaluate 的行为：只给请求的那几局加 traj 键
+            for p in per:
+                if p["scenario_idx"] in traj_idxs:
+                    p["traj"] = [{"ego_x": 0.0, "ego_y": 0.0, "ego_psi": 0.0, "step": 0, "rho": 0}]
         agg = {"n": n, "到达率%": 100.0 * sum(p["reached"] for p in per) / n}
         return (agg, per) if return_per else agg
 
     R.replay_eval = _replay
+    R._traj_seen = _traj_seen
 
     def _lms(mp, bdir=None):
         """桩 load_manifest_split：manifest 池模式返回该 manifest 的真测试路径；锚点模式返回 n_anchor 个。"""
@@ -315,6 +326,76 @@ class TestEndToEndStubbed(unittest.TestCase):
         p = _run({**self.base_env, "REEVAL_ENVCFG_ACK": "1"},         # 显式承认 → 放行
                  replay_arrival=400, anchor_arrival=82.5, augment_rho=True)
         self.assertEqual(p["结果"]["Continuous-safe_s0_gold"]["clean"]["n"], 577)
+
+
+class TestTrajCollection(unittest.TestCase):
+    """r8 新增（`03` L215-G·user 2026-07-26 拍板走"给 replay_eval 加默认关掉的轨迹开关"这条路）。"""
+
+    def setUp(self):
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.tmp = os.path.join(self.tmpdir.name, "checkpoints")
+        self.out = os.path.join(self.tmpdir.name, "out.json")
+        self.base_env = {"REEVAL_CKDIRS": self.tmp, "REEVAL_MANIFEST_DIRS": _BALANCED,
+                         "REEVAL_OUT": self.out, "STEP4E_SDIR": _SCEN, "REEVAL_ANCHOR": "0",
+                         "REEVAL_TRAJ_KEYS": "", "REEVAL_TRAJ_OUT": ""}
+        _make_ckpt(self.tmp, "Continuous-safe_s0_gold")
+
+    def tearDown(self):
+        self.tmpdir.cleanup()
+
+    def test_default_off_is_bit_identical(self):
+        """不设 REEVAL_TRAJ_KEYS ⟹ traj_idxs 必须是 None（record_traj 一行都不执行）+ 不产轨迹文件。"""
+        p = _run({**self.base_env}, replay_arrival=400)
+        import run_step4e as R
+        self.assertTrue(all(x is None for x in R._traj_seen), R._traj_seen)
+        self.assertFalse(os.path.exists(self.out[:-5] + "_traj.json"))
+        self.assertEqual(p["结果"]["Continuous-safe_s0_gold"]["strict"]["n"], 563)
+
+    def test_traj_written_and_keyed_by_pool_key(self):
+        """给两个池键 → 轨迹另落一个文件、按 checkpoint 名 → 池键（T-id）组织，且主 json 不被撑大。"""
+        mod = importlib.import_module("reeval_official")
+        _tr, te = mod.official_split(None)
+        k1, k2 = te[0], te[5]
+        p = _run({**self.base_env, "REEVAL_TRAJ_KEYS": f"{k1} {k2}"}, replay_arrival=400)
+        tp = self.out[:-5] + "_traj.json"
+        self.assertTrue(os.path.exists(tp), "开了 REEVAL_TRAJ_KEYS 却没落轨迹文件")
+        with open(tp, encoding="utf-8") as fh:
+            tj = json.load(fh)
+        self.assertEqual(set(tj), {"Continuous-safe_s0_gold"})
+        self.assertEqual(set(tj["Continuous-safe_s0_gold"]), {str(k1), str(k2)})
+        self.assertIn("ego_x", tj["Continuous-safe_s0_gold"][str(k1)][0])
+        self.assertNotIn("traj", json.dumps(p["结果"], ensure_ascii=False))   # 主 json 不带轨迹
+        self.assertEqual(p["结果"]["Continuous-safe_s0_gold"]["strict"]["n"], 563)
+
+    def test_bad_traj_key_aborts(self):
+        with self.assertRaises(SystemExit) as cm:
+            _run({**self.base_env, "REEVAL_TRAJ_KEYS": "999999"}, replay_arrival=400)
+        self.assertIn("REEVAL_TRAJ_KEYS", str(cm.exception.code))
+
+    def test_anchor_pass_never_gets_traj_idxs(self):
+        """🔴 锚点那趟用的是【另一个池】（自记 40 场景）⟹ 下标含义不同 ⟹ 绝不能把同一组下标传给它。"""
+        mod = importlib.import_module("reeval_official")
+        _tr, te = mod.official_split(None)
+        _run({**self.base_env, "REEVAL_ANCHOR": "1", "REEVAL_TRAJ_KEYS": str(te[0])},
+             replay_arrival=400, anchor_arrival=82.5)
+        import run_step4e as R
+        self.assertEqual(len(R._traj_seen), 2, "应是两趟：锚点 + 正式池")
+        self.assertIsNone(R._traj_seen[0], "锚点那趟收到了 traj_idxs → 会记错场景的轨迹")
+        self.assertIsNotNone(R._traj_seen[1], "正式池那趟没收到 traj_idxs")
+
+    def test_replay_eval_really_has_the_param(self):
+        """契约：真 `run_step4e.replay_eval` 必须真的有 traj_idxs 这个参数（桩不算）。
+
+        本机 import 不了 run_step4e（缺 vesselmodels）⟹ 直接查源码签名，两边任一改动都会在这里炸。
+        """
+        with open(os.path.join(_CODE, "run_step4e.py"), encoding="utf-8") as fh:
+            src = fh.read()
+        m = re.search(r"^def replay_eval\(([^)]*)\)", src, re.M)
+        self.assertIsNotNone(m, "找不到 replay_eval 定义——签名变了，测试须同步")
+        self.assertIn("traj_idxs", m.group(1))
+        # 两个调用点（连续臂 evaluate_continuous / 离散臂 evaluate）都必须把它透传下去
+        self.assertEqual(len(re.findall(r"traj_idxs=traj_idxs", src)), 2,
+                         "replay_eval 里应恰好有 2 处 traj_idxs=traj_idxs（连续臂 + 离散臂）")
 
 
 if __name__ == "__main__":

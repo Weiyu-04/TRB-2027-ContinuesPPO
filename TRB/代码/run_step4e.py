@@ -782,13 +782,21 @@ def _read_continuous_algo(base):
     return None
 
 
-def replay_eval(base, kind, weight, test_pool, *, continuous_algo=None, return_per=False):
+def replay_eval(base, kind, weight, test_pool, *, continuous_algo=None, return_per=False, traj_idxs=None):
     """从 checkpoint（base.zip + base_vecnorm.pkl）重载 model+VecNorm → eval（不重训）→ agg。
     供【不重跑总保险】+ smoke 验"存→重放逐位复现 final"。eval 确定性(deterministic=True) → 同 model+同 VecNorm 快照
     +同 test_pool ⟹ agg 逐位复现训练末段 final。obs_transform 由 saved vecnorm 经 VecNormalize.load 重建
     （colregs_weight 只影响 reward、不影响 eval 指标，传同值仅为 env 构造平价）。
     return_per：默认 False=返回 agg（向后兼容·所有既有调用点不变）；True=返回 (agg, per)=(聚合, 逐 episode final_per)
                 → 供 replay-dump 诊断（拿逐局 Step-0 进近标量等·evaluate 已算好只是原来丢弃）。additive·不改 agg 复现语义。
+    traj_idxs：**默认 None = 逐位不变**（`evaluate`/`evaluate_continuous` 里 `_tset=None` → `record_traj` 恒 False
+               → 一行记录块都不执行 → 返回 dict 不多任何键）。给一组场景下标时，那几局的 `per` 行多一个 `traj` 键
+               （逐步 ego/他船位姿 + ρ[+ source]）。
+               🔴 为什么加在这里（`03` L215-G·user 2026-07-26 拍"走这条"）：user 明令可视化必须含**多算法轨迹对比**，
+               但 `reeval_official.py`（四臂报数用的那条路）此前拿不到轨迹——因为本函数**根本没有这个参数**、传不进去；
+               另一个能采轨迹的 harness（`shield_certv2_eval.py`）只能跑 manifest 池、跑不了官方池。
+               ⟹ 在此加一个默认关掉的透传，是改动最小、且**离散臂与连续臂共用同一个位姿函数 `_traj_pose`**
+               ⟹ 四臂 + 离散臂出来的轨迹**同格式、可直接叠在一张图上**。
     🔧 连续臂算法分派（`03` L108·复审抓的钱图地雷）：连续臂主臂已从 SAC 换成 PPO（L69）·但本函数原硬编 load_sac_for_eval
        → 对 PPO checkpoint【崩】（zip 结构/policy 类不符）。修=按算法分派：① 显式 continuous_algo 实参优先（钱图调用方从 jsonl
        record['continuous_algo'] 透传）② 缺则读 checkpoint 旁 progress.json 的 config_sig.continuous_algo（sidecar 自描述）
@@ -815,12 +823,12 @@ def replay_eval(base, kind, weight, test_pool, *, continuous_algo=None, return_p
         else:                                                      # SAC（脚注臂）·鲁棒载跳优化器（BRO wd>0 checkpoint 不崩·L67-续8/二审 BRO-3）
             from trb_env.usv_sac_train import load_sac_for_eval
             model = load_sac_for_eval(base + ".zip", device="cpu")
-        agg, per = evaluate_continuous(lambda sc, pp: ContinuousProjectionEnv(sc, pp, shield=_CONTINUOUS_SHIELD, goal_cone_half=_GOAL_CONE_HALF_RAD, goal_v_floor=_GOAL_V_FLOOR, augment_rho=_AUGMENT_RHO, goal_ignore_orientation=_GOAL_IGNORE_ORIENT), model, test_pool, obs_transform=tf)   # 🆕 P0 盾开关 + ρ0 锥 + 腿1 态势增广（replay eval 须与训练同 shield/cone/augment·靠同 env 变量）
+        agg, per = evaluate_continuous(lambda sc, pp: ContinuousProjectionEnv(sc, pp, shield=_CONTINUOUS_SHIELD, goal_cone_half=_GOAL_CONE_HALF_RAD, goal_v_floor=_GOAL_V_FLOOR, augment_rho=_AUGMENT_RHO, goal_ignore_orientation=_GOAL_IGNORE_ORIENT), model, test_pool, obs_transform=tf, traj_idxs=traj_idxs)   # 🆕 P0 盾开关 + ρ0 锥 + 腿1 态势增广（replay eval 须与训练同 shield/cone/augment·靠同 env 变量）
     else:
         from sb3_contrib import MaskablePPO
         from trb_env.evaluate import evaluate
         model = MaskablePPO.load(base + ".zip", device="cpu")
-        agg, per = evaluate(lambda sc, pp: env_cls(sc, pp, colregs_weight=weight), model, test_pool, obs_transform=tf)
+        agg, per = evaluate(lambda sc, pp: env_cls(sc, pp, colregs_weight=weight), model, test_pool, obs_transform=tf, traj_idxs=traj_idxs)
     return (agg, per) if return_per else agg
 
 
