@@ -162,6 +162,30 @@ def test_no_inbox_pair_still_reports_zero():
     print("  [T7] 无箱内相邻对 → 样本量键=0 而非消失（『没采到』与『是 0』可分辨） ✅")
 
 
+def test_float32_saturated_action_counts_as_inbox():
+    """T8（独立复审 L227）：**策略在箱边饱和时不许被判成越箱**。
+
+    根因：连续策略动作是 float32，`float(np.float32(0.048)) = 0.04800000041723251` ⟹ 比 float64 的 0.048
+    大 4.17e-10。原判据容差只有 1e-12 ⟹ 这些"恰在箱边"的步整批被丢。
+    **实测后果**：热启动 s0 上 93.9% 的步被误判越箱（且全是常规 projection 步，不是紧急步），
+    逐局箱内相邻对从 ~47 掉到 3.06 ⟹ 卖点①在 6% 的步上算（系统性高估）、卖点②必然为空。
+    **只咬连续臂**（离散臂施加值是 float64 字面量、精确等于 0.048）⟹ 与 `03` L224-A 那个只咬离散臂的浮点 bug 互为镜像。
+    """
+    sat_a = float(np.float32(M.A_BOX))            # 策略油门饱和时的真实施加值
+    sat_w = float(np.float32(M.W_BOX))
+    assert sat_a > M.A_BOX, "前提变了：float32 存 A_BOX 不再偏大，本测试需重新设计"
+    r = M.subgrid_and_rho_split([(sat_a, 0.006), (sat_a, 0.012), (sat_a, 0.006)], [0, 0, 0])
+    assert r["n_inbox_pairs"] == 2, f"油门饱和的步被当成越箱丢掉了：n_inbox_pairs={r['n_inbox_pairs']!r}"
+    r2 = M.subgrid_and_rho_split([(0.0, sat_w), (0.016, sat_w)], [0, 0])
+    assert r2["n_inbox_pairs"] == 1, f"转向饱和的步被丢：{r2}"
+    # 反证：**真正**越箱的紧急满程步仍必须被排除（容差不能大到把它放进来）
+    r3 = M.subgrid_and_rho_split([(0.24, 0.03), (0.24, -0.03), (0.24, 0.03)], [5, 5, 5])
+    assert r3["n_inbox_pairs"] == 0, f"物理满程的紧急步竟被算进箱内：{r3}"
+    # 容差与 evaluate._control_quality 必须一致（本模块 docstring 声称"口径对齐"）
+    assert M._BOX_TOL == 1e-6, "箱内容差与 evaluate._control_quality 的 tol 不一致 = 又一处两边各写一份"
+    print("  [T8] float32 饱和步算箱内 · 物理满程步仍排除 · 容差与 evaluate 对齐 ✅")
+
+
 def main():
     print("=== test_metrics_subgrid（次网格细调率 + 按态势拆转艏·本机单测）===")
     test_discrete_subgrid_zero()
@@ -172,6 +196,7 @@ def main():
     test_grid_guard()
     test_degenerate()
     test_no_inbox_pair_still_reports_zero()
+    test_float32_saturated_action_counts_as_inbox()
     print("  ✅ 全部通过")
 
 
