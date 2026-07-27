@@ -46,6 +46,7 @@ import json
 import math
 import os
 import sys
+import time
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _CODE = os.path.dirname(_HERE)
@@ -434,11 +435,18 @@ def main():
     # ═══ 第 2 阶段：报数（官方测试池·三口径 + 分型 + 卖点指标） ═══
     print("\n" + "=" * 104)
     print(f"■ 报数阶段：{len(finals)} 个配置 × N={len(pool)}", flush=True)
+    # 🔴 2026-07-27 补耗时记录（`03` L226-W）：`04 §2` 一直写着"据冒烟的实际耗时估全量"，
+    #   但脚本**根本没记过时间**、log 里也没有时间戳 ⟹ 冒烟跑完了照样估不出全量要多久
+    #   （外部基线不会学习、可能大量跑到步数上限，每局步数事先未知 ⟹ 只能实测）。
+    #   记成 每配置秒数 + 每局秒数 + 累计，落进 json 也打印 ⟹ 全量那趟自己就能报进度与剩余。
+    _t_all = time.time()
     for c in finals:
         print("\n" + "─" * 104)
         print(f"▶ {c['tag']}", flush=True)
+        _t0 = time.time()
         per = eval_config(c, pool, env_factory, evaluate_continuous,
                           rl_model=rl_model, obs_tf=obs_tf, traj_idxs=traj_idxs)
+        _dt = time.time() - _t0
         by_type, by_type_clean, by_type_strict = {}, {}, {}
         if types:
             from collections import defaultdict
@@ -458,7 +466,9 @@ def main():
                              "全部": RO.agg_of(per), "clean": RO.agg_of(per, clean_idx),
                              "strict": RO.agg_of(per, strict_idx), "看过的": RO.agg_of(per, seen_idx),
                              "分型_全部": by_type, "分型_clean": by_type_clean,
-                             "分型_strict": by_type_strict}
+                             "分型_strict": by_type_strict,
+                             "耗时秒": round(_dt, 1),
+                             "每局秒": round(_dt / max(len(pool), 1), 3)}
         r = results[c["tag"]]
         print(RO.fmt("全部", r["全部"]))
         print(RO.fmt("clean（我们没训练过）", r["clean"]))
@@ -466,6 +476,8 @@ def main():
         _cl = RO.fmt_ctrl(r["strict"])
         if _cl:
             print(_cl)
+        print(f"      耗时 {_dt:.1f}s（{_dt / max(len(pool), 1):.2f}s/局 × {len(pool)} 局）"
+              f" · 本趟累计 {time.time() - _t_all:.0f}s", flush=True)
         _inf = ((r["strict"] or {}).get("控制质量") or {}).get("baseline_infeasible_pct")
         if _inf is not None:
             print(f"      不可行步%（VO 锥外无候选 / CBF QP 无解）: {_inf:.2f}%")
