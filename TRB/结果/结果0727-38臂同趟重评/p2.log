@@ -1,0 +1,310 @@
+========================================================================================================
+[reeval_official r13-2026-07-27] 发现 15 个 checkpoint：
+  Discrete-safe_s0_discStdW0_s0                        臂=Discrete-safe    kind=shielded    seed=0 步=5079040 数据集=manifest_hocr_200.json 末段到达=5.0
+  Base_s0_baseW0_s0                                    臂=Base             kind=unshielded  seed=0 步=5079040 数据集=manifest_hocr_200.json 末段到达=100.0
+  Rule-reward_s0_rrW0_s0                               臂=Rule-reward      kind=unshielded  seed=0 步=5079040 数据集=manifest_hocr_200.json 末段到达=100.0
+  Discrete-safe_s1_discStdW0_s1                        臂=Discrete-safe    kind=shielded    seed=1 步=5079040 数据集=manifest_hocr_200.json 末段到达=0.0
+  Base_s1_baseW0_s1                                    臂=Base             kind=unshielded  seed=1 步=5079040 数据集=manifest_hocr_200.json 末段到达=100.0
+  Rule-reward_s1_rrW0_s1                               臂=Rule-reward      kind=unshielded  seed=1 步=5079040 数据集=manifest_hocr_200.json 末段到达=97.5
+  Discrete-safe_s2_discStdW0_s2                        臂=Discrete-safe    kind=shielded    seed=2 步=5079040 数据集=manifest_hocr_200.json 末段到达=100.0
+  Base_s2_baseW0_s2                                    臂=Base             kind=unshielded  seed=2 步=5079040 数据集=manifest_hocr_200.json 末段到达=97.5
+  Rule-reward_s2_rrW0_s2                               臂=Rule-reward      kind=unshielded  seed=2 步=5079040 数据集=manifest_hocr_200.json 末段到达=100.0
+  Discrete-safe_s3_discStdW0_s3                        臂=Discrete-safe    kind=shielded    seed=3 步=5079040 数据集=manifest_hocr_200.json 末段到达=67.5
+  Base_s3_baseW0_s3                                    臂=Base             kind=unshielded  seed=3 步=5079040 数据集=manifest_hocr_200.json 末段到达=100.0
+  Rule-reward_s3_rrW0_s3                               臂=Rule-reward      kind=unshielded  seed=3 步=5079040 数据集=manifest_hocr_200.json 末段到达=100.0
+  Discrete-safe_s4_discStdW0_s4                        臂=Discrete-safe    kind=shielded    seed=4 步=5079040 数据集=manifest_hocr_200.json 末段到达=95.0
+  Base_s4_baseW0_s4                                    臂=Base             kind=unshielded  seed=4 步=5079040 数据集=manifest_hocr_200.json 末段到达=100.0
+  Rule-reward_s4_rrW0_s4                               臂=Rule-reward      kind=unshielded  seed=4 步=5079040 数据集=manifest_hocr_200.json 末段到达=100.0
+========================================================================================================
+[env] 连续臂 eval env：shield=True cone=None v_floor=2.0 augment_rho=False 去朝向门=False
+  [数据集] Discrete-safe_s0_discStdW0_s0 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Base_s0_baseW0_s0 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Rule-reward_s0_rrW0_s0 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Discrete-safe_s1_discStdW0_s1 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Base_s1_baseW0_s1 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Rule-reward_s1_rrW0_s1 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Discrete-safe_s2_discStdW0_s2 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Base_s2_baseW0_s2 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Rule-reward_s2_rrW0_s2 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Discrete-safe_s3_discStdW0_s3 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Base_s3_baseW0_s3 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Rule-reward_s3_rrW0_s3 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Discrete-safe_s4_discStdW0_s4 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Base_s4_baseW0_s4 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Rule-reward_s4_rrW0_s4 ← manifest_hocr_200.json：训练 94 / 验证 40
+  …下载 200/600（失败 0）
+  …下载 400/600（失败 0）
+  …下载 600/600（失败 0）
+
+[池] 官方 1400/600 划分的测试 600（官方 2000 无追越）：N=600（请求 600）·二项 SE@p=0.8 ≈ 1.63pt
+[口径] 全部 600 − 训练泄漏 23 = **clean 577** ； 再 − 验证泄漏 14 = **strict 563**
+[分型] {'crossing': 395, 'head-on': 205}
+[轨迹] 记 ['1', '100', '1006', '1016'] 这几个场景的逐步轨迹（`04 §1.5` 第⑥条·离散臂与连续臂同格式可叠图）
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Discrete-safe_s0_discStdW0_s0  臂=Discrete-safe kind=shielded seed=0 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 5.00% vs 重评 5.00%（差 0.00pt）✅ 逐位复现
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  全部                         n= 600  到达  3.00%±0.70  碰撞 0.00%  违规/局  2.02  紧急步   6.6%
+  clean（没训练过）                n= 577  到达  3.12%±0.72  碰撞 0.00%  违规/局  2.03  紧急步   6.8%
+  strict（真一眼没见过）             n= 563  到达  3.02%±0.72  碰撞 0.00%  违规/局  2.02  紧急步   7.0%
+      平滑: jerk 0.799 转艏Δ 0.0103 油门Δ 0.0197 路径 4604m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 0.0000 其他步 0.0103
+  对照：训练/验证见过的                n=  37  到达  2.70%±2.67  碰撞 0.00%  违规/局  2.08  紧急步   1.5%
+    · crossing（strict）       n= 376  到达  4.26%±1.04  碰撞 0.00%  违规/局  1.19  紧急步   8.9%
+    · head-on（strict）        n= 187  到达  0.53%±0.53  碰撞 0.00%  违规/局  3.67  紧急步   3.1%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Base_s0_baseW0_s0  臂=Base kind=unshielded seed=0 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 98.50%±0.50  碰撞 1.50%  违规/局  2.08  紧急步   0.0%
+  clean（没训练过）                n= 577  到达 98.44%±0.52  碰撞 1.56%  违规/局  2.09  紧急步   0.0%
+  strict（真一眼没见过）             n= 563  到达 98.40%±0.53  碰撞 1.60%  违规/局  2.08  紧急步   0.0%
+      平滑: jerk 0.888 转艏Δ 0.0136 油门Δ 0.0143 路径 4023m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0136
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  2.14  紧急步   0.0%
+    · crossing（strict）       n= 376  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.19  紧急步   0.0%
+    · head-on（strict）        n= 187  到达 95.19%±1.57  碰撞 4.81%  违规/局  3.87  紧急步   0.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Rule-reward_s0_rrW0_s0  臂=Rule-reward kind=unshielded seed=0 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 98.67%±0.47  碰撞 1.33%  违规/局  2.13  紧急步   0.0%
+  clean（没训练过）                n= 577  到达 98.61%±0.49  碰撞 1.39%  违规/局  2.14  紧急步   0.0%
+  strict（真一眼没见过）             n= 563  到达 98.58%±0.50  碰撞 1.42%  违规/局  2.10  紧急步   0.0%
+      平滑: jerk 0.865 转艏Δ 0.0135 油门Δ 0.0123 路径 4027m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0135
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  2.73  紧急步   0.0%
+    · crossing（strict）       n= 376  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.11  紧急步   0.0%
+    · head-on（strict）        n= 187  到达 95.72%±1.48  碰撞 4.28%  违规/局  4.08  紧急步   0.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Discrete-safe_s1_discStdW0_s1  臂=Discrete-safe kind=shielded seed=1 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 0.00% vs 重评 0.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达  0.33%±0.24  碰撞 0.17%  违规/局  1.07  紧急步   5.8%
+  clean（没训练过）                n= 577  到达  0.35%±0.24  碰撞 0.17%  违规/局  1.09  紧急步   5.9%
+  strict（真一眼没见过）             n= 563  到达  0.36%±0.25  碰撞 0.18%  违规/局  1.06  紧急步   6.0%
+      平滑: jerk 0.916 转艏Δ 0.0105 油门Δ 0.0277 路径 6618m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0105
+  对照：训练/验证见过的                n=  37  到达  0.00%±0.00  碰撞 0.00%  违规/局  1.14  紧急步   4.1%
+    · crossing（strict）       n= 376  到达  0.27%±0.27  碰撞 0.27%  违规/局  0.78  紧急步   7.9%
+    · head-on（strict）        n= 187  到达  0.53%±0.53  碰撞 0.00%  违规/局  1.63  紧急步   2.1%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Base_s1_baseW0_s1  臂=Base kind=unshielded seed=1 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 97.67%±0.62  碰撞 2.17%  违规/局  2.47  紧急步   0.0%
+  clean（没训练过）                n= 577  到达 97.57%±0.64  碰撞 2.25%  违规/局  2.50  紧急步   0.0%
+  strict（真一眼没见过）             n= 563  到达 97.51%±0.66  碰撞 2.31%  违规/局  2.47  紧急步   0.0%
+      平滑: jerk 0.940 转艏Δ 0.0150 油门Δ 0.0122 路径 4039m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0150
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  2.49  紧急步   0.0%
+    · crossing（strict）       n= 376  到达 98.94%±0.53  碰撞 1.06%  违规/局  1.59  紧急步   0.0%
+    · head-on（strict）        n= 187  到达 94.65%±1.65  碰撞 4.81%  违规/局  4.25  紧急步   0.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Rule-reward_s1_rrW0_s1  臂=Rule-reward kind=unshielded seed=1 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 97.50% vs 重评 97.50%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 98.00%±0.57  碰撞 1.83%  违规/局  2.86  紧急步   0.0%
+  clean（没训练过）                n= 577  到达 97.92%±0.59  碰撞 1.91%  违规/局  2.86  紧急步   0.0%
+  strict（真一眼没见过）             n= 563  到达 97.87%±0.61  碰撞 1.95%  违规/局  2.88  紧急步   0.0%
+      平滑: jerk 0.912 转艏Δ 0.0143 油门Δ 0.0125 路径 4023m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0143
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  2.59  紧急步   0.0%
+    · crossing（strict）       n= 376  到达 98.94%±0.53  碰撞 0.80%  违规/局  1.64  紧急步   0.0%
+    · head-on（strict）        n= 187  到达 95.72%±1.48  碰撞 4.28%  违规/局  5.36  紧急步   0.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Discrete-safe_s2_discStdW0_s2  臂=Discrete-safe kind=shielded seed=2 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 94.33%±0.94  碰撞 0.00%  违规/局  1.49  紧急步   6.4%
+  clean（没训练过）                n= 577  到达 94.11%±0.98  碰撞 0.00%  违规/局  1.50  紧急步   6.6%
+  strict（真一眼没见过）             n= 563  到达 93.96%±1.00  碰撞 0.00%  违规/局  1.50  紧急步   6.7%
+      平滑: jerk 0.901 转艏Δ 0.0125 油门Δ 0.0185 路径 4232m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 0.0053 其他步 0.0126
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.35  紧急步   1.5%
+    · crossing（strict）       n= 376  到达 94.95%±1.13  碰撞 0.00%  违规/局  1.09  紧急步   6.4%
+    · head-on（strict）        n= 187  到达 91.98%±1.99  碰撞 0.00%  违规/局  2.31  紧急步   7.4%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Base_s2_baseW0_s2  臂=Base kind=unshielded seed=2 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 97.50% vs 重评 97.50%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 98.17%±0.55  碰撞 1.83%  违规/局  2.26  紧急步   0.0%
+  clean（没训练过）                n= 577  到达 98.09%±0.57  碰撞 1.91%  违规/局  2.26  紧急步   0.0%
+  strict（真一眼没见过）             n= 563  到达 98.05%±0.58  碰撞 1.95%  违规/局  2.25  紧急步   0.0%
+      平滑: jerk 0.886 转艏Δ 0.0131 油门Δ 0.0147 路径 4034m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0131
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  2.49  紧急步   0.0%
+    · crossing（strict）       n= 376  到达 99.73%±0.27  碰撞 0.27%  违规/局  1.40  紧急步   0.0%
+    · head-on（strict）        n= 187  到达 94.65%±1.65  碰撞 5.35%  违规/局  3.94  紧急步   0.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Rule-reward_s2_rrW0_s2  臂=Rule-reward kind=unshielded seed=2 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 98.17%±0.55  碰撞 1.67%  违规/局  2.07  紧急步   0.0%
+  clean（没训练过）                n= 577  到达 98.27%±0.54  碰撞 1.56%  违规/局  2.07  紧急步   0.0%
+  strict（真一眼没见过）             n= 563  到达 98.22%±0.56  碰撞 1.60%  违规/局  2.06  紧急步   0.0%
+      平滑: jerk 0.862 转艏Δ 0.0131 油门Δ 0.0129 路径 4022m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0131
+  对照：训练/验证见过的                n=  37  到达 97.30%±2.67  碰撞 2.70%  违规/局  2.24  紧急步   0.0%
+    · crossing（strict）       n= 376  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.20  紧急步   0.0%
+    · head-on（strict）        n= 187  到达 94.65%±1.65  碰撞 4.81%  违规/局  3.77  紧急步   0.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Discrete-safe_s3_discStdW0_s3  臂=Discrete-safe kind=shielded seed=3 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 67.50% vs 重评 67.50%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 55.50%±2.03  碰撞 0.17%  违规/局  1.04  紧急步   6.9%
+  clean（没训练过）                n= 577  到达 55.29%±2.07  碰撞 0.17%  违规/局  1.06  紧急步   7.1%
+  strict（真一眼没见过）             n= 563  到达 54.88%±2.10  碰撞 0.18%  违规/局  1.05  紧急步   7.2%
+      平滑: jerk 0.990 转艏Δ 0.0137 油门Δ 0.0223 路径 4102m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 0.0048 其他步 0.0138
+  对照：训练/验证见过的                n=  37  到达 64.86%±7.85  碰撞 0.00%  违规/局  0.84  紧急步   2.7%
+    · crossing（strict）       n= 376  到达 55.85%±2.56  碰撞 0.00%  违规/局  0.78  紧急步   7.2%
+    · head-on（strict）        n= 187  到达 52.94%±3.65  碰撞 0.53%  违规/局  1.59  紧急步   7.2%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Base_s3_baseW0_s3  臂=Base kind=unshielded seed=3 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 97.83%±0.59  碰撞 2.17%  违规/局  2.54  紧急步   0.0%
+  clean（没训练过）                n= 577  到达 97.75%±0.62  碰撞 2.25%  违规/局  2.55  紧急步   0.0%
+  strict（真一眼没见过）             n= 563  到达 97.69%±0.63  碰撞 2.31%  违规/局  2.53  紧急步   0.0%
+      平滑: jerk 0.833 转艏Δ 0.0133 油门Δ 0.0102 路径 4029m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0133
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  2.70  紧急步   0.0%
+    · crossing（strict）       n= 376  到达 98.94%±0.53  碰撞 1.06%  违规/局  1.49  紧急步   0.0%
+    · head-on（strict）        n= 187  到达 95.19%±1.57  碰撞 4.81%  违规/局  4.62  紧急步   0.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Rule-reward_s3_rrW0_s3  臂=Rule-reward kind=unshielded seed=3 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 97.83%±0.59  碰撞 2.17%  违规/局  2.18  紧急步   0.0%
+  clean（没训练过）                n= 577  到达 97.75%±0.62  碰撞 2.25%  违规/局  2.19  紧急步   0.0%
+  strict（真一眼没见过）             n= 563  到达 97.69%±0.63  碰撞 2.31%  违规/局  2.21  紧急步   0.0%
+      平滑: jerk 0.796 转艏Δ 0.0125 油门Δ 0.0099 路径 4032m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0125
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.68  紧急步   0.0%
+    · crossing（strict）       n= 376  到达 98.94%±0.53  碰撞 1.06%  违规/局  1.47  紧急步   0.0%
+    · head-on（strict）        n= 187  到达 95.19%±1.57  碰撞 4.81%  违规/局  3.69  紧急步   0.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Discrete-safe_s4_discStdW0_s4  臂=Discrete-safe kind=shielded seed=4 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 95.00% vs 重评 95.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 91.33%±1.15  碰撞 0.00%  违规/局  1.18  紧急步   6.9%
+  clean（没训练过）                n= 577  到达 90.99%±1.19  碰撞 0.00%  违规/局  1.20  紧急步   7.2%
+  strict（真一眼没见过）             n= 563  到达 90.94%±1.21  碰撞 0.00%  违规/局  1.21  紧急步   7.3%
+      平滑: jerk 0.957 转艏Δ 0.0138 油门Δ 0.0189 路径 4245m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 0.0053 其他步 0.0138
+  对照：训练/验证见过的                n=  37  到达 97.30%±2.67  碰撞 0.00%  违规/局  0.59  紧急步   0.9%
+    · crossing（strict）       n= 376  到达 89.89%±1.55  碰撞 0.00%  违规/局  0.81  紧急步   7.9%
+    · head-on（strict）        n= 187  到达 93.05%±1.86  碰撞 0.00%  违规/局  2.03  紧急步   6.1%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Base_s4_baseW0_s4  臂=Base kind=unshielded seed=4 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 98.83%±0.44  碰撞 1.17%  违规/局  2.23  紧急步   0.0%
+  clean（没训练过）                n= 577  到达 98.79%±0.46  碰撞 1.21%  违规/局  2.23  紧急步   0.0%
+  strict（真一眼没见过）             n= 563  到达 98.76%±0.47  碰撞 1.24%  违规/局  2.26  紧急步   0.0%
+      平滑: jerk 0.889 转艏Δ 0.0138 油门Δ 0.0137 路径 4031m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0138
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.70  紧急步   0.0%
+    · crossing（strict）       n= 376  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.30  紧急步   0.0%
+    · head-on（strict）        n= 187  到达 96.26%±1.39  碰撞 3.74%  违规/局  4.19  紧急步   0.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Rule-reward_s4_rrW0_s4  臂=Rule-reward kind=unshielded seed=4 步=5079040
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 99.00%±0.41  碰撞 1.00%  违规/局  2.26  紧急步   0.0%
+  clean（没训练过）                n= 577  到达 98.96%±0.42  碰撞 1.04%  违规/局  2.27  紧急步   0.0%
+  strict（真一眼没见过）             n= 563  到达 98.93%±0.43  碰撞 1.07%  违规/局  2.27  紧急步   0.0%
+      平滑: jerk 0.853 转艏Δ 0.0130 油门Δ 0.0139 路径 4025m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0130
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  2.19  紧急步   0.0%
+    · crossing（strict）       n= 376  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.20  紧急步   0.0%
+    · head-on（strict）        n= 187  到达 96.79%±1.29  碰撞 3.21%  违规/局  4.42  紧急步   0.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+■ 锚点汇总（15 个 ckpt）：平均有符号差 +0.00pt · 最大绝对差 0.00pt · 15 个逐位复现 / 0 偏高 / 0 偏低
+  判读：平均差 ≈ 0 且正负混杂 ⟹ 只是浮点重放噪声，**eval 配置正确**；若平均差明显偏离 0 且方向一致 ⟹ 配置很可能真的错了，别信本次数字。
+
+[reeval_official] 完成 → /tmp/claude-0/-home-user-TRB-2027-ContinuesPPO/0f02786e-e953-5e5c-a73c-75007da574e5/scratchpad/reeval/p2.json
+[轨迹] 15 个 checkpoint × 4 个场景 → /tmp/claude-0/-home-user-TRB-2027-ContinuesPPO/0f02786e-e953-5e5c-a73c-75007da574e5/scratchpad/reeval/p2_traj.json

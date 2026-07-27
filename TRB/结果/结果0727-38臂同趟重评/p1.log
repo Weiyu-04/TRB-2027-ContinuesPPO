@@ -1,0 +1,301 @@
+========================================================================================================
+[reeval_official r13-2026-07-27] 发现 13 个 checkpoint：
+  Continuous-safe_s0_wsHOCRppo_s0                      臂=Continuous-safe  kind=continuous  seed=0 步=3047424 数据集=manifest_hocr_200.json 末段到达=100.0
+  Continuous-safe_s1_wsHOCRppo_s1                      臂=Continuous-safe  kind=continuous  seed=1 步=2539520 数据集=manifest_hocr_200.json 末段到达=90.0
+  Continuous-safe_s2_wsHOCRppo_s2                      臂=Continuous-safe  kind=continuous  seed=2 步=3047424 数据集=manifest_hocr_200.json 末段到达=97.5
+  Continuous-safe_s3_wsHOCRppo_s3                      臂=Continuous-safe  kind=continuous  seed=3 步=2539520 数据集=manifest_hocr_200.json 末段到达=97.5
+  Continuous-safe_s4_wsHOCRppo_s4                      臂=Continuous-safe  kind=continuous  seed=4 步=2539520 数据集=manifest_hocr_200.json 末段到达=100.0
+  Continuous-safe_s5_wsHOCRppo_s5                      臂=Continuous-safe  kind=continuous  seed=5 步=2539520 数据集=manifest_hocr_200.json 末段到达=82.5
+  Continuous-safe_s6_wsHOCRppo_s6                      臂=Continuous-safe  kind=continuous  seed=6 步=3047424 数据集=manifest_hocr_200.json 末段到达=100.0
+  Continuous-safe_s7_wsHOCRppo_s7                      臂=Continuous-safe  kind=continuous  seed=7 步=2539520 数据集=manifest_hocr_200.json 末段到达=97.5
+  Continuous-safe_s8_wsHOCRppo_s8                      臂=Continuous-safe  kind=continuous  seed=8 步=3047424 数据集=manifest_hocr_200.json 末段到达=97.5
+  Continuous-safe_s9_wsHOCRppo_s9                      臂=Continuous-safe  kind=continuous  seed=9 步=3047424 数据集=manifest_hocr_200.json 末段到达=95.0
+  Continuous-safe_s1_wsBIGppo_s1                       臂=Continuous-safe  kind=continuous  seed=1 步=2539520 数据集=manifest_official_1300.json 末段到达=76.0
+  Continuous-safe_s3_wsBIGppo_s3                       臂=Continuous-safe  kind=continuous  seed=3 步=2539520 数据集=manifest_official_1300.json 末段到达=90.0
+  Continuous-safe_s4_wsBIGppo_s4                       臂=Continuous-safe  kind=continuous  seed=4 步=2539520 数据集=manifest_official_1300.json 末段到达=70.0
+========================================================================================================
+[env] 连续臂 eval env：shield=True cone=None v_floor=2.0 augment_rho=False 去朝向门=False
+  [数据集] Continuous-safe_s0_wsHOCRppo_s0 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s1_wsHOCRppo_s1 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s2_wsHOCRppo_s2 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s3_wsHOCRppo_s3 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s4_wsHOCRppo_s4 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s5_wsHOCRppo_s5 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s6_wsHOCRppo_s6 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s7_wsHOCRppo_s7 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s8_wsHOCRppo_s8 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s9_wsHOCRppo_s9 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s1_wsBIGppo_s1 ← manifest_official_1300.json：训练 1300 / 验证 100
+  [数据集] Continuous-safe_s3_wsBIGppo_s3 ← manifest_official_1300.json：训练 1300 / 验证 100
+  [数据集] Continuous-safe_s4_wsBIGppo_s4 ← manifest_official_1300.json：训练 1300 / 验证 100
+  ⚠️⚠️ 被评的 checkpoint 用了【不同数据集】{'Continuous-safe_s0_wsHOCRppo_s0': 'manifest_hocr_200.json', 'Continuous-safe_s1_wsHOCRppo_s1': 'manifest_hocr_200.json', 'Continuous-safe_s2_wsHOCRppo_s2': 'manifest_hocr_200.json', 'Continuous-safe_s3_wsHOCRppo_s3': 'manifest_hocr_200.json', 'Continuous-safe_s4_wsHOCRppo_s4': 'manifest_hocr_200.json', 'Continuous-safe_s5_wsHOCRppo_s5': 'manifest_hocr_200.json', 'Continuous-safe_s6_wsHOCRppo_s6': 'manifest_hocr_200.json', 'Continuous-safe_s7_wsHOCRppo_s7': 'manifest_hocr_200.json', 'Continuous-safe_s8_wsHOCRppo_s8': 'manifest_hocr_200.json', 'Continuous-safe_s9_wsHOCRppo_s9': 'manifest_hocr_200.json', 'Continuous-safe_s1_wsBIGppo_s1': 'manifest_official_1300.json', 'Continuous-safe_s3_wsBIGppo_s3': 'manifest_official_1300.json', 'Continuous-safe_s4_wsBIGppo_s4': 'manifest_official_1300.json'} → 泄漏取并集剔除（clean 更小但所有臂同分母·可比）
+  …下载 200/600（失败 0）
+  …下载 400/600（失败 0）
+  …下载 600/600（失败 0）
+
+[池] 官方 1400/600 划分的测试 600（官方 2000 无追越）：N=600（请求 600）·二项 SE@p=0.8 ≈ 1.63pt
+[口径] 全部 600 − 训练泄漏 23 = **clean 577** ； 再 − 验证泄漏 14 = **strict 563**
+[分型] {'crossing': 395, 'head-on': 205}
+[轨迹] 记 ['1', '100', '1006', '1016'] 这几个场景的逐步轨迹（`04 §1.5` 第⑥条·离散臂与连续臂同格式可叠图）
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s0_wsHOCRppo_s0  臂=Continuous-safe kind=continuous seed=0 步=3047424
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  全部                         n= 600  到达 93.33%±1.02  碰撞 0.00%  违规/局  1.20  紧急步   3.2%  位置进框(宽松) 95.0%
+  clean（没训练过）                n= 577  到达 93.24%±1.05  碰撞 0.00%  违规/局  1.20  紧急步   3.3%  位置进框(宽松) 94.8%
+  strict（真一眼没见过）             n= 563  到达 93.07%±1.07  碰撞 0.00%  违规/局  1.19  紧急步   3.3%  位置进框(宽松) 94.7%
+      平滑: jerk 0.886 转艏Δ 0.0150 油门Δ 0.0038 路径 4247m ｜ 次网格细调率: 转艏 0.074 油门 0.024 ｜ 转艏|Δω|: 让路步 0.0041 其他步 0.0151
+  对照：训练/验证见过的                n=  37  到达 97.30%±2.67  碰撞 0.00%  违规/局  1.32  紧急步   1.2%  位置进框(宽松) 100.0%
+    · crossing（strict）       n= 376  到达 94.41%±1.18  碰撞 0.00%  违规/局  0.68  紧急步   2.6%  位置进框(宽松) 95.7%
+    · head-on（strict）        n= 187  到达 90.37%±2.16  碰撞 0.00%  违规/局  2.22  紧急步   4.7%  位置进框(宽松) 92.5%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s1_wsHOCRppo_s1  臂=Continuous-safe kind=continuous seed=1 步=2539520
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 90.00% vs 重评 90.00%（差 0.00pt）✅ 逐位复现
+/usr/local/lib/python3.11/dist-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  全部                         n= 600  到达 91.17%±1.16  碰撞 0.00%  违规/局  1.62  紧急步   4.3%  位置进框(宽松) 94.5%
+  clean（没训练过）                n= 577  到达 90.99%±1.19  碰撞 0.00%  违规/局  1.62  紧急步   4.4%  位置进框(宽松) 94.5%
+  strict（真一眼没见过）             n= 563  到达 91.12%±1.20  碰撞 0.00%  违规/局  1.61  紧急步   4.3%  位置进框(宽松) 94.7%
+      平滑: jerk 0.781 转艏Δ 0.0132 油门Δ 0.0035 路径 4255m ｜ 次网格细调率: 转艏 0.073 油门 0.033 ｜ 转艏|Δω|: 让路步 0.0046 其他步 0.0132
+  对照：训练/验证见过的                n=  37  到达 91.89%±4.49  碰撞 0.00%  违规/局  1.76  紧急步   4.9%  位置进框(宽松) 91.9%
+    · crossing（strict）       n= 376  到达 93.35%±1.28  碰撞 0.00%  违规/局  1.02  紧急步   3.2%  位置进框(宽松) 96.3%
+    · head-on（strict）        n= 187  到达 86.63%±2.49  碰撞 0.00%  违规/局  2.81  紧急步   6.5%  位置进框(宽松) 91.4%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s2_wsHOCRppo_s2  臂=Continuous-safe kind=continuous seed=2 步=3047424
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 97.50% vs 重评 97.50%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 92.67%±1.06  碰撞 0.00%  违规/局  1.44  紧急步   4.3%  位置进框(宽松) 95.5%
+  clean（没训练过）                n= 577  到达 92.37%±1.10  碰撞 0.00%  违规/局  1.43  紧急步   4.4%  位置进框(宽松) 95.3%
+  strict（真一眼没见过）             n= 563  到达 92.18%±1.13  碰撞 0.00%  违规/局  1.44  紧急步   4.5%  位置进框(宽松) 95.2%
+      平滑: jerk 0.947 转艏Δ 0.0161 油门Δ 0.0035 路径 4288m ｜ 次网格细调率: 转艏 0.072 油门 0.022 ｜ 转艏|Δω|: 让路步 0.0043 其他步 0.0162
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.43  紧急步   1.9%  位置进框(宽松) 100.0%
+    · crossing（strict）       n= 376  到达 94.15%±1.21  碰撞 0.00%  违规/局  0.90  紧急步   3.6%  位置进框(宽松) 96.5%
+    · head-on（strict）        n= 187  到达 88.24%±2.36  碰撞 0.00%  违规/局  2.51  紧急步   6.2%  位置进框(宽松) 92.5%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s3_wsHOCRppo_s3  臂=Continuous-safe kind=continuous seed=3 步=2539520
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 97.50% vs 重评 97.50%（差 0.00pt）✅ 逐位复现
+/usr/local/lib/python3.11/dist-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  全部                         n= 600  到达 91.33%±1.15  碰撞 0.00%  违规/局  1.31  紧急步   3.2%  位置进框(宽松) 93.8%
+  clean（没训练过）                n= 577  到达 91.16%±1.18  碰撞 0.00%  违规/局  1.31  紧急步   3.2%  位置进框(宽松) 93.6%
+  strict（真一眼没见过）             n= 563  到达 90.94%±1.21  碰撞 0.00%  违规/局  1.31  紧急步   3.3%  位置进框(宽松) 93.4%
+      平滑: jerk 0.797 转艏Δ 0.0135 油门Δ 0.0033 路径 4260m ｜ 次网格细调率: 转艏 0.075 油门 0.023 ｜ 转艏|Δω|: 让路步 0.0028 其他步 0.0135
+  对照：训练/验证见过的                n=  37  到达 97.30%±2.67  碰撞 0.00%  违规/局  1.32  紧急步   1.4%  位置进框(宽松) 100.0%
+    · crossing（strict）       n= 376  到达 94.15%±1.21  碰撞 0.00%  违规/局  0.82  紧急步   2.6%  位置进框(宽松) 95.5%
+    · head-on（strict）        n= 187  到达 84.49%±2.65  碰撞 0.00%  违规/局  2.27  紧急步   4.7%  位置进框(宽松) 89.3%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s4_wsHOCRppo_s4  臂=Continuous-safe kind=continuous seed=4 步=2539520
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 92.50%±1.08  碰撞 0.33%  违规/局  1.45  紧急步   3.6%  位置进框(宽松) 94.2%
+  clean（没训练过）                n= 577  到达 92.37%±1.10  碰撞 0.35%  违规/局  1.46  紧急步   3.7%  位置进框(宽松) 93.9%
+  strict（真一眼没见过）             n= 563  到达 92.18%±1.13  碰撞 0.36%  违规/局  1.46  紧急步   3.7%  位置进框(宽松) 93.8%
+      平滑: jerk 0.955 转艏Δ 0.0164 油门Δ 0.0032 路径 4270m ｜ 次网格细调率: 转艏 0.077 油门 0.027 ｜ 转艏|Δω|: 让路步 0.0035 其他步 0.0165
+  对照：训练/验证见过的                n=  37  到达 97.30%±2.67  碰撞 0.00%  违规/局  1.27  紧急步   1.6%  位置进框(宽松) 100.0%
+    · crossing（strict）       n= 376  到达 93.09%±1.31  碰撞 0.27%  违规/局  0.81  紧急步   2.8%  位置进框(宽松) 94.7%
+    · head-on（strict）        n= 187  到达 90.37%±2.16  碰撞 0.53%  违规/局  2.75  紧急步   5.5%  位置进框(宽松) 92.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s5_wsHOCRppo_s5  臂=Continuous-safe kind=continuous seed=5 步=2539520
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 82.50% vs 重评 82.50%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 84.00%±1.50  碰撞 0.17%  违规/局  1.51  紧急步   3.7%  位置进框(宽松) 84.8%
+  clean（没训练过）                n= 577  到达 83.88%±1.53  碰撞 0.00%  违规/局  1.51  紧急步   3.5%  位置进框(宽松) 84.7%
+  strict（真一眼没见过）             n= 563  到达 83.66%±1.56  碰撞 0.00%  违规/局  1.48  紧急步   3.6%  位置进框(宽松) 84.5%
+      平滑: jerk 0.864 转艏Δ 0.0149 油门Δ 0.0031 路径 4240m ｜ 次网格细调率: 转艏 0.071 油门 0.028 ｜ 转艏|Δω|: 让路步 0.0028 其他步 0.0149
+  对照：训练/验证见过的                n=  37  到达 89.19%±5.10  碰撞 2.70%  违规/局  1.97  紧急步   4.8%  位置进框(宽松) 89.2%
+    · crossing（strict）       n= 376  到达 85.11%±1.84  碰撞 0.00%  违规/局  0.78  紧急步   2.8%  位置进框(宽松) 85.9%
+    · head-on（strict）        n= 187  到达 80.75%±2.88  碰撞 0.00%  违规/局  2.91  紧急步   5.1%  位置进框(宽松) 81.8%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s6_wsHOCRppo_s6  臂=Continuous-safe kind=continuous seed=6 步=3047424
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+/usr/local/lib/python3.11/dist-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  全部                         n= 600  到达 95.00%±0.89  碰撞 0.00%  违规/局  1.39  紧急步   2.7%  位置进框(宽松) 96.0%
+  clean（没训练过）                n= 577  到达 94.80%±0.92  碰撞 0.00%  违规/局  1.39  紧急步   2.7%  位置进框(宽松) 95.8%
+  strict（真一眼没见过）             n= 563  到达 94.67%±0.95  碰撞 0.00%  违规/局  1.39  紧急步   2.8%  位置进框(宽松) 95.7%
+      平滑: jerk 0.793 转艏Δ 0.0134 油门Δ 0.0036 路径 4261m ｜ 次网格细调率: 转艏 0.097 油门 0.028 ｜ 转艏|Δω|: 让路步 0.0037 其他步 0.0134
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.24  紧急步   2.1%  位置进框(宽松) 100.0%
+    · crossing（strict）       n= 376  到达 96.01%±1.01  碰撞 0.00%  违规/局  0.83  紧急步   2.0%  位置进框(宽松) 96.8%
+    · head-on（strict）        n= 187  到达 91.98%±1.99  碰撞 0.00%  违规/局  2.53  紧急步   4.3%  位置进框(宽松) 93.6%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s7_wsHOCRppo_s7  臂=Continuous-safe kind=continuous seed=7 步=2539520
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 97.50% vs 重评 97.50%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 93.50%±1.01  碰撞 0.00%  违规/局  1.26  紧急步   3.0%  位置进框(宽松) 94.7%
+  clean（没训练过）                n= 577  到达 93.59%±1.02  碰撞 0.00%  违规/局  1.26  紧急步   3.1%  位置进框(宽松) 94.6%
+  strict（真一眼没见过）             n= 563  到达 93.43%±1.04  碰撞 0.00%  违规/局  1.26  紧急步   3.1%  位置进框(宽松) 94.5%
+      平滑: jerk 0.885 转艏Δ 0.0151 油门Δ 0.0033 路径 4237m ｜ 次网格细调率: 转艏 0.059 油门 0.027 ｜ 转艏|Δω|: 让路步 0.0030 其他步 0.0151
+  对照：训练/验证见过的                n=  37  到达 94.59%±3.72  碰撞 0.00%  违规/局  1.32  紧急步   1.3%  位置进框(宽松) 97.3%
+    · crossing（strict）       n= 376  到达 96.01%±1.01  碰撞 0.00%  违规/局  0.77  紧急步   2.3%  位置进框(宽松) 97.1%
+    · head-on（strict）        n= 187  到达 88.24%±2.36  碰撞 0.00%  违规/局  2.25  紧急步   4.8%  位置进框(宽松) 89.3%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s8_wsHOCRppo_s8  臂=Continuous-safe kind=continuous seed=8 步=3047424
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 97.50% vs 重评 97.50%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 88.50%±1.30  碰撞 0.00%  违规/局  1.62  紧急步   4.9%  位置进框(宽松) 90.8%
+  clean（没训练过）                n= 577  到达 88.21%±1.34  碰撞 0.00%  违规/局  1.62  紧急步   5.0%  位置进框(宽松) 90.5%
+  strict（真一眼没见过）             n= 563  到达 87.92%±1.37  碰撞 0.00%  违规/局  1.59  紧急步   5.0%  位置进框(宽松) 90.2%
+      平滑: jerk 0.941 转艏Δ 0.0162 油门Δ 0.0032 路径 4253m ｜ 次网格细调率: 转艏 0.043 油门 0.014 ｜ 转艏|Δω|: 让路步 0.0027 其他步 0.0162
+  对照：训练/验证见过的                n=  37  到达 97.30%±2.67  碰撞 0.00%  违规/局  2.11  紧急步   3.7%  位置进框(宽松) 100.0%
+    · crossing（strict）       n= 376  到达 89.10%±1.61  碰撞 0.00%  违规/局  0.94  紧急步   4.0%  位置进框(宽松) 91.0%
+    · head-on（strict）        n= 187  到达 85.56%±2.57  碰撞 0.00%  违规/局  2.90  紧急步   7.0%  位置进框(宽松) 88.8%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s9_wsHOCRppo_s9  臂=Continuous-safe kind=continuous seed=9 步=3047424
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 95.00% vs 重评 95.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 91.00%±1.17  碰撞 0.17%  违规/局  1.76  紧急步   5.4%  位置进框(宽松) 93.3%
+  clean（没训练过）                n= 577  到达 90.81%±1.20  碰撞 0.17%  违规/局  1.77  紧急步   5.6%  位置进框(宽松) 93.1%
+  strict（真一眼没见过）             n= 563  到达 90.59%±1.23  碰撞 0.18%  违规/局  1.78  紧急步   5.7%  位置进框(宽松) 92.9%
+      平滑: jerk 0.969 转艏Δ 0.0166 油门Δ 0.0035 路径 4264m ｜ 次网格细调率: 转艏 0.050 油门 0.023 ｜ 转艏|Δω|: 让路步 0.0056 其他步 0.0166
+  对照：训练/验证见过的                n=  37  到达 97.30%±2.67  碰撞 0.00%  违规/局  1.51  紧急步   1.0%  位置进框(宽松) 100.0%
+    · crossing（strict）       n= 376  到达 93.09%±1.31  碰撞 0.00%  违规/局  1.21  紧急步   5.3%  位置进框(宽松) 94.4%
+    · head-on（strict）        n= 187  到达 85.56%±2.57  碰撞 0.53%  违规/局  2.92  紧急步   6.6%  位置进框(宽松) 89.8%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s1_wsBIGppo_s1  臂=Continuous-safe kind=continuous seed=1 步=2539520
+  …下载 200/1300（失败 0）
+  …下载 400/1300（失败 0）
+  …下载 600/1300（失败 0）
+  …下载 800/1300（失败 0）
+  …下载 1000/1300（失败 0）
+  …下载 1200/1300（失败 0）
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=100：记录 76.00% vs 重评 78.00%（差 2.00pt）🟡 差 2 局（实测重放噪声内·`03` L192-C）
+  全部                         n= 600  到达 80.33%±1.62  碰撞 0.33%  违规/局  1.16  紧急步   3.4%  位置进框(宽松) 82.3%
+  clean（没训练过）                n= 577  到达 80.07%±1.66  碰撞 0.35%  违规/局  1.16  紧急步   3.4%  位置进框(宽松) 82.1%
+  strict（真一眼没见过）             n= 563  到达 79.57%±1.70  碰撞 0.36%  违规/局  1.14  紧急步   3.4%  位置进框(宽松) 81.7%
+      平滑: jerk 0.895 转艏Δ 0.0154 油门Δ 0.0028 路径 4188m ｜ 次网格细调率: 转艏 0.027 油门 0.013 ｜ 转艏|Δω|: 让路步 0.0008 其他步 0.0154
+  对照：训练/验证见过的                n=  37  到达 91.89%±4.49  碰撞 0.00%  违规/局  1.32  紧急步   3.3%  位置进框(宽松) 91.9%
+    · crossing（strict）       n= 376  到达 83.24%±1.93  碰撞 0.00%  违规/局  0.70  紧急步   2.7%  位置进框(宽松) 84.3%
+    · head-on（strict）        n= 187  到达 72.19%±3.28  碰撞 1.07%  违规/局  2.04  紧急步   4.7%  位置进框(宽松) 76.5%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s3_wsBIGppo_s3  臂=Continuous-safe kind=continuous seed=3 步=2539520
+  …下载 200/1300（失败 0）
+  …下载 400/1300（失败 0）
+  …下载 600/1300（失败 0）
+  …下载 800/1300（失败 0）
+  …下载 1000/1300（失败 0）
+  …下载 1200/1300（失败 0）
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=100：记录 90.00% vs 重评 90.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 90.33%±1.21  碰撞 0.00%  违规/局  1.16  紧急步   2.6%  位置进框(宽松) 92.8%
+  clean（没训练过）                n= 577  到达 89.95%±1.25  碰撞 0.00%  违规/局  1.15  紧急步   2.6%  位置进框(宽松) 92.5%
+  strict（真一眼没见过）             n= 563  到达 89.70%±1.28  碰撞 0.00%  违规/局  1.15  紧急步   2.7%  位置进框(宽松) 92.4%
+      平滑: jerk 0.863 转艏Δ 0.0147 油门Δ 0.0032 路径 4203m ｜ 次网格细调率: 转艏 0.028 油门 0.013 ｜ 转艏|Δω|: 让路步 0.0035 其他步 0.0147
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.19  紧急步   0.7%  位置进框(宽松) 100.0%
+    · crossing（strict）       n= 376  到达 93.09%±1.31  碰撞 0.00%  违规/局  0.75  紧急步   2.3%  位置进框(宽松) 94.4%
+    · head-on（strict）        n= 187  到达 82.89%±2.75  碰撞 0.00%  违规/局  1.96  紧急步   3.5%  位置进框(宽松) 88.2%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s4_wsBIGppo_s4  臂=Continuous-safe kind=continuous seed=4 步=2539520
+  …下载 200/1300（失败 0）
+  …下载 400/1300（失败 0）
+  …下载 600/1300（失败 0）
+  …下载 800/1300（失败 0）
+  …下载 1000/1300（失败 0）
+  …下载 1200/1300（失败 0）
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object clip_range. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+/usr/local/lib/python3.11/dist-packages/stable_baselines3/common/save_util.py:167: UserWarning: Could not deserialize object lr_schedule. Consider using `custom_objects` argument to replace this object.
+Exception: code() argument 13 must be str, not int
+  warnings.warn(
+  [锚点] 自记测试集 N=100：记录 70.00% vs 重评 74.00%（差 4.00pt）🟡 差 4 局（实测重放噪声内·`03` L192-C）
+  全部                         n= 600  到达 75.83%±1.75  碰撞 0.00%  违规/局  0.71  紧急步   0.8%  位置进框(宽松) 77.3%
+  clean（没训练过）                n= 577  到达 76.08%±1.78  碰撞 0.00%  违规/局  0.73  紧急步   0.8%  位置进框(宽松) 77.5%
+  strict（真一眼没见过）             n= 563  到达 75.67%±1.81  碰撞 0.00%  违规/局  0.74  紧急步   0.8%  位置进框(宽松) 77.1%
+      平滑: jerk 1.036 转艏Δ 0.0178 油门Δ 0.0038 路径 4229m ｜ 次网格细调率: 转艏 0.030 油门 0.029 ｜ 转艏|Δω|: 让路步 0.0013 其他步 0.0178
+  对照：训练/验证见过的                n=  37  到达 78.38%±6.77  碰撞 0.00%  违规/局  0.41  紧急步   0.3%  位置进框(宽松) 81.1%
+    · crossing（strict）       n= 376  到达 84.31%±1.88  碰撞 0.00%  违规/局  0.41  紧急步   0.7%  位置进框(宽松) 85.4%
+    · head-on（strict）        n= 187  到达 58.29%±3.61  碰撞 0.00%  违规/局  1.39  紧急步   1.0%  位置进框(宽松) 60.4%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+■ 锚点汇总（13 个 ckpt）：平均有符号差 +0.46pt · 最大绝对差 4.00pt · 11 个逐位复现 / 2 偏高 / 0 偏低
+  判读：平均差 ≈ 0 且正负混杂 ⟹ 只是浮点重放噪声，**eval 配置正确**；若平均差明显偏离 0 且方向一致 ⟹ 配置很可能真的错了，别信本次数字。
+
+[reeval_official] 完成 → /tmp/claude-0/-home-user-TRB-2027-ContinuesPPO/0f02786e-e953-5e5c-a73c-75007da574e5/scratchpad/reeval/p1.json
+[轨迹] 13 个 checkpoint × 4 个场景 → /tmp/claude-0/-home-user-TRB-2027-ContinuesPPO/0f02786e-e953-5e5c-a73c-75007da574e5/scratchpad/reeval/p1_traj.json

@@ -1,0 +1,26 @@
+{
+ "Continuous-safe_s0_wsHOCRppo_s0": {
+  "steps": 9639,
+  "real_gw": 68,
+  "fixed_gw": 234,
+  "real_em": 373,
+  "inst_gw": 249,
+  "new_gw": 167
+ },
+ "Continuous-safe_s5_wsHOCRppo_s5": {
+  "steps": 9519,
+  "real_gw": 64,
+  "fixed_gw": 274,
+  "real_em": 444,
+  "inst_gw": 296,
+  "new_gw": 211
+ },
+ "Continuous-safe_s8_wsHOCRppo_s8": {
+  "steps": 9978,
+  "real_gw": 51,
+  "fixed_gw": 284,
+  "real_em": 1083,
+  "inst_gw": 630,
+  "new_gw": 234
+ }
+}

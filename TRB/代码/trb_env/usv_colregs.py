@@ -569,19 +569,52 @@ RHO_EMERGENCY = 5     # ρ5 (R1)
 RHO_NAMES = {0: "no_conflict", 1: "stand_on", 2: "head_on", 3: "crossing", 4: "overtake", 5: "emergency"}
 
 
+#: `gw_entry` 取值：'paper' = 逐字忠实 2024 Fig.3（ρ0→give-way 只认 persistent_X）；
+#: 'symmetric' = 额外允许"现在就成立即进"（与 ρ1→give-way 的即时支对称）。默认恒 'paper' = bit-identical。
+GW_ENTRY_CHOICES = ("paper", "symmetric")
+
+
 class ColregsStatechart:
     """COLREGs 合规状态机 Γ（2024 §IV-C Fig.3）。
 
     stateful：持当前状态 ρ，每步 step(s_l, s_m) 按谓词转移并返回新 ρ。
     单 (ego=s_l, obstacle=s_m) pair（论文双船 assumption 2）。
+
+    ═══ `gw_entry`：ρ0 → give-way 的入口规则（🆕 `03` L230-§2）═══
+    **'paper'（默认·bit-identical）** = 逐字照 2024 §IV-A：`persistent_X = ¬X(now) ∧ G[dt,t_react](X)`。
+      注意第一个合取项 **`¬X(now)`**——"现在**尚非** X"是**必要条件**。语义上它是为了"提前进入应对"，
+      但副作用是：**只要相遇态势在某一步【直接成立】而没有先经过一段"CV 外推持续为真但当下不真"的窗口，
+      ρ0 就永远进不去 give-way 态**（典型 = 场景开局即处于让路态势）。
+
+    **'symmetric'** = persistent 没中时，再看"现在是否已经成立"（`_giveway_instant`），成立就进。
+      即把 ρ0→give-way 变成与 ρ1→give-way 同款的即时支（原状态机在这两条支上是**不对称**的：
+      ρ1 用即时、ρ0 用 persistent）。
+
+    ═══ 实测依据（本地·不占卡·`03` L230-§2）═══
+    · **对账**：全测试集（strict 563 × 10 种子）评分器记下 **3171 次**让路违规，而盾判定为让路（ρ2+ρ3+ρ4）
+      的总步数只有 **1280 步**。因每次被记违规的相遇**至少**占 1 步 ⟹ **至少 1891 步是"评分器算让路、盾不算"**。
+    · **决定性合成实验**：随机搜出 8 组"第 0 步 `crossing()` 已为真且未到紧急"的初始状态，两船恒速直行 80 步——
+      **8/8 全部：让路态 0 步**；把同一对船沿各自航向**倒退 40 步**再起跑（态势由无到有）——**8/8 全部进 ρ3**（16~20 步）。
+      同一对船、同一段几何，唯一差别是"起跑时态势成没成立"。
+    · **同轨迹收益估计**（3 颗种子 × 180 场景·真状态机决定动作、影子状态机只记账）：
+      让路步 68→234 / 64→274 / 51→284 = **3.4× / 4.3× / 5.6×**；对瞬时让路谓词的覆盖率 27%→94% · 22%→93% · 8%→45%。
+      新增让路步里**经紧急态解除路径的 = 0**（⟹ ρ5 不是漏斗，漏的全是 `¬X(now)` 这一道门）。
+
+    ⚠️ **评分器（`ViolationCounter`）一律不动**——它忠实官方离线 monitor，是裁判不是选手。
+    ⚠️ 'symmetric' 会**改变盾施加的动作** ⟹ 带盾臂必须**重训**，且训练/评估必须**同档**
+       （`run_step4e` 把它写进 `config_sig`、`replay_eval` 从 sidecar 回读，见那两处注释）。
     """
 
     def __init__(self, t_horizon: float = T_HORIZON, t_pred: float = T_PRED,
-                 dt: float = DT, t_react: float = T_REACT):
+                 dt: float = DT, t_react: float = T_REACT, gw_entry: str = "paper"):
         self.t_horizon = t_horizon
         self.t_pred = t_pred
         self.dt = dt
         self.t_react = t_react
+        gw_entry = (gw_entry or "paper").strip().lower()
+        if gw_entry not in GW_ENTRY_CHOICES:     # fail-fast·不静默回落（静默回落 = 以为改了其实没改）
+            raise ValueError(f"gw_entry 须 ∈ {GW_ENTRY_CHOICES}，得 {gw_entry!r}")
+        self.gw_entry = gw_entry
         self.rho = RHO_NO_CONFLICT
 
     def reset(self) -> None:
@@ -640,6 +673,8 @@ class ColregsStatechart:
 
         # ρ0（含刚 resolved 落下）：重新分类。give-way 用 persistent；keep 即时；否则维持 ρ0
         gw = self._giveway_persistent(s_l, s_m)
+        if gw is None and self.gw_entry == "symmetric":   # 🆕 L230-§2：persistent 没中 → 再看"现在是否已成立"
+            gw = self._giveway_instant(s_l, s_m)          #    （'paper' 档整条分支不执行 = bit-identical）
         if gw is not None:
             self.rho = gw
         elif keep(s_l, s_m, self.t_horizon):
@@ -1253,9 +1288,9 @@ class SafeActionScheduler:
     **alg3_kwargs 透传 encounter_action_verification（t_m/t_max_m/dt_sim/obs_width/...）。
     """
 
-    def __init__(self, vessel_params=None, dt: float = DT, **alg3_kwargs):
+    def __init__(self, vessel_params=None, dt: float = DT, gw_entry: str = "paper", **alg3_kwargs):
         self._vp = vessel_params if vessel_params is not None else _make_vessel_params()
-        self._statechart = ColregsStatechart()
+        self._statechart = ColregsStatechart(gw_entry=gw_entry)   # 🆕 L230-§2：默认 'paper' = bit-identical
         self._ec = EmergencyController(vessel_params=self._vp, dt=dt)
         self._alg3_kwargs = dict(alg3_kwargs)
         self._prev_rho = RHO_NO_CONFLICT

@@ -199,6 +199,22 @@ if _RATE_DOCK is not None:
         raise SystemExit(f"🔒 STEP4E_RATE_DOCK 须有限非负（区内治抖罚权重），得 {_RATE_DOCK}")
     if _DOCK_R <= 0.0:
         raise SystemExit(f"🔒 STEP4E_RATE_DOCK={_RATE_DOCK} 需 STEP4E_DOCK_R>0（泊位区半径·复用 r_velocity 门同区）·得 DOCK_R={_DOCK_R}")
+# 🆕 L230-§4：连续臂**动作分布档**。'gauss'(默认)=SB3 原生无界高斯+硬裁剪=**逐位等价现状**；'beta'=有界支撑。
+#   立项依据（全部本地实测·`03` L230-§1）：真实观测下确定性均值 **76~84% 的步在动作箱外**（中位 2.0~3.2× 半箱）
+#   ⟹ 压 σ / 退火熵系数一类便宜修法**全部无效**，必须换有界分布。详见 `trb_env/usv_action_dist.py` 模块 docstring。
+#   ⚠️ 换分布 ⟹ 旧存档灌不进去（高斯 log_std 形状 (2,)·Beta 无此参数）⟹ **只能从零训**；热启动源须同为 beta
+#      （下方 `_SEMANTIC_KEYS` 已含 act_dist ⟹ 配错 fail-fast）。**用 distinct TAG**，别与高斯臂混写同一 jsonl。
+_ACT_DIST = os.environ.get("STEP4E_ACT_DIST", "gauss").strip().lower()
+if _ACT_DIST not in ("gauss", "beta"):
+    raise SystemExit(f"🔒 STEP4E_ACT_DIST 须 ∈ {{gauss, beta}}（连续臂动作分布档），得 {_ACT_DIST!r}")
+# 🆕 L230-§2：COLREGs 状态机 **ρ0→give-way 入口档**。'paper'(默认)=逐字忠实 2024 Fig.3（只认 persistent_X，
+#   而 persistent_X 的第一个合取项是 `¬X(now)`）=**逐位等价现状**；'symmetric'=persistent 没中时再看"现在是否已成立"
+#   （与 ρ1→give-way 的即时支对称）。实测依据与收益估计见 `ColregsStatechart` 类 docstring + `03` L230-§2。
+#   ⚠️ 它**改变盾施加的动作** ⟹ 带盾臂必须重训，且训练/评估必须同档 ⟹ 进 `config_sig`（自描述），
+#      `replay_eval` 从 sidecar **回读**（不靠评估时再设一遍环境变量=避开 L192 那个"静默改数字"的洞）。
+_GW_ENTRY = os.environ.get("STEP4E_GW_ENTRY", "paper").strip().lower()
+if _GW_ENTRY not in ("paper", "symmetric"):
+    raise SystemExit(f"🔒 STEP4E_GW_ENTRY 须 ∈ {{paper, symmetric}}（状态机让路入口档），得 {_GW_ENTRY!r}")
 _COLREGS_W_CONT = float(os.environ.get("STEP4E_COLREGS_WEIGHT", "0.0"))   # 连续臂 r_colregs 权重·默认0.0=现状bit-identical·A/B=1.0·仅连续臂
 if not (math.isfinite(_COLREGS_W_CONT) and _COLREGS_W_CONT >= 0.0):
     raise SystemExit(f"🔒 STEP4E_COLREGS_WEIGHT 须有限非负,得 {_COLREGS_W_CONT}")
@@ -207,6 +223,24 @@ if not _CONTINUOUS_SHIELD and any(v > 0.0 for v in (_PARK_W, _STEP_COST, _RATE_W
     raise SystemExit(f"🔒 连续无盾臂(STEP4E_CONTINUOUS_SHIELD=0)不可同开连续专属 shaping：park={_PARK_W}/c_step={_STEP_COST}/rate={_RATE_W}/alias={_ALIAS_W}/dwell={_DWELL_W} 须全 0（离散无盾 Base/RR 拿不到这些项·带了则解耦崩塌归因被污染）。")
 if not _CONTINUOUS_SHIELD and (_C_REACH != _C_REACH_DEF or _DOCK_R > 0.0 or _RATE_DOCK is not None):   # 🆕 第二条腿修法同理（`03` L172/L173）：无盾臂改 c_reach/开泊位门/开 rank1 治抖门→与离散无盾(默认口径)不对称=污染 why-RL 解耦→fail-fast
     raise SystemExit(f"🔒 连续无盾臂(STEP4E_CONTINUOUS_SHIELD=0)不可改 c_reach({_C_REACH}≠默认{_C_REACH_DEF}) 或开泊位门(dock_radius={_DOCK_R}) 或开 rank1 治抖门(rate_dock={_RATE_DOCK})：离散无盾用默认奖励口径·带了则解耦崩塌归因被污染。")
+# 🔴 两条 fail-fast（本项目反复踩的坑 = **静默无效**：设了开关、以为在探它、其实一行都没生效）。
+#   ① act_dist=beta 只在【连续 PPO】臂成立：SAC 用 tanh-squash 高斯（本就有界·换法完全不同）、离散臂动作是网格下标。
+#   ② gw_entry=symmetric 只在【有盾】臂成立：Base/Rule-reward 是无盾臂（step 不推状态机）⟹ 设了等于没设。
+if _ACT_DIST != "gauss" and os.environ.get("STEP4E_CONTINUOUS_ALGO", "sac").strip().lower() != "ppo":
+    raise SystemExit(f"🔒 STEP4E_ACT_DIST={_ACT_DIST} 仅对【连续 PPO】臂有效（须同设 STEP4E_CONTINUOUS_ALGO=ppo）："
+                     "SAC 走 tanh-squash 高斯（本就有界）、离散臂动作是网格下标 ⟹ 此处设了会【静默无效】。")
+if _ACT_DIST != "gauss" and not _CONTINUOUS_SHIELD:
+    raise SystemExit(f"🔒 STEP4E_ACT_DIST={_ACT_DIST} 与连续无盾臂(STEP4E_CONTINUOUS_SHIELD=0)同开无意义："
+                     "换分布是为治『裁剪造成的梯度平高原 + 治抖罚项无着力点』，无盾臂不投影、口径另算 ⟹ 先别混。")
+if _GW_ENTRY != "paper":
+    _parties_raw = os.environ.get("STEP4E_PARTIES", "").strip()
+    _pset = {p.strip() for p in _parties_raw.split(",") if p.strip()}
+    if _pset and not (_pset <= {"Continuous-safe", "Discrete-safe"}):
+        raise SystemExit(f"🔒 STEP4E_GW_ENTRY={_GW_ENTRY} 只对【有盾】臂生效（Continuous-safe / Discrete-safe）；"
+                         f"本 run 的 STEP4E_PARTIES={_parties_raw!r} 含无盾臂（Base/Rule-reward 不推状态机）⟹ 那几条臂会【静默无效】。"
+                         " 请把带盾臂单独跑（distinct TAG），别混写。")
+    if "Continuous-safe" in _pset and not _CONTINUOUS_SHIELD:
+        raise SystemExit(f"🔒 STEP4E_GW_ENTRY={_GW_ENTRY} 但 STEP4E_CONTINUOUS_SHIELD=0（连续无盾臂 step 短路·不推状态机）⟹ 静默无效。")
 # 🆕 ρ0 朝目标锥（统一态势盾·方案①·`03` L145/L147·PhaseC 标定）：空旷水域(ρ0)也约束动作朝目标锥防游荡（崩铁证 97% ρ0 空旷游荡）。
 #   STEP4E_GOAL_CONE_HALF=Φ【半角·度】(默认 off=None=逐位等价现状 bit-identical·锥关→goal_cone_action 返回 None→u_safe=u_desired)·内部转弧度传盾（ContinuousColregsProjection 期望 (0,π] rad）。
 #   仅连续臂（离散/无盾臂拿不到锥）·进 config_conflict（防同TAG混锥配置静默跳过）·不进 config_sig（=保续训 bit-identical·同 continuous_shield 口径·A/B/sweep 用 distinct TAG）。
@@ -778,6 +812,30 @@ def save_segment_checkpoint(model, venv, name, kind, weight, seed, ckpt_dir, *,
     return base
 
 
+def _read_gw_entry(base):
+    """🆕 L230-§2：从 checkpoint 旁 `.progress.json`（config_sig.gw_entry）回读**训练时**的让路入口档。
+
+    🔴 为什么必须从 sidecar 读、而不是评估时再设一遍环境变量：
+      `gw_entry` 改的是**盾施加的动作**。训练时 symmetric、评估时 paper（或反过来）⟹ "训练什么就部署什么"被破坏，
+      报出来的数就是错的，而且**聚合指标上完全看不出来**（正是 `03` L192 那个洞的形状）。
+      sidecar 是这条臂的自描述，从它回读 ⟹ 评估端**不可能**配错。
+    缺 sidecar / 缺字段（老存档）→ None ⟹ 调用方回落 'paper' = 老存档训练时的真实档位（向后兼容且正确）。
+    环境变量 `STEP4E_GW_ENTRY_FORCE=1` 时改用当前 `_GW_ENTRY` 覆盖——**只给消融用**（"同一个策略在两种盾下各评一次"），
+    绝不可用于报数（报数一律 sidecar 口径）。
+    """
+    if os.environ.get("STEP4E_GW_ENTRY_FORCE", "0").strip() == "1":
+        return _GW_ENTRY
+    pj = base + ".progress.json"
+    if os.path.exists(pj):
+        try:
+            cfg = json.loads(open(pj, encoding="utf-8").read()).get("config_sig") or {}
+            g = cfg.get("gw_entry")
+            return g.lower() if isinstance(g, str) else None
+        except Exception:
+            return None
+    return None
+
+
 def _read_continuous_algo(base):
     """从 checkpoint 旁的 `.progress.json`（config_sig.continuous_algo）读连续臂算法（'ppo'/'sac'）→ 决定 replay 用哪个 loader。
     progress.json 由 Layer-1 每段 save_segment_checkpoint 写（含 config_sig·`03` L80-续6）。缺 sidecar/缺字段/读失败 → None
@@ -823,11 +881,12 @@ def replay_eval(base, kind, weight, test_pool, *, continuous_algo=None, return_p
     from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
     from trb_env.train import make_obs_transform
     env_cls = env_cls_of(kind)
+    _gwe = _read_gw_entry(base) or "paper"   # 🆕 L230-§2：让路入口档从**本 ckpt 的 sidecar** 回读（老存档缺键→'paper'=它训练时的真实档）。两条臂都要用 ⟹ 提到分支之前。
     tf = None
     _pkl = base + "_vecnorm.pkl"
     if os.path.exists(_pkl):                                    # 重建 obs_transform：saved vecnorm 载入最小 base venv（test_pool[0] 取 obs 空间）
         _sc0, _pp0 = test_pool[0]
-        _bv_extra = dict(augment_rho=_AUGMENT_RHO) if kind == "continuous" else {}   # 🆕 腿1：vecnorm-load base venv 的 obs 空间须与训练同维（34/27）·否则载 34-obs_rms 进 27-space=形状崩/静默错（cone 不改 obs 维度不需此·augment 必须·L151 train/eval 同构造）
+        _bv_extra = dict(augment_rho=_AUGMENT_RHO) if kind == "continuous" else ({"gw_entry": _gwe} if (kind == "shielded" and _gwe != "paper") else {})   # 🆕 腿1：vecnorm-load base venv 的 obs 空间须与训练同维（34/27）·否则载 34-obs_rms 进 27-space=形状崩/静默错（cone 不改 obs 维度不需此·augment 必须·L151 train/eval 同构造）
         _bv = DummyVecEnv([lambda: env_cls(_sc0, _pp0, colregs_weight=weight, **_bv_extra)])
         _vn = VecNormalize.load(_pkl, _bv)
         _vn.training = False
@@ -838,13 +897,15 @@ def replay_eval(base, kind, weight, test_pool, *, continuous_algo=None, return_p
         _algo = (continuous_algo or _read_continuous_algo(base) or "sac").lower()   # 显式优先→sidecar→默认 sac(向后兼容)
         if _algo == "ppo":                                         # 连续臂主臂（L69）·plain PPO·load_sac_for_eval 对它崩（02 残余④/钱图地雷）
             from stable_baselines3 import PPO
+            from trb_env import usv_action_dist as _uad            # 🆕 L230-§4：**必须在 PPO.load 之前 import**——Beta 档的 policy 类靠模块可导入才反序列化得出来（否则 "Can't get attribute"）。gauss 档 import 也无副作用。
+            _ = _uad
             model = PPO.load(base + ".zip", device="cpu")          # 同 reeval_2000.py 的 PPO.load 路径
         else:                                                      # SAC（脚注臂）·鲁棒载跳优化器（BRO wd>0 checkpoint 不崩·L67-续8/二审 BRO-3）
             from trb_env.usv_sac_train import load_sac_for_eval
             model = load_sac_for_eval(base + ".zip", device="cpu")
         if policy_wrap is not None:
             model = policy_wrap(model)          # 控制器侧包装（盾仍在最后·安全关键文件一行不动·`03` L218）
-        agg, per = evaluate_continuous(lambda sc, pp: ContinuousProjectionEnv(sc, pp, shield=_CONTINUOUS_SHIELD, goal_cone_half=_GOAL_CONE_HALF_RAD, goal_v_floor=_GOAL_V_FLOOR, augment_rho=_AUGMENT_RHO, goal_ignore_orientation=_GOAL_IGNORE_ORIENT, ctrl_slew_frac=_CTRL_SLEW, ctrl_lowpass_alpha=_CTRL_LOWPASS), model, test_pool, obs_transform=tf, traj_idxs=traj_idxs)   # 🆕 P0 盾开关 + ρ0 锥 + 腿1 态势增广（replay eval 须与训练同 shield/cone/augment·靠同 env 变量）
+        agg, per = evaluate_continuous(lambda sc, pp: ContinuousProjectionEnv(sc, pp, shield=_CONTINUOUS_SHIELD, goal_cone_half=_GOAL_CONE_HALF_RAD, goal_v_floor=_GOAL_V_FLOOR, augment_rho=_AUGMENT_RHO, goal_ignore_orientation=_GOAL_IGNORE_ORIENT, ctrl_slew_frac=_CTRL_SLEW, ctrl_lowpass_alpha=_CTRL_LOWPASS, gw_entry=_gwe), model, test_pool, obs_transform=tf, traj_idxs=traj_idxs)   # 🆕 L230-§2：gw_entry 从【本 ckpt 的 sidecar】回读(不是当前环境变量)=训练什么就部署什么   # 🆕 P0 盾开关 + ρ0 锥 + 腿1 态势增广（replay eval 须与训练同 shield/cone/augment·靠同 env 变量）
     else:
         from sb3_contrib import MaskablePPO
         from trb_env.evaluate import evaluate
@@ -852,7 +913,8 @@ def replay_eval(base, kind, weight, test_pool, *, continuous_algo=None, return_p
             raise SystemExit(f"🔒 policy_wrap 只支持连续臂，但 {os.path.basename(base)} 的 kind={kind}（离散）。"
                              "静默忽略会报出一个『以为滤过、其实没滤』的数 ⟹ 中止。")
         model = MaskablePPO.load(base + ".zip", device="cpu")
-        agg, per = evaluate(lambda sc, pp: env_cls(sc, pp, colregs_weight=weight), model, test_pool, obs_transform=tf, traj_idxs=traj_idxs)
+        _gw_kw = {"gw_entry": _gwe} if (kind == "shielded" and _gwe != "paper") else {}   # 🆕 L230-§2：从本 ckpt sidecar 回读（'paper'/无盾臂 → 不加键 = 逐位不变）
+        agg, per = evaluate(lambda sc, pp: env_cls(sc, pp, colregs_weight=weight, **_gw_kw), model, test_pool, obs_transform=tf, traj_idxs=traj_idxs)
     return (agg, per) if return_per else agg
 
 
@@ -897,10 +959,15 @@ def train_eval_one(name, kind, weight, seed, train_paths, test_pool, *,
     from trb_env.evaluate import evaluate
 
     env_cls = env_cls_of(kind)
+    # 🆕 L230-§2：让路入口档只对【有盾】臂有意义（Base/Rule-reward 无盾=不推状态机）⟹ 只给 shielded 传。
+    #   传法 = ShieldedUSVEnv(**scheduler_kwargs) → SafeActionScheduler(gw_entry=) → ColregsStatechart(gw_entry=)。
+    #   'paper'(默认) 时**不加这个键** ⟹ env_kwargs 逐位不变 ⟹ 现状 bit-identical。
+    _gw_kw = {"gw_entry": _GW_ENTRY} if (kind == "shielded" and _GW_ENTRY != "paper") else {}
     venv = make_vec_env(paths=train_paths, n_envs=n_envs, env_cls=env_cls,
                         env_kwargs=dict(colregs_weight=weight, gamma=_GAMMA,
                                         well_shaping_weight=_WELL_B, shaping_radius=_SHAPING_RADIUS,
-                                        xtrack_weight=_WELL_X, xtrack_radius=_XTRACK_RADIUS),   # 对症 横向进带势（`03` L88·四方对称）
+                                        xtrack_weight=_WELL_X, xtrack_radius=_XTRACK_RADIUS,   # 对症 横向进带势（`03` L88·四方对称）
+                                        **_gw_kw),
                         subproc=subproc, seed=seed)
     # clip_reward 默认吃 sb3 的 10.0（= 已验证配方 D22）；STEP4E_CLIP_REWARD 设则覆盖（消融）。
     # 审核#1：稀疏 +50 终端被 return-std 归一化后硬 clip ±10、疑为种子分裂诱因之一 → 放松 clip 做对照。
@@ -987,7 +1054,8 @@ def train_eval_one(name, kind, weight, seed, train_paths, test_pool, *,
     learn_cb = _cbs[0] if len(_cbs) == 1 else _cbs                          # 单个时传 callback 本体（保 OFF 路径与旧版逐位一致·不套 CallbackList）
 
     def fac(sc, pp):
-        return env_cls(sc, pp, colregs_weight=weight)
+        _gw_kw = {"gw_entry": _GW_ENTRY} if (kind == "shielded" and _GW_ENTRY != "paper") else {}   # 🆕 L230-§2：训练期评估与本 run 同档（'paper' → 不加键 = 逐位不变）
+        return env_cls(sc, pp, colregs_weight=weight, **_gw_kw)
 
     seg = max(1, total_steps // n_seg)
     trend = []
@@ -1129,6 +1197,8 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
             goal_ignore_orientation=_GOAL_IGNORE_ORIENT,   # 🆕 L185：去朝向硬门透传训练 maker（默认 False=严格真门=bit-identical·eval fac 同传=主指标一致）
             arrival_heading_slack=_arr_slack_init,   # 🆕 B1(`03` L153)：到达门朝向课程起始 slack 透传 maker（默认 0.0=真门=bit-identical·退火 callback 覆盖）
             warmstart_ckpt=(_WARMSTART_CKPT or None),   # 🆕 L190：热启动源 ckpt 透传训练 maker（默认 None=不热启动=bit-identical·灌源 policy+源 vecnorm·探索侧治崩）
+            act_dist=_ACT_DIST,   # 🆕 L230-§4：动作分布档（'gauss' 默认=bit-identical / 'beta'=有界支撑·治 bang-bang 根因）
+            gw_entry=_GW_ENTRY,   # 🆕 L230-§2：状态机让路入口档（'paper' 默认=bit-identical / 'symmetric'=现在成立即进）
             ent_coef=ENT_START)                                        # =离散臂常量 ent（config-driven·非硬编 0.01·F3 口径平价）
     else:
         model, venv = make_continuous_safe_model(
@@ -1190,7 +1260,7 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
         _arr_slack_anneal_cb = ArrivalSlackAnnealSyncCallback(_arr_slack_sched, venv)   # 持【训练 venv】（eval fac 另建·恒真门·不被本 callback 触碰）
 
     def fac(sc, pp):
-        return ContinuousProjectionEnv(sc, pp, shield=_CONTINUOUS_SHIELD, goal_cone_half=_GOAL_CONE_HALF_RAD, goal_v_floor=_GOAL_V_FLOOR, augment_rho=_AUGMENT_RHO, goal_ignore_orientation=_GOAL_IGNORE_ORIENT, ctrl_slew_frac=_CTRL_SLEW, ctrl_lowpass_alpha=_CTRL_LOWPASS)   # colregs_weight 默认 0.0（Node B/L44 footgun 修复）；🆕 P0 盾开关 + ρ0 锥 + 腿1 态势增广（eval 须与训练同 shield/cone/augment）；🔴 B1：**不传 arrival_heading_slack=恒真门**（诚实红线·评估不放水）
+        return ContinuousProjectionEnv(sc, pp, shield=_CONTINUOUS_SHIELD, goal_cone_half=_GOAL_CONE_HALF_RAD, goal_v_floor=_GOAL_V_FLOOR, augment_rho=_AUGMENT_RHO, goal_ignore_orientation=_GOAL_IGNORE_ORIENT, ctrl_slew_frac=_CTRL_SLEW, ctrl_lowpass_alpha=_CTRL_LOWPASS, gw_entry=_GW_ENTRY)   # 🆕 L230-§2：训练期分段评估与本 run 同档（同一进程·模块变量即真相）   # colregs_weight 默认 0.0（Node B/L44 footgun 修复）；🆕 P0 盾开关 + ρ0 锥 + 腿1 态势增广（eval 须与训练同 shield/cone/augment）；🔴 B1：**不传 arrival_heading_slack=恒真门**（诚实红线·评估不放水）
 
     class _SACCurveLogger(BaseCallback):
         """连续臂(SAC=论文 hero 臂)训练曲线（Node L CAT6·D42-Lschema④：原连续臂 model.learn 零 callback=hero 内部曲线未记）。
@@ -1246,7 +1316,12 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
                           "xtrack_weight", "xtrack_radius", "park_weight", "park_radius", "park_v_target",
                           "c_step", "c_dwell", "w_dwell", "h_dwell", "dwell_radius", "b_dwell",
                           "c_reach", "dock_radius", "v_dock", "alias_weight", "rate_weight", "rate_dock",
-                          "continuous_algo", "ctrl_slew_frac", "ctrl_lowpass_alpha")   # 影响【策略语义/环境动力学】的键（不含 total_steps/n_seg/n_envs/seed/dataset 等 run 规模键=允许不同）
+                          "continuous_algo", "ctrl_slew_frac", "ctrl_lowpass_alpha",
+                          "act_dist", "gw_entry")   # 影响【策略语义/环境动力学】的键（不含 total_steps/n_seg/n_envs/seed/dataset 等 run 规模键=允许不同）
+        # 🔴 L229-F 修（本条闸门此前**空转**）：`ctrl_slew_frac`/`ctrl_lowpass_alpha` 列在上面白名单里，
+        #   但既没进 `_config_sig`（源 sidecar 里根本没这两个键）、也没进下方 `_cur_sig_probe`，
+        #   而比对条件是 `if k in _src_sig and k in _cur_sig_probe` ⟹ **两键永远被跳过 = 这道闸空转**。
+        #   现在两处都补齐（见下方 `_cur_sig_probe` 与 `_config_sig`），新增的 act_dist/gw_entry 一并进。
         _sp = _WARMSTART_CKPT + ".progress.json"
         try:
             with open(_sp, "r", encoding="utf-8") as _f:
@@ -1264,7 +1339,9 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
                                   c_step=_STEP_COST, c_dwell=_DWELL_W, w_dwell=_DWELL_WLAT, h_dwell=_DWELL_HDG,
                                   dwell_radius=_DWELL_R, b_dwell=_DWELL_B, c_reach=_C_REACH, dock_radius=_DOCK_R,
                                   v_dock=_V_DOCK, alias_weight=_ALIAS_W, rate_weight=_RATE_W, rate_dock=_RATE_DOCK,
-                                  continuous_algo=_algo)
+                                  continuous_algo=_algo,
+                                  ctrl_slew_frac=_CTRL_SLEW, ctrl_lowpass_alpha=_CTRL_LOWPASS,   # 🔴 L229-F 修：这两个键此前漏在这里 ⟹ 白名单里列了也永远被跳过
+                                  act_dist=_ACT_DIST, gw_entry=_GW_ENTRY)   # 🆕 L230：换分布/改状态机的源必须同档（灌错=静默方法论错）
             _mism = [(k, _src_sig.get(k), _cur_sig_probe.get(k)) for k in _SEMANTIC_KEYS
                      if k in _src_sig and k in _cur_sig_probe and _src_sig.get(k) != _cur_sig_probe.get(k)]
             if _mism:
@@ -1294,6 +1371,8 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
                    "tau": (None if _algo == "ppo" else _tau),
                    "critic_wd": (None if _algo == "ppo" else _critic_wd),
                    "gradient_steps": (None if _algo == "ppo" else _gradient_steps),
+                   "ctrl_slew_frac": _CTRL_SLEW, "ctrl_lowpass_alpha": _CTRL_LOWPASS,   # 🔴 L229-F 修：`_SEMANTIC_KEYS` 列了这两键却没进 config_sig ⟹ 源 sidecar 里没有 ⟹ 热启动那道闸空转。补进来闸才真的会拦。
+                   "act_dist": _ACT_DIST, "gw_entry": _GW_ENTRY,   # 🆕 L230：动作分布档 + 状态机让路入口档。**必须进 config_sig**——它们改的是策略语义/盾行为，评估端要靠它还原"这条臂是怎么训的"（训练什么就部署什么）。⚠️ 老 ckpt 缺这两键→续训会从 0 重启：本项目走 fresh 5M + distinct TAG，不续老 ckpt=可接受（同 c_reach 既定口径）。
                    "lr_anneal_end": _LR_ANNEAL_END, "lr_anneal_frac": _LR_ANNEAL_FRAC}   # LR 退火=影响训练→进续训匹配白名单（`03` L88·off 时 end=None）
     _cont_cbs = [sac_curve_cb]                                           # OFF 全关→只本体(不套 CallbackList·保字节级不变)·ON→加 LR/惩罚退火同步
     if _lr_anneal_cb is not None:
@@ -1346,7 +1425,7 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
     return {"party": "Continuous-safe", "kind": "continuous", "colregs_weight": _COLREGS_W_CONT,
             "continuous_shield": _CONTINUOUS_SHIELD, "seed": seed,   # 🆕 P0 盾开关自描述（provenance·钱图/复现溯源·不进 config_sig 保续训 bit-identical）
             "goal_cone_half_deg": _GOAL_CONE_HALF_DEG, "goal_v_floor": _GOAL_V_FLOOR,
-            "ctrl_slew_frac": _CTRL_SLEW, "ctrl_lowpass_alpha": _CTRL_LOWPASS,   # 🆕 L228 训练期转向平滑（None=不施加）   # 🆕 ρ0 朝目标锥自描述（PhaseC·L147·连续臂专属·off=None=现状·config_conflict 据此识锥混配·度=canonical 口径）
+            "ctrl_slew_frac": _CTRL_SLEW, "ctrl_lowpass_alpha": _CTRL_LOWPASS, "act_dist": _ACT_DIST, "gw_entry": _GW_ENTRY,   # 🆕 L228 训练期转向平滑（None=不施加）+ 🆕 L230 动作分布档/让路入口档（run_config 自描述）   # 🆕 ρ0 朝目标锥自描述（PhaseC·L147·连续臂专属·off=None=现状·config_conflict 据此识锥混配·度=canonical 口径）
             "augment_rho": _AUGMENT_RHO,   # 🆕 腿1(L150/L152)：态势感知增广自描述（连续臂专属·off=False=现状·config_conflict 据此识 27/34维混写）
             "goal_ignore_orientation": _GOAL_IGNORE_ORIENT,   # 🆕 L185/L186：训练目标去朝向硬门自描述（连续臂专属·off=False=严格真门·True=位置-only·纯 provenance 不进 config_sig=续训 bit-identical·判读位置-only 烧卡结果据此识判据·posonly 用 distinct TAG 故不与金标混文件）
             "warmstart_ckpt": (_WARMSTART_CKPT or None),   # 🆕 L190：热启动源 ckpt 路径自描述（连续PPO臂专属·off=None=从零训练·纯 provenance 不进 config_sig=续训 bit-identical·⚠️训练流程如实可查=方法论诚实命门·别 claim"从零稳定"若热启动了）
@@ -1662,7 +1741,7 @@ def main():
             "warmstart_ckpt": (_WARMSTART_CKPT or None), "warmstart_src_fp": _WARMSTART_FP,   # 🆕 L190 热启动源 ckpt 路径+【内容指纹】（run_config 自描述·连续PPO臂专属·off=None=从零·provenance 命门=训练流程如实可查·指纹=真身份防同路径换源·第2轮审HIGH#1）
             "continuous_shield": _CONTINUOUS_SHIELD,   # 🆕 P0 SE-RL 盾 on/off（run_config 自描述·L146·连续臂专属·provenance 完整）
             "goal_cone_half_deg": _GOAL_CONE_HALF_DEG, "goal_v_floor": _GOAL_V_FLOOR,
-            "ctrl_slew_frac": _CTRL_SLEW, "ctrl_lowpass_alpha": _CTRL_LOWPASS,   # 🆕 L228 训练期转向平滑（None=不施加）   # 🆕 ρ0 朝目标锥 Φ(度)/v_floor（run_config 自描述·PhaseC·L147·连续臂专属）
+            "ctrl_slew_frac": _CTRL_SLEW, "ctrl_lowpass_alpha": _CTRL_LOWPASS, "act_dist": _ACT_DIST, "gw_entry": _GW_ENTRY,   # 🆕 L228 训练期转向平滑（None=不施加）+ 🆕 L230 动作分布档/让路入口档   # 🆕 ρ0 朝目标锥 Φ(度)/v_floor（run_config 自描述·PhaseC·L147·连续臂专属）
             "augment_rho": _AUGMENT_RHO,   # 🆕 腿1(L150/L152)：态势感知增广（run_config 自描述·连续臂专属）
             "arr_slack_start_deg": _ARR_SLACK_START_DEG, "arr_slack_anneal_frac": _ARR_SLACK_ANNEAL_FRAC,   # 🆕 B1(L153)：到达门朝向课程 slack 起始度+退火比例（run_config 自描述·连续臂专属·off=None）
             "start_frac": _START_FRAC, "start_v": _START_V,   # 🆕 逆向起点课程（`03` L181）：起点系数+课程重生速度（run_config 自描述·连续臂专属·1.0=真起点·评估恒真起点不受影响）

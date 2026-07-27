@@ -120,6 +120,7 @@ class ContinuousColregsProjection:
         eps_omega: float = DEFAULT_EPS_OMEGA,
         eps_a: float = DEFAULT_EPS_A,
         statechart: ColregsStatechart | None = None,
+        gw_entry: str = "paper",   # 🆕 L230-§2：ρ0→give-way 入口档（'paper' 默认=bit-identical / 'symmetric'=现在成立即进）。仅在 statechart=None（本类自建）时生效；显式传 statechart 时以那个实例自己的档为准（不覆盖=单一真相源）。
         recursive_feasibility: bool = False,
         # ── 🆕 分级介入（graded intervention·`03` L205·2026-07-25 later）──────────────────
         # False(默认) = 现行为【逐位不变 bit-identical】：ρ5 紧急 → 直接 Alg.1（策略动作被整个丢弃）。
@@ -196,7 +197,7 @@ class ContinuousColregsProjection:
         #   在此 raise（构造期硬失败）·非只靠 _integrate_maneuver_official 里的 assert（-O 会剥离）。
         if abs(round(_uterm.DECISION_DT / self.terminal_dt_sim) * self.terminal_dt_sim - _uterm.DECISION_DT) >= 1e-9:
             raise ValueError(f"terminal_dt_sim 须整除 {_uterm.DECISION_DT}s（10s 边界钳不错拍），得到 {terminal_dt_sim}")
-        self._sc = statechart if statechart is not None else ColregsStatechart()
+        self._sc = statechart if statechart is not None else ColregsStatechart(gw_entry=gw_entry)
         # Node 4 兜底：紧急控制器(Alg.1)懒创建（首次 safe_action 用其 vessel_params/dt）+ ρ5 进入边沿 reset 用的 prev_rho
         self._ec: EmergencyController | None = None
         self._prev_rho: int = RHO_NO_CONFLICT
@@ -522,7 +523,8 @@ class ContinuousColregsProjection:
         s_obs_n = predict_state_cv(s_obs, dt)          # 他船恒速预测（规则态势保向保速，同 collision_free_constraint）
         # ρ' 用当前 ρ 播种临时状态机严格复现（无副作用·不碰 self._sc）
         tmp = ColregsStatechart(t_horizon=self._sc.t_horizon, t_pred=self._sc.t_pred,
-                                dt=self._sc.dt, t_react=self._sc.t_react)
+                                dt=self._sc.dt, t_react=self._sc.t_react,
+                                gw_entry=self._sc.gw_entry)   # 🆕 L230-§2：前瞻用的临时状态机须与在役状态机【同档】，否则终端可行性判据与真实转移不一致
         tmp.rho = int(current_rho)
         rho_n = int(tmp.step(s_ego_n, s_obs_n))
         if rho_n in (RHO_NO_CONFLICT, RHO_STAND_ON, RHO_EMERGENCY):
@@ -553,7 +555,8 @@ class ContinuousColregsProjection:
                               orientation=float(nxt[2]), velocity=float(nxt[3]), length=s_ego.length)
         s_obs_n = predict_state_cv(s_obs, dt)
         tmp = ColregsStatechart(t_horizon=self._sc.t_horizon, t_pred=self._sc.t_pred,
-                                dt=self._sc.dt, t_react=self._sc.t_react)
+                                dt=self._sc.dt, t_react=self._sc.t_react,
+                                gw_entry=self._sc.gw_entry)   # 🆕 L230-§2：前瞻用的临时状态机须与在役状态机【同档】，否则终端可行性判据与真实转移不一致
         tmp.rho = int(current_rho)
         rho_n = int(tmp.step(s_ego_n, s_obs_n))
         if rho_n in (RHO_NO_CONFLICT, RHO_STAND_ON, RHO_EMERGENCY):

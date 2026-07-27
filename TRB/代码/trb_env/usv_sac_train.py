@@ -708,6 +708,8 @@ def make_continuous_safe_ppo_model(scenario_pool=None, *, paths=None, seed: int 
                                    goal_ignore_orientation: bool = False,   # 🆕 L185(user 2026-07-13)：训练目标去朝向硬门→1_goal 只判位置到达区域（透传 ContinuousProjectionEnv→USVEnv→term_checker）·默认 False=严格真门=bit-identical·True=位置-only（两阶段stage-1·治崩种子绕圈）
                                    c_reach: float = C_REACH, dock_radius: float = 0.0, v_dock: float = V_LOW,   # 🆕 第二条腿修法（`03` L172·连续臂专属·默认关 bit-identical·透传 ContinuousProjectionEnv→USVEnv→RewardFunction）
                                    warmstart_ckpt: str | None = None,   # 🆕 L190（user 2026-07-16）：热启动源 ckpt 路径（不含扩展名·须 <base>.zip+<base>_vecnorm.pkl）·默认 None=不热启动=bit-identical·探索侧治崩（JSRL/AWAC 式·灌源 policy+源 vecnorm stats）
+                                   act_dist: str = "gauss",   # 🆕 L230-§4：动作分布档 'gauss'(默认=SB3 原生无界高斯+硬裁剪=bit-identical) / 'beta'(有界支撑·治 bang-bang 根因·见 trb_env/usv_action_dist.py)
+                                   gw_entry: str = "paper",   # 🆕 L230-§2：状态机 ρ0→give-way 入口档 'paper'(默认=忠实 Fig.3=bit-identical) / 'symmetric'(现在成立即进)·透传 ContinuousProjectionEnv→ContinuousColregsProjection→ColregsStatechart
                                    **ppo_kwargs):   # 对症 横向进带势（`03` L88·显式具名在 **ppo_kwargs 前）
     """构造 Continuous-safe 【PPO】模型（ContinuousProjectionEnv + sb3 PPO）。返回 `(model, venv)`。
 
@@ -739,7 +741,8 @@ def make_continuous_safe_ppo_model(scenario_pool=None, *, paths=None, seed: int 
                                         c_step=c_step,   # 修法C 每步生存成本（`03` L123·连续臂专属·非PBRS）
                                         c_dwell=c_dwell, w_dwell=w_dwell, h_dwell=h_dwell, dwell_radius=dwell_radius, b_dwell=b_dwell,   # r_dwell 入库赤字滞留成本（`03` L161/L162·连续臂专属·非PBRS）
                                         c_reach=c_reach, dock_radius=dock_radius, v_dock=v_dock,   # 🆕 第二条腿修法透传（`03` L172·连续臂专属·默认关 bit-identical）
-                                        alias_weight=alias_weight, rate_weight=rate_weight, rate_dock=rate_dock),   # 动作混叠(Markgraf 式20·L97) + action-rate 平滑(L98) + rank1 泊位门控治抖(L173)
+                                        alias_weight=alias_weight, rate_weight=rate_weight, rate_dock=rate_dock,   # 动作混叠(Markgraf 式20·L97) + action-rate 平滑(L98) + rank1 泊位门控治抖(L173)
+                                        gw_entry=gw_entry),   # 🆕 L230-§2：让路入口档 → proj_kwargs → ContinuousColregsProjection(gw_entry=) → 自建 ColregsStatechart（默认 'paper'=bit-identical）
                         subproc=subproc, seed=seed)
     # ③ 同款 VecNormalize（obs+clip 单一真相源·norm_reward 可调·gamma 同进）
     if use_vecnorm:
@@ -749,12 +752,22 @@ def make_continuous_safe_ppo_model(scenario_pool=None, *, paths=None, seed: int 
     # ④ sb3 PPO（连续 Box·net [64,64]·ent_coef 同离散·gamma 与 VecNormalize 一致）
     # 🔴 F1（深核 MAJOR）：sb3 PPO 用【不 squash 的高斯】·log_std_init=0→σ=1.0·而动作箱仅 ±0.048/±0.018→采样几乎全被 clip
     #    到边界=探索退化成 bang-bang + log_prob 与 clip 后动作错配=学不动。SAC 没此病（tanh squash+缩放）。修=初始 σ 落箱内。
+    # 🆕 L230-§4：动作分布档。'gauss'（默认）走上面那条原路 = **逐位等价现状**；
+    #   'beta' = 有界支撑（`trb_env/usv_action_dist.py`）⟹ 动作不可能越箱 ⟹ 裁剪层退化成恒等 ⟹ 治抖罚项处处有梯度；
+    #   且 Beta 无 `log_std` 参数（传 log_std_init 会被 ActorCriticPolicy 收下但随后 `_build` 里删掉 = 死参数）⟹ **不传**。
+    from .usv_action_dist import ACT_DIST_CHOICES, policy_for
+    _ad = (act_dist or "gauss").strip().lower()
+    if _ad not in ACT_DIST_CHOICES:
+        raise ValueError(f"act_dist 须 ∈ {ACT_DIST_CHOICES}，得 {act_dist!r}")
     if log_std_init is None:
         log_std_init = float(np.log(A_NORMAL_OMEGA_MAX / 2.0))   # σ≈0.009·落进两轴箱内(±0.048/±0.018)；log_std 仍 per-dim 可学
-    cfg = dict(policy_kwargs=dict(net_arch=POLICY_NET_ARCH, log_std_init=log_std_init), seed=seed, gamma=gamma,
+    _pk = dict(net_arch=POLICY_NET_ARCH)
+    if _ad == "gauss":
+        _pk["log_std_init"] = log_std_init                       # Beta 无此参数（见上）
+    cfg = dict(policy_kwargs=_pk, seed=seed, gamma=gamma,
                ent_coef=ent_coef, verbose=0)
     cfg.update(ppo_kwargs)
-    model = PPO("MlpPolicy", venv, **cfg)
+    model = PPO(policy_for(_ad), venv, **cfg)
     # 🆕⑤ 热启动（`03` L190·默认 None=整块不调=bit-identical）：灌源 policy + 复制源 vecnorm stats（须先有 venv=VecNormalize）
     if warmstart_ckpt:
         if not use_vecnorm:
@@ -803,6 +816,18 @@ def assert_continuous_safe_ppo_caliber(model, venv, colregs_weight: float = CONT
         raise AssertionError(f"连续臂动作箱须 ±[{A_NORMAL_ACCEL_MAX}, {A_NORMAL_OMEGA_MAX}]（L63 Fix②），得 high={hi} low={lo}")
     # F1（深核 MAJOR）：初始高斯 σ 必须落进动作箱内（每轴 σ≤箱半宽），否则采样几乎全 clip 到边界=探索退化 bang-bang。
     # 构造时 log_std==log_std_init（未训练）→ 此处校验初始探索尺度合理（σ=1.0 vs 箱 0.048 是 footgun）。
-    init_std = np.exp(np.asarray(model.policy.log_std.detach().cpu().numpy(), dtype=float))
-    if np.any(init_std > exp_hi):
-        raise AssertionError(f"PPO 初始高斯 σ={init_std} 超动作箱半宽 ±{exp_hi}（log_std_init 太大→采样全 clip 到边界=探索退化·F1）")
+    # 🆕 L230-§4：Beta 档无 `log_std`（有界支撑本就不可能越箱=F1 想防的事从结构上不存在）→ 换一条**更强**的等价守卫：
+    #   直接采样 4096 个动作，断言**零越箱**（这是 Beta 立项的核心承诺，比查 σ 更直接）。
+    #   ⚠️ 用 `hasattr(log_std)` 而非 `isinstance(BetaActorCriticPolicy)` 分派：将来若再加别的有界分布，
+    #      这条守卫自动适用、不会静默跳过（fail-open 是本项目反复踩过的坑）。
+    if hasattr(model.policy, "log_std"):
+        init_std = np.exp(np.asarray(model.policy.log_std.detach().cpu().numpy(), dtype=float))
+        if np.any(init_std > exp_hi):
+            raise AssertionError(f"PPO 初始高斯 σ={init_std} 超动作箱半宽 ±{exp_hi}（log_std_init 太大→采样全 clip 到边界=探索退化·F1）")
+    else:
+        with th.no_grad():
+            _obs = np.zeros((4096,) + tuple(venv.observation_space.shape), dtype=np.float32)
+            _a = model.policy.get_distribution(model.policy.obs_to_tensor(_obs)[0]).sample().cpu().numpy()
+        _n_out = int(np.sum((_a > exp_hi + 1e-9) | (_a < -exp_hi - 1e-9)))
+        if _n_out:
+            raise AssertionError(f"有界动作分布档采样越箱 {_n_out}/{_a.size} 个（应恒 0·分布支撑须 ⊆ 动作箱 ±{exp_hi}）")
