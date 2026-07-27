@@ -179,6 +179,17 @@ if not (math.isfinite(_DOCK_R) and _DOCK_R >= 0.0):
 if _DOCK_R > 0.0 and not (0.48 < _V_DOCK <= _V_LOW_DEF):                  # 同 RewardFunction 守卫：下界 0.48=离零保守正地板(防停船墙复活)·上界 V_LOW(禁抬高地板反罚)。⚠️订正 `03` L176：旧"0.48=单步max减速"错 5×(真=a_max·dt=2.4)·0.48 仅作离零正裕度
     raise SystemExit(f"🔒 STEP4E_DOCK_R>0 时 STEP4E_V_DOCK 须 0.48<v≤{_V_LOW_DEF},得 {_V_DOCK}")
 _ALIAS_W = float(os.environ.get("STEP4E_ALIAS_W", "0.0"))       # 动作混叠惩罚 w（Markgraf 式20·`03` L97·默认 0.0=关=逐位等价；A/B 用 Markgraf 扫值 {0.1,0.5,1.0,2.0}·仅连续臂有盾→只接 ContinuousProjectionEnv）
+# 🆕 L228 训练期转向平滑（把执行器速率限制放进训练循环·让策略学会补偿）：
+#   默认 None = 不施加 = **逐位等价现状**。两个只能开一个（同开则平顺度改善归因不清）。
+#   ⚠️ 它进 config_sig 的【语义键】⟹ ① 与不带它的 run 混写同一 jsonl 会被 config_conflict 拦下
+#      ② 热启动从不带它的源续训会被 _SEMANTIC_KEYS 校验拦下 ③ 评估端能据此还原"这条臂训练时限了速"
+#      —— 第 ③ 条是命门：训练时限速、评估时不限 = "训练什么就部署什么"被破坏，数就是错的。
+_CTRL_SLEW = os.environ.get("STEP4E_CTRL_SLEW", "").strip()
+_CTRL_SLEW = float(_CTRL_SLEW) if _CTRL_SLEW else None
+_CTRL_LOWPASS = os.environ.get("STEP4E_CTRL_LOWPASS", "").strip()
+_CTRL_LOWPASS = float(_CTRL_LOWPASS) if _CTRL_LOWPASS else None
+if _CTRL_SLEW is not None and _CTRL_LOWPASS is not None:
+    raise SystemExit("🔒 STEP4E_CTRL_SLEW 与 STEP4E_CTRL_LOWPASS 只能开一个（同开则平顺度改善归因不清）。")
 _RATE_W = float(os.environ.get("STEP4E_RATE_W", "0.0"))         # action-rate 平滑惩罚 w（治 bang-bang 抖动·`03` L98·默认 0.0=关=逐位等价；仅连续臂·与 alias 正交[时间抖动 vs 空间分歧]）
 # 🆕 第二条腿 rank1（`03` L173）：泊位精修门控治抖 r_rate。默认 off(None)=bit-identical·设值(如 0/0.1)=船进泊位区(‖ego−goal‖≤STEP4E_DOCK_R)时把治抖罚降到该值=放行入库急打舵对齐窄朝向门（治"接近后朝向捕获失败"·L171 点名却在 L172 漏做的那半）。复用 DOCK_R 作区半径(须 DOCK_R>0)·仅连续臂。
 _RATE_DOCK_RAW = os.environ.get("STEP4E_RATE_DOCK", "").strip()
@@ -833,7 +844,7 @@ def replay_eval(base, kind, weight, test_pool, *, continuous_algo=None, return_p
             model = load_sac_for_eval(base + ".zip", device="cpu")
         if policy_wrap is not None:
             model = policy_wrap(model)          # 控制器侧包装（盾仍在最后·安全关键文件一行不动·`03` L218）
-        agg, per = evaluate_continuous(lambda sc, pp: ContinuousProjectionEnv(sc, pp, shield=_CONTINUOUS_SHIELD, goal_cone_half=_GOAL_CONE_HALF_RAD, goal_v_floor=_GOAL_V_FLOOR, augment_rho=_AUGMENT_RHO, goal_ignore_orientation=_GOAL_IGNORE_ORIENT), model, test_pool, obs_transform=tf, traj_idxs=traj_idxs)   # 🆕 P0 盾开关 + ρ0 锥 + 腿1 态势增广（replay eval 须与训练同 shield/cone/augment·靠同 env 变量）
+        agg, per = evaluate_continuous(lambda sc, pp: ContinuousProjectionEnv(sc, pp, shield=_CONTINUOUS_SHIELD, goal_cone_half=_GOAL_CONE_HALF_RAD, goal_v_floor=_GOAL_V_FLOOR, augment_rho=_AUGMENT_RHO, goal_ignore_orientation=_GOAL_IGNORE_ORIENT, ctrl_slew_frac=_CTRL_SLEW, ctrl_lowpass_alpha=_CTRL_LOWPASS), model, test_pool, obs_transform=tf, traj_idxs=traj_idxs)   # 🆕 P0 盾开关 + ρ0 锥 + 腿1 态势增广（replay eval 须与训练同 shield/cone/augment·靠同 env 变量）
     else:
         from sb3_contrib import MaskablePPO
         from trb_env.evaluate import evaluate
@@ -1179,7 +1190,7 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
         _arr_slack_anneal_cb = ArrivalSlackAnnealSyncCallback(_arr_slack_sched, venv)   # 持【训练 venv】（eval fac 另建·恒真门·不被本 callback 触碰）
 
     def fac(sc, pp):
-        return ContinuousProjectionEnv(sc, pp, shield=_CONTINUOUS_SHIELD, goal_cone_half=_GOAL_CONE_HALF_RAD, goal_v_floor=_GOAL_V_FLOOR, augment_rho=_AUGMENT_RHO, goal_ignore_orientation=_GOAL_IGNORE_ORIENT)   # colregs_weight 默认 0.0（Node B/L44 footgun 修复）；🆕 P0 盾开关 + ρ0 锥 + 腿1 态势增广（eval 须与训练同 shield/cone/augment）；🔴 B1：**不传 arrival_heading_slack=恒真门**（诚实红线·评估不放水）
+        return ContinuousProjectionEnv(sc, pp, shield=_CONTINUOUS_SHIELD, goal_cone_half=_GOAL_CONE_HALF_RAD, goal_v_floor=_GOAL_V_FLOOR, augment_rho=_AUGMENT_RHO, goal_ignore_orientation=_GOAL_IGNORE_ORIENT, ctrl_slew_frac=_CTRL_SLEW, ctrl_lowpass_alpha=_CTRL_LOWPASS)   # colregs_weight 默认 0.0（Node B/L44 footgun 修复）；🆕 P0 盾开关 + ρ0 锥 + 腿1 态势增广（eval 须与训练同 shield/cone/augment）；🔴 B1：**不传 arrival_heading_slack=恒真门**（诚实红线·评估不放水）
 
     class _SACCurveLogger(BaseCallback):
         """连续臂(SAC=论文 hero 臂)训练曲线（Node L CAT6·D42-Lschema④：原连续臂 model.learn 零 callback=hero 内部曲线未记）。
@@ -1235,7 +1246,7 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
                           "xtrack_weight", "xtrack_radius", "park_weight", "park_radius", "park_v_target",
                           "c_step", "c_dwell", "w_dwell", "h_dwell", "dwell_radius", "b_dwell",
                           "c_reach", "dock_radius", "v_dock", "alias_weight", "rate_weight", "rate_dock",
-                          "continuous_algo")   # 影响【策略语义/环境动力学】的键（不含 total_steps/n_seg/n_envs/seed/dataset 等 run 规模键=允许不同）
+                          "continuous_algo", "ctrl_slew_frac", "ctrl_lowpass_alpha")   # 影响【策略语义/环境动力学】的键（不含 total_steps/n_seg/n_envs/seed/dataset 等 run 规模键=允许不同）
         _sp = _WARMSTART_CKPT + ".progress.json"
         try:
             with open(_sp, "r", encoding="utf-8") as _f:
@@ -1334,7 +1345,8 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
               f"（评估占 wall {_eval_pct:.0f}%；满量 3M 预计 {3_000_000 / fps / 3600:.1f}h/种子）", flush=True)
     return {"party": "Continuous-safe", "kind": "continuous", "colregs_weight": _COLREGS_W_CONT,
             "continuous_shield": _CONTINUOUS_SHIELD, "seed": seed,   # 🆕 P0 盾开关自描述（provenance·钱图/复现溯源·不进 config_sig 保续训 bit-identical）
-            "goal_cone_half_deg": _GOAL_CONE_HALF_DEG, "goal_v_floor": _GOAL_V_FLOOR,   # 🆕 ρ0 朝目标锥自描述（PhaseC·L147·连续臂专属·off=None=现状·config_conflict 据此识锥混配·度=canonical 口径）
+            "goal_cone_half_deg": _GOAL_CONE_HALF_DEG, "goal_v_floor": _GOAL_V_FLOOR,
+            "ctrl_slew_frac": _CTRL_SLEW, "ctrl_lowpass_alpha": _CTRL_LOWPASS,   # 🆕 L228 训练期转向平滑（None=不施加）   # 🆕 ρ0 朝目标锥自描述（PhaseC·L147·连续臂专属·off=None=现状·config_conflict 据此识锥混配·度=canonical 口径）
             "augment_rho": _AUGMENT_RHO,   # 🆕 腿1(L150/L152)：态势感知增广自描述（连续臂专属·off=False=现状·config_conflict 据此识 27/34维混写）
             "goal_ignore_orientation": _GOAL_IGNORE_ORIENT,   # 🆕 L185/L186：训练目标去朝向硬门自描述（连续臂专属·off=False=严格真门·True=位置-only·纯 provenance 不进 config_sig=续训 bit-identical·判读位置-only 烧卡结果据此识判据·posonly 用 distinct TAG 故不与金标混文件）
             "warmstart_ckpt": (_WARMSTART_CKPT or None),   # 🆕 L190：热启动源 ckpt 路径自描述（连续PPO臂专属·off=None=从零训练·纯 provenance 不进 config_sig=续训 bit-identical·⚠️训练流程如实可查=方法论诚实命门·别 claim"从零稳定"若热启动了）
@@ -1649,7 +1661,8 @@ def main():
             "c_reach": _C_REACH, "dock_radius": _DOCK_R, "v_dock": _V_DOCK, "rate_dock": _RATE_DOCK,   # 🆕 第二条腿修法（run_config 自描述·`03` L172/L173·连续臂专属·provenance 完整）
             "warmstart_ckpt": (_WARMSTART_CKPT or None), "warmstart_src_fp": _WARMSTART_FP,   # 🆕 L190 热启动源 ckpt 路径+【内容指纹】（run_config 自描述·连续PPO臂专属·off=None=从零·provenance 命门=训练流程如实可查·指纹=真身份防同路径换源·第2轮审HIGH#1）
             "continuous_shield": _CONTINUOUS_SHIELD,   # 🆕 P0 SE-RL 盾 on/off（run_config 自描述·L146·连续臂专属·provenance 完整）
-            "goal_cone_half_deg": _GOAL_CONE_HALF_DEG, "goal_v_floor": _GOAL_V_FLOOR,   # 🆕 ρ0 朝目标锥 Φ(度)/v_floor（run_config 自描述·PhaseC·L147·连续臂专属）
+            "goal_cone_half_deg": _GOAL_CONE_HALF_DEG, "goal_v_floor": _GOAL_V_FLOOR,
+            "ctrl_slew_frac": _CTRL_SLEW, "ctrl_lowpass_alpha": _CTRL_LOWPASS,   # 🆕 L228 训练期转向平滑（None=不施加）   # 🆕 ρ0 朝目标锥 Φ(度)/v_floor（run_config 自描述·PhaseC·L147·连续臂专属）
             "augment_rho": _AUGMENT_RHO,   # 🆕 腿1(L150/L152)：态势感知增广（run_config 自描述·连续臂专属）
             "arr_slack_start_deg": _ARR_SLACK_START_DEG, "arr_slack_anneal_frac": _ARR_SLACK_ANNEAL_FRAC,   # 🆕 B1(L153)：到达门朝向课程 slack 起始度+退火比例（run_config 自描述·连续臂专属·off=None）
             "start_frac": _START_FRAC, "start_v": _START_V,   # 🆕 逆向起点课程（`03` L181）：起点系数+课程重生速度（run_config 自描述·连续臂专属·1.0=真起点·评估恒真起点不受影响）

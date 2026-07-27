@@ -31,6 +31,7 @@ import gymnasium as gym
 import numpy as np
 
 from .usv_colregs import RHO_NAMES, RHO_NO_CONFLICT, VesselState
+from .usv_smoothing import smooth_yaw
 from .usv_env import (A_NORMAL_ACCEL_MAX, A_NORMAL_OMEGA_MAX, C_REACH, V_LOW, USVEnv,
                       assert_single_obstacle)
 from .usv_projection import ContinuousColregsProjection
@@ -53,6 +54,8 @@ class ContinuousProjectionEnv(gym.Env):
     def __init__(self, scenario, planning_problem, *, clip_velocity: bool = True,
                  shield: bool = True,   # 🆕 P0(L146)：SE-RL 盾开关。True(默认)=有盾=逐位等价现状 bit-identical；False=【连续无盾臂】(施 RL 原动作·口径对齐 UnshieldedUSVEnv:rho 恒 NO_CONFLICT/无状态机/无紧急)·解耦"盾诱发崩塌"混淆 + why-RL C 臂。
                  augment_rho: bool = False,   # 🆕 腿1(L150/L152)：态势感知观测增广。False(默认)=obs 27维=bit-identical；True=obs 尾拼 ρ one-hot(6)+give_way_dir(1)=34维（让策略看见此刻态势→治抖/治违规·非治崩[15-35%·L150]）。仅连续臂·内层 USVEnv 27维一字不动=离散臂忠实。无盾臂(shield=False)self._rho 恒 NO_CONFLICT=常数零信息→run_step4e fail-fast 挡（离散臂 obs 27维·四方须独立 TAG 绘图层合并）。
+                 ctrl_slew_frac: float | None = None,   # 🆕 L228：把【舵速率限制】放进训练循环（默认 None=不施加=逐位等价现状）。
+                 ctrl_lowpass_alpha: float | None = None,  # 🆕 L228：同上，低通版。两个只能开一个。
                  colregs_weight: float = 0.0,
                  gamma: float = 0.99, well_shaping_weight: float = 0.0, shaping_radius: float = 500.0,
                  xtrack_weight: float = 0.0, xtrack_radius: float = 80.0,   # 对症 横向进带势（`03` L88·显式具名在 **proj_kwargs 前·防误路由）
@@ -112,6 +115,11 @@ class ContinuousProjectionEnv(gym.Env):
             if self._dock_radius <= 0.0:                        # 复用 dock_radius 作区半径→rate_dock 无区可门=silent no-op·fail-fast（同 v_dock 需 dock_radius>0 逻辑）
                 raise ValueError(f"rate_dock={self._rate_dock} 需 dock_radius>0（泊位区半径·复用 r_velocity 门同区）·得 dock_radius={self._dock_radius}")
         self._prev_u_desired: np.ndarray | None = None         # 上一步策略原始动作（reset 清·首步无罚·仅 rate_weight>0 时追踪=保 bit-identical）
+        # 🆕 L228：训练期转向平滑旋钮（默认 None=不施加）。两个同开 fail-fast（归因不清）。
+        if ctrl_slew_frac is not None and ctrl_lowpass_alpha is not None:
+            raise ValueError("ctrl_slew_frac 与 ctrl_lowpass_alpha 只能开一个（同开则平顺度改善归因不清）。")
+        self._ctrl_slew_frac = ctrl_slew_frac
+        self._ctrl_lowpass_alpha = ctrl_lowpass_alpha
         # RL 动作箱 = Krasowski【正常操作】±0.048/±0.018（非内层 USVEnv 的物理满程 ±a_max/±w_max）。
         # 根因修（03 L63 Fix②）：SAC 在【正常操作】范围探索（=离散臂动作权限同款），消停船墙〔满程 ±0.24
         #   是离散网格 5×→随机探索 v→0 撞吸收壁早死〕+ 修四方公平 confound（03 L1a-4）。盾/EC/动力学仍用物理 ±a_max：
@@ -197,6 +205,17 @@ class ContinuousProjectionEnv(gym.Env):
             raise ValueError(f"连续动作应为 [a, ω]，得到 shape={u_desired.shape}")
         if not np.all(np.isfinite(u_desired)):
             raise ValueError(f"动作含非有限值（NaN/inf）：{u_desired}")
+        # 🆕 L228 训练期转向平滑：**装在盾之前**，位置与评估期那两个包装器【逐字相同】
+        #   （观测 → 策略 → 本平滑 → 状态机+安全集+投影 → 执行）。
+        #   ⟹ 盾一行不改 ⟹ 合规与无碰命题**按构造仍成立**（它们是对【任意】输入动作的性质）。
+        #   ⟹ 与评估期同一个算子（`usv_smoothing`·公式只有一处定义）⟹ "训练什么就部署什么"。
+        #   默认两个都 None ⟹ `smooth_yaw` 原样返回 ⟹ **逐位等价现状**。
+        if self._ctrl_slew_frac is not None or self._ctrl_lowpass_alpha is not None:
+            _la = getattr(self.env, "last_action", None)
+            u_desired = smooth_yaw(u_desired, (None if _la is None else float(_la[1])),
+                                   A_NORMAL_OMEGA_MAX,
+                                   slew_frac=self._ctrl_slew_frac,
+                                   lowpass_alpha=self._ctrl_lowpass_alpha)
 
         s_obs = self._obs_vs()
         if not self.shield:                                  # 🆕 P0 连续无盾（SE-RL 盾 off）：施 RL 原动作·口径对齐 UnshieldedUSVEnv（rho 恒 NO_CONFLICT·无状态机·无紧急·保 _ego_vs/_obs_vs 供 ViolationCounter 测裸违规=连续版 Base 锚点）。
