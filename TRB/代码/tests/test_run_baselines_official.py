@@ -308,9 +308,23 @@ class TestClosedLoop(unittest.TestCase):
             # 分型（用的是 reeval_official.classify_pool·与四臂同判据）
             self.assertTrue(pay["会遇类型计数"])
             self.assertTrue(pay["结果"][tags[0]]["分型_clean"])
+            # 🔴 L226-E：三档分型必须齐全，且**各档各类型 n 之和 == 该档总分母**
+            #    （少 strict 那档 ⟹ 下游只能拿 clean 577 的数去填 563 的表 = `03` L224-B 那次事故）
+            for _lay, _bt in (("全部", "分型_全部"), ("clean", "分型_clean"), ("strict", "分型_strict")):
+                bt = pay["结果"][tags[0]][_bt]
+                self.assertTrue(bt, f"{_bt} 缺失/为空 —— 分母混用事故的入口（L226-E）")
+                self.assertEqual(sum(m["n"] for m in bt.values()), pay["结果"][tags[0]][_lay]["n"],
+                                 f"{_bt} 各类型 n 之和 ≠ {_lay} 总分母")
             # Pareto 汇总（framing = 各有所长·不是"我们样样赢"）
             self.assertIn("_pareto", pay["结果"])
-            self.assertTrue(pay["结果"]["_pareto"]["前沿"])
+            # 🔴 L226-H：前沿必须**按动作箱分开**——full 档权限大、天然支配 rl 档，混算会把主口径档整组挤掉
+            _fr = pay["结果"]["_pareto"]["按动作箱前沿"]
+            self.assertTrue(_fr)
+            self.assertNotIn("前沿", pay["结果"]["_pareto"], "跨箱合并的旧字段不许回来（L226-H）")
+            for _bx, _lst in _fr.items():
+                self.assertTrue(_lst, f"箱 {_bx} 的前沿为空")
+                for _tg in _lst:                    # 前沿成员必须真属于该箱
+                    self.assertEqual(pay["结果"][_tg]["box"], _bx)
             self.assertTrue(pay["全部完成"])
 
     def test_arrival_differs_between_methods(self):

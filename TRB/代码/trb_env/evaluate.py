@@ -365,7 +365,9 @@ def run_episode(env, policy, *, seed=None, deterministic=True, max_steps=10_000,
         "cpa_step": cpa_step,
     }
     out.update(_control_quality(applied, positions))          # CAT7 控制质量（additive·5 列钱图不受影响）
-    out.update({k: _subgrid_metrics(applied, act_rhos).get(k) for k in _SUBGRID_KEYS})   # 🆕 次网格细调率+按态势拆转艏（additive·`03` L203）
+    _sg = _subgrid_metrics(applied, act_rhos)                 # 🔴 2026-07-27（L226-M）：只算一次——原写法在
+    out.update({k: _sg.get(k) for k in _SUBGRID_KEYS})        #   dict 推导里逐键调用，键 4→7 后每局重算 7 遍（纯浪费·项目性能纪律）
+
     out.update(_terminal_diag(env, flags, steps))             # last-mile 诊断（`03` L88·additive·term_flags/end_state/goal_geom·钱图 5 列不受影响）
     if record_traj:                                           # Node L CAT5：仅请求时带 traj/goal 键（默认不带→返回 dict 逐位不变）
         out["traj"] = traj
@@ -518,7 +520,9 @@ def run_episode_continuous(env, model, *, seed=None, deterministic=True, max_ste
         "n_shield_steps": (0 if _corr is None else int(_corr.size)),
     }
     out.update(_control_quality(applied, positions))          # CAT7 控制质量（additive·5 列钱图不受影响）
-    out.update({k: _subgrid_metrics(applied, act_rhos).get(k) for k in _SUBGRID_KEYS})   # 🆕 次网格细调率+按态势拆转艏（additive·`03` L203）
+    _sg = _subgrid_metrics(applied, act_rhos)                 # 🔴 2026-07-27（L226-M）：只算一次——原写法在
+    out.update({k: _sg.get(k) for k in _SUBGRID_KEYS})        #   dict 推导里逐键调用，键 4→7 后每局重算 7 遍（纯浪费·项目性能纪律）
+
     out.update(_terminal_diag(env, flags, steps))             # last-mile 诊断（`03` L88·additive·term_flags/end_state/goal_geom·钱图 5 列不受影响）
     out.update(_approach_diag(positions, headings, out.get("goal_geom"), speeds=speeds))  # Step-0 进近诊断（additive·复用已算 goal_geom·失败局机制分类+速度·钱图不受影响）
     if record_traj:                                           # Node L CAT5：仅请求时带 traj/goal 键（默认不带→返回 dict 逐位不变）

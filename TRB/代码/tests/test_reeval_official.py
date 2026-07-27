@@ -61,7 +61,10 @@ def _install_stubs(*, replay_arrival=None, anchor_arrival=None, n_anchor=40, aug
                  # `03` L203 的两个卖点指标 + 平滑度套件（evaluate.py 逐局真有这些键·下游必须带上）
                  "ctrl_jerk_norm_mean": 0.9, "yaw_incr_mean": 0.015, "accel_incr_mean": 0.0036,
                  "path_len_m": 4000.0, "subgrid_yaw_frac": 0.63, "subgrid_accel_frac": 0.44,
-                 "yaw_incr_giveway": 0.017, "yaw_incr_other": 0.012}
+                 "yaw_incr_giveway": 0.017, "yaw_incr_other": 0.012,
+                 # ρ 直方图：真 `evaluate` 的逐局 dict 里本来就有这个键（`trb_env/evaluate.py` 的 rho_hist）。
+                 # 桩以前没放它 ⟹ "汇总把 rho_hist 丢了"这件事在测试里根本不可见（L226-O）。
+                 "rho_hist": {0: 40, 2: 3, 3: 5, 5: 2}}
                 for i in range(n)]
 
     # ⚠️ 桩的签名必须跟真 `replay_eval` 一起改（r8 加了 traj_idxs）——否则脚本一传新参数、桩就 TypeError，
@@ -526,16 +529,84 @@ class TestYawLowPass(unittest.TestCase):
         p = _run({**self.base_env, "REEVAL_YAW_LOWPASS": "0.5"}, replay_arrival=400)
         self.assertEqual(p["结果"], {}, "离散臂不该产出滤波档")
 
+    def test_smoothing_diagnostics_are_reported(self):
+        """🔴 L226-N：平滑器的四个计数器**必须落进输出**（原先只在内存里数，没有任何出口）。
+
+        为什么承重：`n_ref_from_env` 远小于 `n_steps` = `bind_env` 没接上、参考退回了"自己上一步的指令"
+        —— 那正是 `03` L222-#4 修掉的旧毛病，而**聚合数字上完全看不出来**。
+        没有这个出口，旋钮"悄悄失效"这件事在服务器上就是不可观测的。
+        """
+        _make_ckpt(self.tmp, "Continuous-safe_s0_gold")
+        p = _run({**self.base_env, "REEVAL_YAW_LOWPASS": "0.5"}, replay_arrival=400)
+        d = p["结果"]["Continuous-safe_s0_gold@lp0.5"]["平滑诊断"]
+        self.assertIsInstance(d, dict, "平滑档必须带『平滑诊断』")
+        for k in ("n_steps", "n_ref_from_env", "n_ref_clamped"):
+            self.assertIn(k, d, f"平滑诊断缺 {k}")
+        # 不施加档也要有（全 0 才是对的·免得"没有诊断"与"诊断为 0"分不开）
+        p2 = _run({**self.base_env, "REEVAL_YAW_SLEW": "1.0"}, replay_arrival=400)
+        d2 = p2["结果"]["Continuous-safe_s0_gold@sl1"]["平滑诊断"]
+        self.assertIn("n_clipped", d2, "限速档必须带 n_clipped（否则分不清『没切到』与『旋钮没接上』）")
+        # 反证：不开旋钮那趟不该有这个键（= 没装平滑器·不是装了但没数）
+        p3 = _run({**self.base_env}, replay_arrival=400)
+        self.assertIsNone(p3["结果"]["Continuous-safe_s0_gold"]["平滑诊断"])
+
+    def test_rho_hist_is_aggregated(self):
+        """🔴 L226-O：ρ 态势步数直方图必须进汇总。
+
+        它是 dict ⟹ `_mean_extras` 只收数值键 ⟹ 原先一路被丢掉。而项目挂着的那笔债
+        （`yaw_incr_giveway` 对两条连续臂全为 None）**光靠三个样本量键定位不了**：
+        它们只能说"让路箱内相邻对 = 0"，分不出是①根本没有让路步 ②有但都越箱 ③有但不相邻。
+        ρ 直方图正好把①和②③分开，且**零额外算力**（数早就在逐局 dict 里）。
+        """
+        _make_ckpt(self.tmp, "Continuous-safe_s0_gold")
+        p = _run({**self.base_env}, replay_arrival=400)
+        for lay in ("全部", "clean", "strict"):
+            h = p["结果"]["Continuous-safe_s0_gold"][lay]["态势步数合计"]
+            self.assertTrue(h, f"{lay} 层缺『态势步数合计』")
+            n = p["结果"]["Continuous-safe_s0_gold"][lay]["n"]
+            self.assertEqual(h["2"], 3 * n, "让路态(ρ2)步数没有按局求和")
+            self.assertEqual(h["0"], 40 * n)
+            self.assertEqual(h["5"], 2 * n, "紧急态(ρ5)步数没进来")
+
     def test_replay_eval_really_has_policy_wrap(self):
-        """契约：真 `run_step4e.replay_eval` 必须真的有 policy_wrap，且只在连续臂分支施加。"""
+        """契约：真 `run_step4e.replay_eval` 必须真的有 policy_wrap，且只在连续臂分支施加。
+
+        🔴 2026-07-27 加固（独立复审 L226-P）：原实现只做**源码文本 `assertIn`**，
+        复审做变异时把离散分支的守卫条件改成 `if False:`（`raise SystemExit` 那行文字原样保留），
+        **46 项全绿**——因为"字在不在"证明不了"这段会不会被执行到"。
+        ⟹ 改成用 AST 检查【可达性】：守卫必须是 `if policy_wrap is not None:`（不是常量条件），
+           且它的 body 里必须真有 `raise`。这样把条件写死成假、或把 raise 挪出 if，都会当场翻红。
+        """
+        import ast
         with open(os.path.join(_CODE, "run_step4e.py"), encoding="utf-8") as fh:
             src = fh.read()
-        m = re.search(r"^def replay_eval\(([^)]*)\)", src, re.M | re.S)
-        self.assertIsNotNone(m)
-        self.assertIn("policy_wrap", m.group(1))
-        self.assertIn("model = policy_wrap(model)", src)
-        # 离散分支必须 fail-fast（不静默忽略）
-        self.assertIn("policy_wrap 只支持连续臂", src)
+        tree = ast.parse(src)
+        fn = next((n for n in ast.walk(tree)
+                   if isinstance(n, ast.FunctionDef) and n.name == "replay_eval"), None)
+        self.assertIsNotNone(fn, "run_step4e 里找不到 replay_eval")
+        names = [a.arg for a in fn.args.kwonlyargs] + [a.arg for a in fn.args.args]
+        self.assertIn("policy_wrap", names, "replay_eval 少了 policy_wrap 参数")
+        self.assertIn("traj_idxs", names, "replay_eval 少了 traj_idxs 参数")
+        # 连续臂：必须真有 `model = policy_wrap(model)` 这条赋值（AST 级·不是文本）
+        applied = [n for n in ast.walk(fn) if isinstance(n, ast.Assign)
+                   and isinstance(n.value, ast.Call)
+                   and isinstance(n.value.func, ast.Name) and n.value.func.id == "policy_wrap"]
+        self.assertTrue(applied, "连续臂分支没有把 policy_wrap 套在 model 上")
+        # 离散臂：守卫必须【可达】——条件是对 policy_wrap 的真判断，且 body 里有 raise
+        guards = []
+        for n in ast.walk(fn):
+            if not isinstance(n, ast.If):
+                continue
+            cond = ast.dump(n.test)
+            if "policy_wrap" not in cond or "Constant" == type(n.test).__name__:
+                continue
+            if any(isinstance(x, ast.Raise) for x in ast.walk(n)):
+                guards.append(n)
+        self.assertTrue(guards,
+                        "找不到【可达的】离散臂 fail-fast：守卫条件必须真的判 policy_wrap（不能是常量），"
+                        "且 body 里必须有 raise —— 只有 `raise SystemExit` 这行文字在是不够的（L226-P）")
+        for g in guards:                       # 条件不许是常量（`if False:` / `if 0:` 都要翻红）
+            self.assertNotIsInstance(g.test, ast.Constant, "离散臂守卫条件被写成常量 = 永远不执行")
 
 
 class TestYawSlewLimit(unittest.TestCase):

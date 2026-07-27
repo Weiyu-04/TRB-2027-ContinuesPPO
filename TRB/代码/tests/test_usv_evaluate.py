@@ -292,8 +292,16 @@ check("㉙b 对拍非平凡：该轨迹确含违规且 em%>0（否则对拍是�
       _d["violations"] >= 1 and _d["emergency_pct"] > 0.0)
 
 # ㉚ _FALLBACK_SOURCES 不含 emergency/projection/no_obstacle（口径定义正确：兜底≠紧急≠常规）
-check("㉚ _FALLBACK_SOURCES=={relaxed,collision_min,degenerate}（兜底 source 归口定义）",
-      _FALLBACK_SOURCES == frozenset({"relaxed", "collision_min", "degenerate"}))
+#    🔴 2026-07-27 修（独立复审 L226-A）：`emergency_relaxed`（分级介入·`03` L205）是 2026-07-25 c6ca6c6
+#    与本断言【同一次提交】加进 _FALLBACK_SOURCES 的，但断言没跟着改 ⟹ 本文件自那天起一直是红的，
+#    而主窗口本机缺 vesselmodels 跑不起来 ⟹ 红了两天没人知道。**断言必须与真相源同步演进**：
+#    这里改成「正列 + 排除列」双向钉——加了新兜底档要在这里显式登记，而 emergency/projection/no_obstacle
+#    永远不许混进来（它们是紧急/常规，不是兜底；混进来会让兜底步% 与紧急步% 重复计数）。
+_EXPECT_FALLBACK = frozenset({"relaxed", "collision_min", "degenerate", "emergency_relaxed"})
+check("㉚ _FALLBACK_SOURCES=={relaxed,collision_min,degenerate,emergency_relaxed}（兜底 source 归口定义）",
+      _FALLBACK_SOURCES == _EXPECT_FALLBACK)
+check("㉚a 兜底集合永不含 emergency/projection/no_obstacle（兜底≠紧急≠常规·防重复计数）",
+      not (_FALLBACK_SOURCES & {"emergency", "projection", "no_obstacle"}))
 
 # ㉛ evaluate_continuous 聚合：含「兜底步%」列 + n 正确
 _aggc, _perc = evaluate_continuous(lambda sc, pp: _StubEnv([dict(s) for s in _cscript]),
@@ -347,8 +355,15 @@ _bucket_script = [
 ]
 _rb = run_episode_continuous(_StubEnv(_bucket_script), _ConstModel())
 _sc6, _em3 = _rb["source_counts"], _rb["emergency_modes"]
-check("㉛c source 六档 per-bucket load-bearing：relaxed/collision_min/degenerate/projection/emergency/no_obstacle 逐档命中（桶间错路必翻 FAIL）",
-      _sc6 == {"relaxed": 1, "collision_min": 1, "degenerate": 1, "projection": 1, "emergency": 2, "no_obstacle": 0})
+     # 🔴 2026-07-27 修（独立复审 L226-A）：分级介入（`03` L205）把 source universe 从六档扩到七档
+     #    （多 `emergency_relaxed` = ρ5 下仍走投影·策略动作被保留），本断言当时没跟着改 ⟹ 长红两天。
+     #    七档必须【全部显式列出】：少列一个就是"新档静默不入桶"，而桶和 = steps 那条断言仍会过。
+check("㉛c source 七档 per-bucket load-bearing：relaxed/collision_min/degenerate/projection/emergency/emergency_relaxed/no_obstacle 逐档命中（桶间错路必翻 FAIL）",
+      _sc6 == {"relaxed": 1, "collision_min": 1, "degenerate": 1, "projection": 1,
+               "emergency": 2, "emergency_relaxed": 0, "no_obstacle": 0})
+check("㉛c1 source 桶集合 == evaluate 的 universe（加了新 source 却没进桶 → 这里必翻 FAIL）",
+      set(_sc6) == {"relaxed", "collision_min", "degenerate", "projection",
+                    "emergency", "emergency_relaxed", "no_obstacle"})
 check("㉛d emergency_modes per-bucket load-bearing：ahead==1/stern==1/base==0（ahead→stern 错路必翻 FAIL）",
       _em3 == {"ahead": 1, "stern": 1, "base": 0})
 

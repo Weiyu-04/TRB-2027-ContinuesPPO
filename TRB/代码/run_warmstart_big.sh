@@ -6,11 +6,21 @@
 #   早前"直接在大集上从零训"失败过（成功率中位数 55%），诊断的病因是**欠拟合**——场景太多、每个练的遍数不够。
 #   而"从已训好的策略继续训练"恰好消掉这个病因（策略已经会开船，只需适应更多场景）⟹ 那条负结果**不否决**本方案。
 #
-# 与 run_warmstart.sh 的差别【只有四处】，配方（奖励/盾/算法/熵/并行）逐字不动：
+# 与 run_warmstart.sh 的差别【五处】，配方（奖励/盾/算法/熵/并行）逐字不动：
 #   ① 数据集：manifest_hocr_200(94训) → **manifest_official_1300**(官方1400 里切 1300训/100验)
-#   ② 步数：5M → **2.5M**（= 与现有热启动那批 2.54M 对齐 ⟹ 单变量对照）· NSEG 10 → 5（每段仍 500k·步网格不变）
-#   ③ TAG：_wsHOCRppo_s$S → **_wsBIGppo_s$S**（不同 TAG=不会去续现有那批·且 dataset 进 config_conflict 会硬拦混写）
-#   ④ 种子：默认只跑 **3 颗探针**（0 1 2）；打算上全量就 `SEEDS="0 1 2 3 4 5 6 7 8 9" bash ...`
+#   ② 步数：5M → **2.5M** · NSEG 10 → 5（每段仍 500k·步网格不变）
+#   ③ 场景总数：STEP4E_NTOTAL 200 → **2000**（🔴 2026-07-27 独立复审 L226-Q 补进本清单：
+#      原文写"只有四处"却没列它。manifest 模式下 `_pool_eff=None`、`make_split` 不被调用 ⟹ 无实质影响，
+#      但它确实进 config_sig 签名与 Table III 表头 ⟹ 差异清单必须列全，否则下次核对会漏。)
+#   ④ TAG：_wsHOCRppo_s$S → **_wsBIGppo_s$S**（不同 TAG=不会去续现有那批·且 dataset 进 config_conflict 会硬拦混写）
+#   ⑤ 种子：默认只跑 **3 颗探针**（**1 3 4**）；打算上全量就 `SEEDS="0 1 2 3 4 5 6 7 8 9" bash ...`
+#
+# 🔴🔴 为什么默认种子是 1 3 4 而不是 0 1 2（2026-07-27 独立复审 L226-R·**这条决定对照成不成立**）：
+#   本脚本 2.5M 的用意是"与现有热启动那批对齐 ⟹ 只换训练集的单变量对照"。但**现有那批不是一个步数**——
+#   逐个读 progress.json 实测：s1/s3/s4/s5/s7 = 2,539,520 步（seg_done=4）· s0/s2/s6/s8/s9 = 3,047,424 步（seg_done=5）。
+#   本 run 的终点恰是 2,539,520（5 段 × 507,904）⟹ 只有前一组能构成同步数配对。
+#   原默认 0 1 2 里有**两颗**（s0/s2）的对照方多训 20%，而每段 checkpoint 是覆盖式的、2.5M 那个已被覆盖找不回
+#   ⟹ 事后没法在评估层补齐。混杂幅度与判读门槛（±2pt）同量级 ⟹ 必须在起飞前把种子选对。
 #
 # 🔴 为什么要用清单、而不是"不设 STEP4E_MANIFEST 走默认官方口径"：
 #   默认模式确实就是官方 1400/600（`03` L207-B），但那样 `config_sig.dataset` 会记成 "strided"，
@@ -27,8 +37,13 @@
 #   同趟评时泄漏取并集 ⟹ 仍然 563 ⟹ 同分母可比（本机已验）。
 #
 # 用法（服务器·先同步【整个 代码 文件夹】+ balanced_pool/manifest_official_1300.json）：
-#   改下面 1 行 CODE_DIR → bash run_warmstart_big.sh [并发K=3]
-# 断点续：被杀了重跑同一条命令、自动跳过已完成种子。
+#   改下面 1 行 CODE_DIR → **务必用 screen 后台起**（本脚本自己【不】起 screen·L226-S）：
+#     screen -dmS wsbig bash -c 'cd /root/trb/代码 && bash run_warmstart_big.sh 3'
+#   看进度：screen -r wsbig（退出 Ctrl+A 再 D）｜ tail -f 结果/*wsBIGppo*.log
+# 断点续【语义务必看清·2026-07-27 独立复审 L226-S 更正】：重跑同一条命令只会**跳过已经整颗跑完**的种子
+#   （done_keys 读的是"整颗跑完才写进 jsonl"的那条记录）。`run_step4e` 里**没有中途续训**——
+#   段循环恒从第 0 段开始 ⟹ **跑到一半被杀的那颗种子会从头重训**，已烧的步数作废。
+#   ⟹ 所以【必须 screen 后台】（见下方 用法）。项目自己 `02` 也记着"Layer-2 自动续训缓做"。
 # ⚠️ 训练吃 CPU 不吃 GPU；每种子 n_envs=8 ⟹ 3 种子 = 24 核。
 # ============================================================================
 set -uo pipefail
@@ -45,7 +60,7 @@ PY="/root/miniconda3/bin/python"
 MANIFEST="$ROOT/balanced_pool/manifest_official_1300.json"   # ← 差别①：官方 1400 里切 1300训/100验
 BALANCED="$ROOT/balanced_pool"
 SDIR="$ROOT/scenarios"
-SEEDS="${SEEDS:-0 1 2}"        # ← 差别④：默认 3 颗探针；上全量用 SEEDS="0 1 2 3 4 5 6 7 8 9" bash ...
+SEEDS="${SEEDS:-1 3 4}"        # ← 差别⑤：默认 3 颗探针【1 3 4】= 对照方恰在 2,539,520 步的那组（L226-R）；上全量用 SEEDS="0 1 2 3 4 5 6 7 8 9" bash ...
 KMAX="${1:-3}"
 
 # ---- 热启动源 = 金标 s1（健康·实测 90%）----
@@ -128,10 +143,10 @@ NFP=$(printf '%s' "$FPS" | grep -c . )                     # printf 不补换行
 if [ "$NFP" = "1" ]; then
   echo "  ✅ $N 个种子【同一指纹】= 统一同源坐实（可写进论文的机器审计证据）"
 elif [ "$NFP" = "0" ]; then                                # 🔴 别把"没数据"误诊成"换源"（dry-run 抓出的误报）
-  echo "  ⓘ 无指纹记录 = 还没产出结果（$N/10 个种子完成）→ 不是换源问题；先看 结果/_wsBIGppo_s*.log 查失败原因"
+  echo "  ⓘ 无指纹记录 = 还没产出结果（已完成 $N 个种子·本次要跑 [$SEEDS]）→ 不是换源问题；先看 结果/_wsBIGppo_s*.log 查失败原因"
 else
   echo "  🔴🔴 出现 $NFP 个【不同指纹】= 源被换过 → 该批数据【作废】·查 $FROZEN_DIR 是否被覆盖"
 fi
 echo ""
 echo "回传给主窗口：结果/step4e_partial_wsBIGppo_s*.jsonl + 结果/checkpoints/*_wsBIGppo_s*.progress.json（含 trend 全程曲线）"
-echo "被杀/失败：重跑同一条命令自动续跑未完成种子。"
+echo "被杀/失败：重跑同一条命令会跳过【已整颗跑完】的种子；跑到一半被杀的那颗【从头重训】(无中途续训·L226-S)。"

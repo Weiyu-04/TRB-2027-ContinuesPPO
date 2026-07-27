@@ -138,6 +138,30 @@ def test_degenerate():
     print("  [T6] 退化输入(空/单步/畸形/rhos不匹配) 不崩·优雅降级 ✅")
 
 
+def test_no_inbox_pair_still_reports_zero():
+    """T7（独立复审 L226-K）：整局一个"箱内相邻对"都没有时，**样本量键必须是 0、不能消失**。
+
+    为什么承重：三个样本量键（`03` L216-D-续）加进来的全部理由就是"把『没采到』和『采到但样本量是 0』分开"。
+    但原实现在 `not adj.any()` 这条早退路径上把**全部 7 个键一起丢成 None** ⟹ 恰恰在最需要分辨的那种局
+    （让路步与紧急步大量重叠、每步都越箱）歧义原封不动 ⟹ 修完必须钉住。
+    语义约定：键缺失 = 没跑到；键 = 0 = 跑到了但确实没有。
+    """
+    # ① 每步都是紧急满程（越箱）→ 没有任何箱内相邻对
+    r = M.subgrid_and_rho_split([(0.24, 0.03), (0.24, -0.03), (0.24, 0.03)], [5, 5, 5])
+    assert r["n_inbox_pairs"] == 0, f"越箱局应报 n_inbox_pairs=0，实得 {r['n_inbox_pairs']!r}"
+    assert r["subgrid_yaw_frac"] is None and r["yaw_incr_giveway"] is None, r
+    # ② 箱内/箱外交替 → 同样一个相邻对都没有
+    r2 = M.subgrid_and_rho_split([(0.016, 0.006), (0.24, 0.03), (0.016, 0.006)], [0, 5, 0])
+    assert r2["n_inbox_pairs"] == 0, r2
+    # ③ 反证：输入根本不合法时，键仍然【缺失】（= 没跑到），与上面的 0 语义不同
+    r3 = M.subgrid_and_rho_split([(0.016, 0.006)])            # 只有一步 → 连相邻对的概念都没有
+    assert r3["n_inbox_pairs"] is None, r3
+    # ④ 正常局仍报真实对数（防把 0 写死）
+    r4 = M.subgrid_and_rho_split([(0.016, 0.006), (0.0, 0.006), (0.016, 0.012)])
+    assert r4["n_inbox_pairs"] == 2, r4
+    print("  [T7] 无箱内相邻对 → 样本量键=0 而非消失（『没采到』与『是 0』可分辨） ✅")
+
+
 def main():
     print("=== test_metrics_subgrid（次网格细调率 + 按态势拆转艏·本机单测）===")
     test_discrete_subgrid_zero()
@@ -147,6 +171,7 @@ def main():
     test_rho_split()
     test_grid_guard()
     test_degenerate()
+    test_no_inbox_pair_still_reports_zero()
     print("  ✅ 全部通过")
 
 

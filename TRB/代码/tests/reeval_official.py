@@ -66,7 +66,8 @@ from collections import Counter, defaultdict
 
 # 🔴 脚本版本号：**每次改动必手动 +1**。服务器同步后用 `grep SCRIPT_REV <文件>` 一眼验是不是最新
 #    （靠"我几点同步的"判断不可靠——已踩过）。跑起来时也会打印，log 里永久留痕。
-SCRIPT_REV = "r12-2026-07-26"  # r12: 补 `分型_strict`（此前分型只有 600/577 两档·缺 563 ⟹ 汇报里混了分母·`03` L224）
+SCRIPT_REV = "r13-2026-07-27"  # r13: 独立复审修（`03` L226）——平滑器四个诊断计数器进输出(N) + ρ 态势步数直方图进汇总(O)
+#                                r12: 补 `分型_strict`（此前分型只有 600/577 两档·缺 563 ⟹ 汇报里混了分母·`03` L224）
 #                                r10: REEVAL_YAW_SLEW —— 舵速率限制（第二个平滑旋钮·有物理依据·`03` L221）
 #                                r9: REEVAL_YAW_LOWPASS —— 转向低通滤波权衡曲线（治抖·纯评估期·`03` L218·user 拍）
 #                                r8: REEVAL_TRAJ_KEYS —— 采几个场景的逐步轨迹（多算法轨迹对比图·`03` L215-G·user 拍）
@@ -381,6 +382,16 @@ def agg_of(per, idx_filter=None):
     # 🔴 全套指标（平滑度 jerk/转艏增量/油门增量 + **次网格细调率** + **按态势拆转艏** + 路径长/进近诊断）
     #    `03` L203 的两个卖点指标就在这里：subgrid_*_frac（用掉多少连续分辨率·离散臂 by construction 恒 0）
     #    与 yaw_incr_giveway/other（转艏活动是否集中在让路步 = 合规代价而非控制毛病）。
+    # 🔴 2026-07-27（独立复审 L226-O）：**态势步数直方图必须进汇总**。
+    #   `evaluate` 每局已经算好 `rho_hist`（ρ0/ρ1..ρ5 各多少步），但它是 dict ⟹ `_mean_extras` 只收数值键
+    #   ⟹ 一路被丢掉、重评结果里根本没有。后果很具体：项目挂着的那笔债——「`yaw_incr_giveway` 对两条连续臂
+    #   全是 None」——**光靠新加的三个样本量键定位不了**（它们只能告诉你"让路箱内相邻对 = 0"，
+    #   却不能告诉你到底是①根本没有让路步 ②有让路步但都越箱（与紧急步重叠）③有但恰好不相邻）。
+    #   而 ρ 直方图正好把①和②③分开。**零额外算力**（数已经在逐局 dict 里），加这几行下一趟就能定位。
+    _rh = [p.get("rho_hist") for p in rows if isinstance(p.get("rho_hist"), dict)]
+    if _rh:
+        out["态势步数合计"] = {str(k): int(sum(int(d.get(k, 0) or 0) for d in _rh))
+                          for k in sorted({kk for d in _rh for kk in d}, key=str)}
     out["控制质量"] = _mean_extras(rows)
     # 路径长度/平滑度须【分到达与否】看（游荡局天然更长·`evaluate._control_quality` docstring 红队 MEDIUM L72）
     arrived_rows = [p for p in rows if p.get("reached")]
@@ -804,8 +815,32 @@ def main():
         抽成函数是为了让 r9 的 α 循环复用同一段口径（三口径切子集 / 分型 / 卖点指标 / 落盘）——
         **同一段代码跑所有档**，免得"对照组和滤波组走了两条略不同的路"这种最难查的错。
         """
+        # 🔴 2026-07-27（独立复审 L226-N）：把平滑包装器的**四个诊断计数器**捞出来。
+        #   它们原先在 `_YawSmoothBase` 里认真数着（n_steps / n_ref_from_env / n_ref_clamped / n_clipped）、
+        #   注释还写着"判读时看它，别假设"，但**没有任何一条路输出**——不打印、不落盘 ⟹ 死指标。
+        #   （这正是 `03` L216-F 记过的教训"指标接进去了 ≠ 指标出来了"，同一批代码里又犯了一次。）
+        #   为什么它们是承重的：`n_ref_from_env` 若远小于 `n_steps`，说明 `bind_env` 没被调到、
+        #   参考舵位退回了"自己上一步的指令"——那正是 `03` L222-#4 修掉的旧毛病，**而聚合数字上完全看不出来**；
+        #   `n_ref_clamped` 告诉我们盾/紧急控制器越箱施加了多少步（L222-#5 那个自引入 bug 的现场计数）；
+        #   `n_clipped` 告诉我们限速旋钮到底切没切到东西（全 0 = 这一档等于没施加，别误读成"旋钮无效")。
+        _wrap_box = {}
+
+        def _wrap_capture(m, _mk=wrap, _h=_wrap_box):
+            obj = _mk(m)
+            _h["obj"] = obj
+            return obj
+
         agg, per = R.replay_eval(base, kind, weight, pool, continuous_algo=algo, return_per=True,
-                                 traj_idxs=traj_idxs, policy_wrap=wrap)
+                                 traj_idxs=traj_idxs,
+                                 policy_wrap=(None if wrap is None else _wrap_capture))
+        _smooth_diag = None
+        _wo = _wrap_box.get("obj")
+        if _wo is not None:
+            # 读 __dict__ 而不是 getattr：本类的 __getattr__ 会把未知属性**转发给内层模型**，
+            # 用 getattr 取 `n_clipped`（低通档没有这个属性）会走进转发路径，不干净。
+            _d = vars(_wo)
+            _smooth_diag = {k: int(_d[k]) for k in
+                            ("n_steps", "n_ref_from_env", "n_ref_clamped", "n_clipped") if k in _d}
         if traj_idxs:
             trajs[out_name] = {str(keys[p["scenario_idx"]]): p.get("traj")
                                for p in per if p.get("scenario_idx") in traj_idxs and p.get("traj")}
@@ -826,6 +861,7 @@ def main():
                              "dataset": (sc.get("config_sig") or {}).get("dataset"),
                              "anchor": anchor,
                              "平滑档": (None if wrap is None else _ALPHA_OF.get(out_name)),
+                             "平滑诊断": _smooth_diag,          # L226-N：四个计数器（不施加档也要看·全 0 才是对的）
                              "全部": agg_of(per), "clean": agg_of(per, clean_idx),
                              "strict": agg_of(per, strict_idx), "看过的": agg_of(per, seen_idx),
                              "分型_全部": by_type, "分型_clean": by_type_clean,
@@ -837,6 +873,14 @@ def main():
         _cl = fmt_ctrl(r["strict"])                            # 卖点指标（平滑/次网格/按态势拆转艏）·`03` L203
         if _cl:
             print(_cl)
+        if _smooth_diag:                                       # L226-N：平滑器到底有没有真的接上、切没切到东西
+            _ns, _nr = _smooth_diag.get("n_steps", 0), _smooth_diag.get("n_ref_from_env", 0)
+            print(f"      平滑诊断：步数={_ns} · 读到真实舵位={_nr}"
+                  + ("" if _ns == 0 else f"（{100.0 * _nr / _ns:.1f}%）")
+                  + f" · 参考被夹回箱={_smooth_diag.get('n_ref_clamped', 0)}"
+                  + (f" · 被限速切={_smooth_diag['n_clipped']}" if "n_clipped" in _smooth_diag else "")
+                  + ("   🔴 读到真实舵位的比例过低 ⟹ bind_env 可能没接上、参考退回了自己的指令值（`03` L222-#4 旧毛病）"
+                     if _ns > 0 and _nr < 0.5 * _ns else ""), flush=True)
         if r["看过的"]:
             print(fmt("对照：训练/验证见过的", r["看过的"]))
         # 打印用 strict 分型（与上面 strict 那行同分母·`03` L224）；老数据没这个键时回落 clean/全部
