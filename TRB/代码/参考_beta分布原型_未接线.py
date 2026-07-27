@@ -1,4 +1,22 @@
-"""路线 B 可行性原型：SB3 PPO + Beta 分布（有界支撑）。仅在草稿区验证可行性，不进仓库。"""
+"""路线 B 可行性原型：SB3 PPO + **Beta 分布**（有界支撑）——`03` L229-E。
+
+🔴 **本文件【未接进主流程】**，是留给下个窗口的起点，不被任何生产代码 import。
+   直接跑自检：`python 代码/参考_beta分布原型_未接线.py`（约 1 分钟，纯合成 env，不碰场景/存档）。
+
+为什么要它：现在连续臂用的是**无界对角高斯 + 硬裁剪**，σ_ω 训练中涨到 2.18× 半箱 ⟹ 73% 的步打满舵、
+0% 能输出居中舵；且裁剪之外是**梯度平高原**，治抖奖励结构上无着力点（`03` L229-C/D）。
+Beta 的支撑天生就是一个闭区间 ⟹ 数学上不可能越箱，且能表达细微转向。
+
+🔴 **不可省的设计**：α,β 用 `softplus(·)+1` **强制 ≥1**。不强制则 Beta 可退化成 U 形（两端高中间低）
+   = **数学形式的 bang-bang，比现状更糟**。≥1 ⟹ 恒单峰、众数在区间内部、端点密度有限。
+
+🔴 **接线时必须一起做的三件事**（漏一件就会出现"用 A 分布训、用 B 分布评"而聚合数字上完全看不出来）：
+   ① 新开关 `STEP4E_ACT_DIST`（gauss|beta|sde·默认 gauss = 与现状逐位一致）进 `config_sig`；
+   ② 同步进 `run_step4e.py` 的 `_SEMANTIC_KEYS` **和** `_cur_sig_probe`（后者现在漏了 ctrl_* 两键 = 闸空转·`03` L229-F）；
+   ③ `tests/reeval_official.py` 要 import 到本策略类所在模块，否则 `PPO.load` 解析不出类。
+
+⚠️ 换分布 ⟹ **旧存档灌不进去**（高斯 log_std 形状 (2,)；gSDE (64,2)；Beta 无此参数）⟹ 只能从零训。
+"""
 import warnings
 warnings.filterwarnings("ignore")
 import numpy as np
@@ -101,6 +119,8 @@ class E(gym.Env):
 
 
 if __name__ == "__main__":
+    import tempfile, os as _os
+    _TMP = _os.path.join(tempfile.mkdtemp(), "beta_proto.zip")
     m = PPO(BetaActorCriticPolicy, E(), n_steps=256, batch_size=64, verbose=0, seed=0)
     m.learn(4096)
     aa = np.stack([m.predict(np.random.randn(27).astype(np.float32), deterministic=False)[0] for _ in range(2000)])
@@ -111,7 +131,6 @@ if __name__ == "__main__":
     print("  deterministic at-edge    = %.4f" % float(np.mean(np.abs(dd) >= HIGH * 0.999)))
     print("  deterministic |w| median = %.5f (box 0.018)" % float(np.median(np.abs(dd[:, 1]))))
     print("  alpha/beta >= 1 always   =", True)
-    m.save("/tmp/claude-0/-home-user-TRB-2027-ContinuesPPO/dee210d5-5722-5d4b-8fb6-92046ca6e9dd/scratchpad/beta.zip")
-    m2 = PPO.load("/tmp/claude-0/-home-user-TRB-2027-ContinuesPPO/dee210d5-5722-5d4b-8fb6-92046ca6e9dd/scratchpad/beta.zip",
-                  custom_objects={"policy_class": BetaActorCriticPolicy})
+    m.save(_TMP)
+    m2 = PPO.load(_TMP)
     print("  save/load 往返 OK, 动作 =", m2.predict(np.zeros(27, np.float32), deterministic=True)[0])
