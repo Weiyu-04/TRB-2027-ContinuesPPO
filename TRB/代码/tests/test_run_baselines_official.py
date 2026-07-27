@@ -353,6 +353,15 @@ class TestClosedLoop(unittest.TestCase):
                              "STEP4E_SDIR": os.path.join(tmp, "scen")}, tmp=tmp, n_pool_files=2000)
             boxes = {pay["结果"][t]["box"] for t in pay["结果"] if not t.startswith("_")}
             self.assertEqual(boxes, {"rl", "full"})
+            # 🔴 L226-H：**两档同时在场时**才能验"前沿按箱分开"。原来这个测试只验两档都出现，
+            #    而验前沿的那个测试 `_BASE_ENV` 写死 `BASELINE_BOX=rl` ⟹ 跨箱混算这个缺陷
+            #    在整套测试里【没有任何一处】能抓到（变异测试实测漏网）。补在这里。
+            fr = pay["结果"]["_pareto"]["按动作箱前沿"]
+            self.assertEqual(set(fr), {"rl", "full"}, "前沿必须每档各一条")
+            for bx, tags_ in fr.items():
+                for t in tags_:
+                    self.assertEqual(pay["结果"][t]["box"], bx,
+                                     f"前沿 {bx} 里混进了 {pay['结果'][t]['box']} 档的配置（跨箱不可比·L226-H）")
 
     def test_sweep_selects_and_reports_dropped(self):
         """扫参 → 调参池与报数池不重叠 → 选出的配置 ≤ FINAL_MAX，且调参明细落盘。"""

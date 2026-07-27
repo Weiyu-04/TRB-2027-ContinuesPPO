@@ -383,9 +383,14 @@ if not _skip_C:
           sum(_resCC["rho_hist"].values()) == _resCC["steps"] and set(_resCC["rho_hist"]) == {0, 1, 2, 3, 4, 5})
     check("㉝b CAT3 CPA：cpa_center_m 非 None 且 cpa_clearance_m ≤ cpa_center_m（圆盘间隙=中心距−双圆<中心距）",
           _resCC["cpa_center_m"] is not None and _resCC["cpa_clearance_m"] <= _resCC["cpa_center_m"])
-    check("㉝c CAT4 source_counts 六档和 == steps（兜底链逐档分解·无合并漏计）",
+    # 🔴 2026-07-27 修（独立复审 L226-A·**同源的第三处**）：universe 从六档扩到七档（分级介入加了
+    #    `emergency_relaxed`·`03` L205），本断言同样没跟着改。它比 ㉚/㉛c 更隐蔽——**只有拿得到真实
+    #    T-0 场景时这段才会执行**，本机没场景时整块被跳过 ⟹ 连"红"都看不见。
+    #    ⟹ 教训：判断"某个测试文件是不是绿的"，必须问清楚**它有多少块被条件跳过了**。
+    check("㉝c CAT4 source_counts 七档和 == steps（兜底链逐档分解·无合并漏计）",
           sum(_resCC["source_counts"].values()) == _resCC["steps"]
-          and set(_resCC["source_counts"]) == {"projection", "emergency", "relaxed", "collision_min", "degenerate", "no_obstacle"})
+          and set(_resCC["source_counts"]) == {"projection", "emergency", "emergency_relaxed",
+                                               "relaxed", "collision_min", "degenerate", "no_obstacle"})
     check("㉝d CAT4 紧急步数自洽：source_counts['emergency'] == rho_hist[5]（emergency⟺ρ5）",
           _resCC["source_counts"]["emergency"] == _resCC["rho_hist"][5])
     check("㉝e CAT4 投影修正量（action aliasing）：mean/max/zero_frac 非 None、zero_frac∈[0,1]、max≥mean≥0",

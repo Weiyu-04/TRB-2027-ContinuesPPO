@@ -353,8 +353,17 @@ def phase_selftest():
     chk("T10d 角点解永远在箱内（任意 g）",
         all(abs(_c(g)[0]) <= _p2.a_box + 1e-12 and abs(_c(g)[1]) <= _p2.w_box + 1e-12
             for g in ([0, 0], [1, -1], [-1, 1], [1e-18, -1e-18], [-5, 0])))
-    chk("T10e predict 的兜底真的走 lp_corner（不是另抄一份公式）",
-        "lp_corner(g, self.a_box, self.w_box)" in open(__file__, encoding="utf-8").read())
+    # T10e：`predict` 的兜底必须**真的调** lp_corner。
+    #   🔴 第一版写成"在源码里找这段字符串"——而那段字符串**就写在断言自己这一行**，
+    #      于是 `open(__file__).read()` 永远找得到 = 自我满足的空断言（变异测试当场抓出）。
+    #      改用 AST：在 `predict` 函数体里找对 `lp_corner` 的调用。
+    import ast as _ast
+    _tree = _ast.parse(open(__file__, encoding="utf-8").read())
+    _pred = next((n for n in _ast.walk(_tree)
+                  if isinstance(n, _ast.FunctionDef) and n.name == "predict"), None)
+    chk("T10e predict 的兜底真的调 lp_corner（AST 级·不是文本找字符串）",
+        _pred is not None and any(isinstance(c, _ast.Call) and isinstance(c.func, _ast.Name)
+                                  and c.func.id == "lp_corner" for c in _ast.walk(_pred)))
 
     print("  " + ("✅ selftest 通过（接线/箱约束/口径对称/兜底方向均对·闭环须服务器真跑）" if ok else "🔴 有洞"))
     return 0 if ok else 1
