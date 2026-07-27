@@ -7,7 +7,13 @@
 stable-baselines3==2.3.2
 sb3-contrib==2.3.0
 gymnasium==0.29.1
-commonocean-io==2025.1
+commonocean-io==2025.1  # ⚠️ 它【传递依赖】commonocean-vessel-models（= 代码里 import 的 `vesselmodels`，
+                        #    提供 vessel_dynamics_yp / parameters_vessel_1）⟹ 不必单列，但**装它必须带依赖**。
+                        # 🔴 2026-07-27 踩坑记（L226-G1）：`pip install commonocean-io` 在新版 Python 上会卡在
+                        #    antlr4-python3-runtime 建轮子失败 → 整条链装不上 → 有人误以为 vesselmodels
+                        #    "只能从被墙的 gitlab 拿"。**正解**：先手动装好 antlr4 运行时（4.9.3·纯 Python，
+                        #    源码包解压后把 src/antlr4 拷进 site-packages 即可），再装 commonocean-io。
+                        #    也可直接 `pip install commonocean-vessel-models`（它自己在 PyPI 上，装得到）。
 commonroad-io==2023.1
 commonroad-vehicle-models==3.0.2
 shapely==2.1.2
