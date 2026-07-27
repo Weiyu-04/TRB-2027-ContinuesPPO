@@ -58,13 +58,37 @@ from usv_vo_baseline import nominal_pd, vo_action, A_BOX, W_BOX, circum         
 from block3_partition_probe import A_MAX, W_MAX, L_SHIP, W_SHIP, DECISION_DT
 import b1_cbf_baseline as CBF                                                     # CBF 数学件（复用·不重造）
 
-SCRIPT_REV = "b2-2026-07-26"          # 同 reeval_official 的做法：同步后 grep 一眼验版本
+SCRIPT_REV = "b3-2026-07-27"          # b3: 独立复审修（`03` L226）——CBF 兜底平局倒向减速+右转(D·提成 lp_corner)
+                                      #     + 目标点读不到改 fail-closed(I)。同步后 grep 一眼验版本
 # b2（`03` L215）：闭环接线时抓出三处问题 → ① 补 `bind_env` 钩子（官方评估器按这个名字找·原来永不绑定）
 #                 ② 动作箱/标称真透传进 VO（原来 full 档 VO 被钉在 RL 箱 = 第三处口径不对称）
 #                 ③ 加逐局计数（不可行率要能按 strict/clean/分型切子集·不能只有整趟累计）
 
 BOXES = {"rl": (A_BOX, W_BOX),        # 与我方 RL 臂同等操作权限（默认·主口径）
          "full": (A_MAX, W_MAX)}      # 给基线全物理量程（更慷慨·反稻草人对照）
+
+
+def lp_corner(g, a_box, w_box):
+    """`min gᵀu s.t. u ∈ box` 的角点解（CBF QP 不可行时的兜底 = 最小化约束违反）。
+
+    🔴 2026-07-27 提成函数（独立复审 L226-D）：原先内联在 `predict` 里、**没有任何测试**，
+       而它直接决定"不可行"那些步的动作，不可行率正是这条线的四个看点之一。
+       提出来是为了让实现与回归**共用同一处定义**——测试自己抄一份公式＝镜像测试，
+       两边一起改错就测不出来（`03` L224-A 的教训原话）。
+
+    ═══ 平局怎么倒（本次修的就是这个）═══
+    `g_i == 0` ⟹ 该轴对目标函数毫无影响 ⟹ 取哪个边界都同样最优 = **平局**。
+    原写法 `g_i > 0` 把平局一律落进 else：
+      · ω 轴：正对遇几何下 `g[1] ≡ 0`（实测 g=[1200., −0.]）⟹ 恒取 +w_box = **满左舵**，
+        而项目约定 **ω<0 才是右转(starboard)** ⟹ 在「违规次数/局」这一列上系统性把 CBF 打成犯规
+        （`ViolationCounter` 对方向违规是**逐步**累计）⟹ 踩「反稻草人」红线（`03` L213-D）。
+      · a 轴：平局取 +a_box = 朝着一个"找不到安全动作"的几何**加速**，与兜底语义相反。
+    改成 `>= 0` ⟹ 平局时 ω 取 −w_box（右转·合规方向）、a 取 −a_box（减速·更保守）。
+    **对 g_i ≠ 0 的情形逐位不变**（只动平局分支）⟹ 不影响 CBF 真正在起作用的步。
+    """
+    g = np.asarray(g, float)
+    return np.array([-float(a_box) if g[0] >= 0 else float(a_box),
+                     -float(w_box) if g[1] >= 0 else float(w_box)], float)
 
 
 # ────────────────────────── 策略适配器（伪装成 sb3 模型·喂进官方 evaluate） ──────────────────────────
@@ -96,8 +120,17 @@ class GeometricPolicy:
         try:
             g = env.env.obs_builder.goal_center           # 与 evaluate._goal_xy 同源
             self.goal = np.array([float(g[0]), float(g[1])], float)
-        except Exception:                                  # noqa: BLE001
+        except Exception as e:                             # noqa: BLE001
+            # 🔴 2026-07-27 改成 fail-closed（独立复审 L226-I）：原先静默置 None，而 `predict` 在 goal=None 时
+            #    拿"正前方 10km"当目标 ⟹ 三条外部基线**一起退化成保向直行**、到达率塌到接近 0，
+            #    而全程没有任何计数/告警/闸 ⟹ 报出来就是"外部基线连目标都到不了"＝我们自己造的稻草人。
+            #    本文件其它每一处都是 fail-closed，唯独这里 fail-open。官方 2000 个场景**每个都有 goalState**
+            #    ⟹ 读不到就是接线/版本坏了，必须当场停，不许带病跑完几千局。
             self.goal = None
+            raise SystemExit(
+                f"🔒 读不到目标点（env.env.obs_builder.goal_center）：{type(e).__name__}: {e}\n"
+                "   goal=None 会让三条外部基线一起退化成『朝正前方 10km 直行』⟹ 到达率≈0，"
+                "而那不是方法的缺陷、是我们的接线坏了 ⟹ 中止（宁可停下，不出稻草人数字）。") from e
         return env
 
     # 🔴 `evaluate.run_episode_continuous` 找的钩子名是 **`bind_env`**（`if hasattr(model, "bind_env")`，
@@ -181,8 +214,7 @@ class GeometricPolicy:
                 #    （不能让两条外部基线一个用宽容兜底、一个用严苛兜底=不公平）。
                 #    min g·u s.t. u∈box 是箱上线性规划 → 解在角点：g_i>0 取下界、g_i<0 取上界。
                 self._bump("infeasible")
-                u = np.array([-self.a_box if g[0] > 0 else self.a_box,
-                              -self.w_box if g[1] > 0 else self.w_box], float)
+                u = lp_corner(g, self.a_box, self.w_box)      # 平局倒向减速+右转（L226-D）
             return self._clip(u), None
 
         if self.method == "pd":                            # 纯标称（无避碰·作"没有安全层"的下界锚点）
@@ -308,7 +340,23 @@ def phase_selftest():
         and sum(e["steps"] for e in eps) == pol.stats["steps"],
         f"{eps} 总 {pol.stats}")
 
-    print("  " + ("✅ selftest 通过（接线/箱约束/口径对称均对·闭环须服务器真跑）" if ok else "🔴 有洞"))
+    # ── T10：CBF 兜底角点解的【平局方向】（独立复审 L226-D 的靶子·调**真实现** lp_corner）──
+    _p2 = GeometricPolicy("cbf", box="rl")
+    _c = lambda g: lp_corner(g, _p2.a_box, _p2.w_box)      # noqa: E731
+    chk("T10a 平局(g=[0,0]) → 减速 + 右转（ω<0=starboard）",
+        _c([0.0, 0.0])[0] < 0 and _c([0.0, 0.0])[1] < 0, f"u={_c([0.0, 0.0])}")
+    chk("T10b 正对遇形态(g=[1200,−0.0]·ω 系数为 0) → 仍是右转，不是满左舵",
+        _c([1200.0, -0.0])[1] < 0, f"u={_c([1200.0, -0.0])}")
+    chk("T10c g_i≠0 时逐位不变（只改平局分支·不动 CBF 真正起作用的步）",
+        np.allclose(_c([1.0, 1.0]), [-_p2.a_box, -_p2.w_box])
+        and np.allclose(_c([-1.0, -1.0]), [_p2.a_box, _p2.w_box]))
+    chk("T10d 角点解永远在箱内（任意 g）",
+        all(abs(_c(g)[0]) <= _p2.a_box + 1e-12 and abs(_c(g)[1]) <= _p2.w_box + 1e-12
+            for g in ([0, 0], [1, -1], [-1, 1], [1e-18, -1e-18], [-5, 0])))
+    chk("T10e predict 的兜底真的走 lp_corner（不是另抄一份公式）",
+        "lp_corner(g, self.a_box, self.w_box)" in open(__file__, encoding="utf-8").read())
+
+    print("  " + ("✅ selftest 通过（接线/箱约束/口径对称/兜底方向均对·闭环须服务器真跑）" if ok else "🔴 有洞"))
     return 0 if ok else 1
 
 

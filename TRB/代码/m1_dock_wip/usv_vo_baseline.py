@@ -40,9 +40,45 @@ import numpy as np
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from block3_partition_probe import A_MAX, W_MAX, V_MAX, DECISION_DT, L_SHIP, W_SHIP   # 单一真相源
 
+SCRIPT_REV = "vo2-2026-07-27"   # 🔴 2026-07-27 新加（独立复审 L226-V）：本文件原先【没有任何版本标记】，
+                                #    而 `04 §2` 把它列进"必须一起同步、否则版本对不上"的清单里 ⟹ 服务器上
+                                #    根本没法 grep 验它同步没同步。vo2 = 修 COLREGs 扇区方向(C) + 补 closing 判据(B)。
 DT = DECISION_DT
 # RL 动作箱（与四臂同口径·`03` L203 metrics_subgrid 同源）：外部基线也只准用这个箱，否则不公平
 A_BOX, W_BOX = 0.048, 0.018
+
+
+# ── COLREGs 让路扇区（本文件自持·**刻意不 import 我们的 usv_colregs**：外部基线要保持独立） ──
+# 🔴🔴 2026-07-27 修（独立复审 L226-C·本批最严重的一处）：原实现把偏好扇区写反了侧。
+#   根因 = **两套方位角符号约定被混用**：
+#     · 项目状态机 `usv_colregs.relative_bearing`（:117 白纸黑字）= 艏向 − 视线角 ⟹ **右舷为正**；
+#     · 本文件（与 `b1_cbf_baseline`）= 视线角 − 艏向 ⟹ **左舷为正**（互为相反数）。
+#   原区间 `-π/2 ≤ β ≤ 5π/8` 是按"右舷为正"写的，落到"左舷为正"的 β 上就成了它的镜像：
+#   实测——他船在【左舷正横】(此时本船是【直航方】、按规则应保向保速) 判 prefer_stbd=True，
+#   而右舷正横偏后那段本该让路的反被排除。后果：在头条对比表的三目标之一「违规次数/局」上
+#   **系统性地把外部基线推去犯直航违规**（`ViolationCounter` 对 stand-on 是逐步累计）
+#   ⟹ 直接踩项目「反稻草人」红线（`03` L213-D：只报对基线不利的那档 = 打稻草人）。
+SECTOR_STARBOARD = math.radians(112.5)   # 右舷侧灯弧（COLREGs 标准几何·与我方状态机 SECTOR_SIDE 同值·独立写死）
+DELTA_HEADON = math.radians(15.0)        # 正前对遇带（**刻意比我方状态机的 ±5° 宽**＝对外部基线更慷慨：
+                                         #   近对遇时仍给右转偏好，免得因带太窄而漏判让路态 ⟹ 反稻草人方向）
+
+
+def _rel_bearing_stbd(p, psi, p_o):
+    """他船相对本船的方位角 β ∈ [−π, π]，**右舷为正 / 左舷为负**（与 `usv_colregs.relative_bearing` 同约定）。"""
+    d = np.asarray(p_o, float) - np.asarray(p, float)
+    los = math.atan2(d[1], d[0])
+    return (float(psi) - los + math.pi) % (2 * math.pi) - math.pi
+
+
+def prefer_starboard(p, psi, p_o):
+    """本船是否处于"应偏好右转"的一侧：他船在**右舷侧灯弧内**，或落在**正前对遇带**内。
+
+    🔴 **判据必须只有这一处定义**（2026-07-27 自查）：`vo_action` 与回归测试共用本函数。
+       第一版把区间写在 `vo_action` 里、测试里另抄一份，做变异（把区间改回镜像的旧版）时**测试全绿**
+       ——因为测试根本没调到被改的那段。这就是本项目反复记过的"镜像测试"坑
+       （`03` L224-A 原话：抄常量 ⟹ 两处一起错就测不出来）。
+    """
+    return -DELTA_HEADON <= _rel_bearing_stbd(p, psi, p_o) <= SECTOR_STARBOARD
 
 
 def circum(l, w):
@@ -51,11 +87,18 @@ def circum(l, w):
 
 
 # ────────────────────────── 标称控制器（目标导引 PD·两条外部基线共用） ──────────────────────────
-def is_giveway_like(p, psi, obs, *, sector_deg=60.0, rng_max=2500.0):
-    """粗略让路态判据（他船在前方扇区 ∧ 正在接近 ∧ 近场）——与 `b1_cbf_baseline.colregs_nominal` 同款条件。
+def is_giveway_like(p, psi, v, obs, *, sector_deg=60.0, rng_max=2500.0):
+    """粗略让路态判据（他船在前方扇区 ∧ **正在接近** ∧ 近场）——与 `b1_cbf_baseline.colregs_nominal` 同款条件。
 
     ⚠️ 这是**外部基线自带的简易判据**，不是我们的 `ColregsStatechart`。故意如此：外部基线是独立方法，
        不该借用我们的状态机（借了就不"独立"了）。两条外部基线用**同一个**判据 ⟹ 彼此对称。
+
+    🔴 2026-07-27 修（独立复审 L226-B）：本函数原先【只判扇区 + 距离，漏了"正在接近"】，
+       而 docstring 和 `b1_cbf_baseline.py:105` 都有 `closing`。物证 = 原实现把 `psi_o, v_o` 解包出来后
+       一次都没用。后果：他船在前方 2500m 内但**正在远离**时也会触发满右舵标称，而这个标称是
+       **VO / CBF / PD 三条线共用**的 ⟹ 三条外部基线同时被推着做无谓机动 ⟹ 违规/局 与 平顺度
+       **同时**变差。这正是「反稻草人」红线要防的：不许让对手因为我们的实现疏忽而难看。
+       ⟹ 补上 closing，与 CBF 侧逐字同款。**签名多一个 `v`**（要算相对速度）。
     """
     if obs is None:
         return False
@@ -63,7 +106,10 @@ def is_giveway_like(p, psi, obs, *, sector_deg=60.0, rng_max=2500.0):
     p_rel = p_o - np.asarray(p, float)
     rng = float(np.linalg.norm(p_rel))
     beta = (math.atan2(p_rel[1], p_rel[0]) - psi + math.pi) % (2 * math.pi) - math.pi
-    return abs(beta) < math.radians(sector_deg) and rng < rng_max
+    v_rel = (float(v) * np.array([math.cos(psi), math.sin(psi)])
+             - v_o * np.array([math.cos(psi_o), math.sin(psi_o)]))
+    closing = float(p_rel @ v_rel) > 0.0                 # 相对位置 · 相对速度 > 0 ⟹ 正在缩短距离
+    return abs(beta) < math.radians(sector_deg) and closing and rng < rng_max
 
 
 def nominal_pd(p, psi, v, goal, *, v_des=None, k_psi=0.45, k_v=0.35,
@@ -89,7 +135,7 @@ def nominal_pd(p, psi, v, goal, *, v_des=None, k_psi=0.45, k_v=0.35,
     e_psi = (psi_goal - psi + math.pi) % (2 * math.pi) - math.pi
     omega = float(np.clip(k_psi * e_psi / DT, -w_box, w_box))
     accel = float(np.clip(k_v * (v_des - v) / DT, -a_box, a_box))
-    if variant == "colregs" and is_giveway_like(p, psi, obs):
+    if variant == "colregs" and is_giveway_like(p, psi, v, obs):   # v 供 closing 判据（L226-B）
         omega = -w_box                                      # 满右转标称（starboard·同 colregs_nominal 口径）
     return np.array([accel, omega], float)
 
@@ -184,11 +230,9 @@ def vo_action(ego, obs, goal, *, variant="colregs", tau=180.0, safety_margin=0.0
     R = circum(L_SHIP, W_SHIP) + circum(L_SHIP, W_SHIP) + safety_margin   # 两船外接圆和（+可选裕度）
     p_rel = p_o - p_e
 
-    # COLREGs 偏好方向：他船在右舷前方（让路态）→ 偏好右转（ω<0 = starboard·与项目符号约定一致）
-    prefer_stbd = False
-    if variant == "colregs":
-        beta = (math.atan2(p_rel[1], p_rel[0]) - psi_e + math.pi) % (2 * math.pi) - math.pi
-        prefer_stbd = (-math.pi / 2 <= beta <= math.pi * 5 / 8)       # 右舷~正前的宽扇区=让路侧
+    # COLREGs 偏好方向：他船在右舷侧灯弧内 或 正前对遇带 → 偏好右转（ω<0 = starboard）
+    # 🔴 判据走**共享函数** `prefer_starboard`（回归测试调的是同一个）——详见它与 SECTOR_STARBOARD 的注释（L226-C）
+    prefer_stbd = (variant == "colregs") and prefer_starboard(p_e, psi_e, p_o)
 
     best, best_cost, deepest, deep_cost = None, math.inf, None, math.inf
     for u in (cand if cand is not None else _candidates(a_box=a_eff, w_box=w_eff)):
@@ -270,7 +314,46 @@ def phase_selftest():
         u6 is not None and abs(u6[0]) <= A_BOX + 1e-9 and (not i6["vo_feasible"] or i6["n_free"] >= 0),
         f"fallback={i6['fallback']}")
 
-    print("  " + ("✅ selftest 通过（几何/箱约束/兜底均对·闭环行为须服务器真跑）" if ok else "🔴 有洞"))
+    # ── T7：COLREGs 偏好扇区【方向】（独立复审 L226-C 的靶子·原实现整个镜像反了）──
+    #    调的是**真实现** `prefer_starboard`（不是抄一份区间——抄了就测不出区间被改回去）。
+    #    本船朝正东(psi=0)：右舷 = y<0（南）· 左舷 = y>0（北）。
+    _p, _psi = np.array([0.0, 0.0]), 0.0
+    chk("T7a 方位角约定 = 右舷为正 / 左舷为负（与 usv_colregs.relative_bearing 同）",
+        abs(_rel_bearing_stbd(_p, _psi, np.array([0.0, -1000.0])) - math.pi / 2) < 1e-9
+        and abs(_rel_bearing_stbd(_p, _psi, np.array([0.0, 1000.0])) + math.pi / 2) < 1e-9)
+    chk("T7b 右舷正横（本船让路）→ 偏好右转", prefer_starboard(_p, _psi, np.array([0.0, -1000.0])))
+    chk("T7c 左舷正横（本船直航·应保向）→ **不**偏好右转（原实现在这里判 True = 推着基线犯直航违规）",
+        not prefer_starboard(_p, _psi, np.array([0.0, 1000.0])))
+    chk("T7d 正前对遇带内 → 偏好右转",
+        prefer_starboard(_p, _psi, np.array([1000.0, -50.0]))
+        and prefer_starboard(_p, _psi, np.array([1000.0, 50.0])))
+    # 全周扫描：命中区间必须整段落在 [−15°, +112.5°]（右舷正 + 正前带），左舷侧一个点都不许命中
+    _hit = []
+    for _d in range(-180, 181):
+        _r = 1000.0
+        _po = np.array([_r * math.cos(math.radians(-_d)), _r * math.sin(math.radians(-_d))])  # β=+_d
+        if prefer_starboard(_p, _psi, _po):
+            _hit.append(_d)
+    #    （边界那一度按浮点走，不钉死；钉的是"结构"：左舷深处零命中、右舷侧灯弧内全命中）
+    chk("T7e 全周扫描：命中集中在右舷侧+正前带，左舷 −16° 以外零命中、右舷 113° 以外零命中",
+        _hit and min(_hit) >= -15 and max(_hit) <= 113
+        and all(d in _hit for d in (0, 30, 60, 90, 112))            # 右舷侧灯弧内必须全中
+        and not any(d in _hit for d in (-20, -45, -90, -135, 150)), # 左舷侧与正后方一个都不许中
+        f"命中 {min(_hit) if _hit else None}°..{max(_hit) if _hit else None}°（{len(_hit)} 个整数度）")
+    # ⚠️ 遗留设计（**本次刻意不动·须 user 拍板**）：三条外部基线**共用**的标称 `is_giveway_like`
+    #    用的是 **±60° 对称**前扇区 ⟹ 他船在【左舷】前 60° 内且接近时，标称仍会命令满右舵，
+    #    而那时本船是【直航方】。它与 `b1_cbf_baseline.colregs_nominal` 逐字同款（两条基线**对称**、
+    #    不构成彼此不公平），是"前方有会遇就右转"的粗略启发式，不是本次要修的 bug；但它确实会在
+    #    「直航违规」这一列上让两条外部基线吃亏 ⟹ 已记进 `03` L226，等 user 决定要不要改判据。
+
+    # ── T8：closing 判据（L226-B 的靶子·原实现漏了，docstring 却写着有）──
+    chk("T8a 正前方相向接近 → 判为让路态",
+        is_giveway_like(_p, _psi, 6.0, (np.array([1000.0, 0.0]), math.radians(180.0), 6.0)))
+    chk("T8b 正前方同向且更快（正在远离）→ **不**判为让路态（漏 closing 会让三条基线一起做无谓机动）",
+        not is_giveway_like(_p, _psi, 6.0, (np.array([1000.0, 0.0]), 0.0, 9.0)))
+
+    print("  " + ("✅ selftest 通过（几何/箱约束/兜底/COLREGs 扇区方向/closing 均对·闭环行为须服务器真跑）"
+                  if ok else "🔴 有洞"))
     return 0 if ok else 1
 
 

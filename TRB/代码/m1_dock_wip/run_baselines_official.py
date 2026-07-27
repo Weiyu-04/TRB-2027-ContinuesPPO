@@ -62,7 +62,9 @@ if os.environ.get("BASELINE_MANIFEST_DIRS"):
 import reeval_official as RO                                   # noqa: E402 —— 必须在上面那行之后
 from usv_baseline_runner import BOXES, GeometricPolicy, SCRIPT_REV as RUNNER_REV, sweep_grid   # noqa: E402
 
-SCRIPT_REV = "rb1-2026-07-26"      # 同 reeval_official 的做法：服务器同步后 `grep SCRIPT_REV` 一眼验版本
+SCRIPT_REV = "rb2-2026-07-27"      # rb2: 独立复审修（`03` L226）——补 分型_strict(E) / 变体名 fail-closed(F) /
+                                   #      TUNE_N fail-closed(G) / Pareto 按动作箱分开(H) / full 档指标缺失提前告知(J)。
+                                   # 同步后 `grep SCRIPT_REV` 一眼验版本
 
 # ---------- 开关 ----------
 SELFTEST = "--selftest" in sys.argv or os.environ.get("BASELINE_SELFTEST", "0") == "1"
@@ -70,7 +72,14 @@ SMOKE = os.environ.get("BASELINE_SMOKE", "0") == "1"
 METHODS = [m.strip() for m in os.environ.get("BASELINE_METHODS", "vo,cbf,pd").split(",") if m.strip()]
 BOX_NAMES = [b.strip() for b in os.environ.get("BASELINE_BOX", "rl,full").split(",") if b.strip()]
 VARIANTS = [v.strip() for v in os.environ.get("BASELINE_VARIANTS", "colregs").split(",") if v.strip()]
+VARIANT_UNIVERSE = ("colregs", "plain")      # 下游是精确匹配 ⟹ 这里必须 fail-closed（L226-F）
 TUNE_N = int(os.environ.get("BASELINE_TUNE_N", "100"))
+# 🔴 2026-07-27 补（独立复审 L226-G）：`TUNE_N <= 0` 原先会一路穿到 `stride_sample` 的
+#   `if n <= 0: return ids` ⟹ **调参池 = 整个官方训练 1400**，把一次"我不想扫参"的误操作
+#   变成一次数千局的巨量跑。想关扫参请用 `BASELINE_SWEEP=off`。
+if TUNE_N <= 0:
+    raise SystemExit(f"🔒 BASELINE_TUNE_N 须 ≥1（给了 {TUNE_N}）。它 ≤0 会让调参池退化成【整个官方训练 1400】"
+                     "＝一次误操作烧掉数千局；要关扫参请用 BASELINE_SWEEP=off。")
 TUNE_SRC = os.environ.get("BASELINE_TUNE_SRC", "train").strip()      # train（默认·与报数池不重叠）| test
 FINAL_MAX = int(os.environ.get("BASELINE_FINAL_MAX", "3"))
 FINAL_N = int(os.environ.get("BASELINE_N", "0"))                     # >0 = 截断报数池（冒烟用·非正式数）
@@ -111,6 +120,13 @@ def build_configs(methods, boxes, variants, grid):
             if b not in BOXES:
                 raise SystemExit(f"🔒 未知动作箱 `{b}`（须 ∈ {sorted(BOXES)}）。")
             for v in variants:
+                # 🔴 2026-07-27 补（独立复审 L226-F）：方法与动作箱都是 fail-closed，**唯独变体名原先 fail-open**。
+                #    下游是 `if variant == "colregs"` 精确匹配 ⟹ `COLREGS`/`colreg`/笔误 都不报错，
+                #    实际跑的是【无 COLREGs 偏置】的 plain 版，而 json 键与论文表里的标签仍写着 COLREGS
+                #    ⟹ 一个大小写就能让整张「COLREGs 对比表」变成另一个东西，且事后无从分辨。
+                if v not in VARIANT_UNIVERSE:
+                    raise SystemExit(f"🔒 未知变体 `{v}`（须 ∈ {sorted(VARIANT_UNIVERSE)}；下游是精确匹配，"
+                                     "大小写不同会静默跑成 plain 而标签仍写 colregs）。")
                 for p in grid[m]:
                     out.append({"method": m, "box": b, "variant": v, "params": dict(p),
                                 "tag": config_tag(m, b, v, p)})
@@ -251,6 +267,14 @@ def main():
     print(f"[run_baselines_official {SCRIPT_REV}] runner={RUNNER_REV} · reeval={RO.SCRIPT_REV}")
     print(f"  方法={METHODS} · 箱={BOX_NAMES} · 变体={VARIANTS} · 标称={NOMINAL}"
           + (f"（ckpt={os.path.basename(RL_CKPT)}）" if NOMINAL == "rl" else ""))
+    # 🔴 2026-07-27 提前告知（独立复审 L226-J）：`full` 档的**平顺度/次网格族指标必然全缺**，这不是 bug。
+    #   机制：`evaluate._control_quality` 与 `metrics_subgrid` 的"只算正常操作步"过滤门**写死 RL 箱**
+    #   （±0.048/±0.018·四臂公平口径），而 full 档命令值可到 ±0.24/±0.03 ⟹ 没有一步落在箱内
+    #   ⟹ 整族指标为 None ⟹ 经 `_mean_extras`（跳 None）后**键在 json 里直接不存在**。
+    #   这正是 `03` L216-F 记过的"键消失式消失" ⟹ 这里主动喊一嗓子，免得跑完对着空列重新诊断一轮。
+    if "full" in BOX_NAMES:
+        print("  ⚠️ 提示：`full` 档（全物理量程）下【平顺度族 + 次网格族】指标必然为空——过滤门写死在 RL 箱内，"
+              "full 档没有一步落在箱内。这是设计使然、不是缺陷；平顺度只在 `rl` 档报（L226-J）。", flush=True)
 
     # ---- env 配置守卫：终端到达门必须与我们四臂一致，否则"到达率"这一列根本不可比 ----
     #      （`goal_cone_half`/`goal_v_floor` 是**投影**参数·shield=False 时不生效；`goal_ignore_orientation`
@@ -415,7 +439,7 @@ def main():
         print(f"▶ {c['tag']}", flush=True)
         per = eval_config(c, pool, env_factory, evaluate_continuous,
                           rl_model=rl_model, obs_tf=obs_tf, traj_idxs=traj_idxs)
-        by_type, by_type_clean = {}, {}
+        by_type, by_type_clean, by_type_strict = {}, {}, {}
         if types:
             from collections import defaultdict
             g = defaultdict(set)
@@ -423,12 +447,18 @@ def main():
                 g[t].add(i)
             by_type = {t: RO.agg_of(per, ix) for t, ix in sorted(g.items())}
             by_type_clean = {t: RO.agg_of(per, ix & clean_idx) for t, ix in sorted(g.items())}
+            # 🔴 2026-07-27 补 `分型_strict`（独立复审 L226-E）：隔壁 `reeval_official.py` 昨天（r12·`03` L224-B）
+            #    刚因为"分型只有 600/577 两档、缺 563 ⟹ 汇报里混了三个分母"修过一次，本文件是**复制那段代码时
+            #    把同一个坑原样复刻了过来**（`03` L215-D 说"口径全部复用不是重写"，但建池/落盘这两块其实是
+            #    逐行复制的第二份 ⟹ 复制就会连缺陷一起复制）。两档只差 14 局、数字差 0.1-0.8pt，肉眼看不出来。
+            by_type_strict = {t: RO.agg_of(per, ix & strict_idx) for t, ix in sorted(g.items())}
         results[c["tag"]] = {"method": c["method"], "box": c["box"], "variant": c["variant"],
                              "params": c["params"], "nominal": NOMINAL,
                              "调参指标": tune_rows.get(c["tag"]),
                              "全部": RO.agg_of(per), "clean": RO.agg_of(per, clean_idx),
                              "strict": RO.agg_of(per, strict_idx), "看过的": RO.agg_of(per, seen_idx),
-                             "分型_全部": by_type, "分型_clean": by_type_clean}
+                             "分型_全部": by_type, "分型_clean": by_type_clean,
+                             "分型_strict": by_type_strict}
         r = results[c["tag"]]
         print(RO.fmt("全部", r["全部"]))
         print(RO.fmt("clean（我们没训练过）", r["clean"]))
@@ -439,21 +469,33 @@ def main():
         _inf = ((r["strict"] or {}).get("控制质量") or {}).get("baseline_infeasible_pct")
         if _inf is not None:
             print(f"      不可行步%（VO 锥外无候选 / CBF QP 无解）: {_inf:.2f}%")
-        for t, m in (by_type_clean or by_type or {}).items():
-            print(RO.fmt(f"  · {t}", m))
+        # 打印用 strict 分型（与上面「strict（与四臂同分母）」那行同分母·`03` L224-B 的分母纪律）；
+        # 老数据没这档时回落 clean/全部，并**把用了哪一档印在行首**，免得读表的人默认它是 563。
+        _bt_lay = "strict 563" if by_type_strict else ("clean 577" if by_type_clean else "全部 600")
+        for t, m in (by_type_strict or by_type_clean or by_type or {}).items():
+            print(RO.fmt(f"  · {t}（{_bt_lay}）", m))
         if traj_idxs:
             trajs[c["tag"]] = {str(keys[p["scenario_idx"]]): p.get("traj")
                                for p in per if p.get("scenario_idx") in traj_idxs and p.get("traj")}
         _dump()
 
     # ---- Pareto 前沿汇总（报数池·strict 口径）：framing 恒为"各有所长"，不是"我们样样赢" ----
-    rows = [{"tag": t, **{k: (v["strict"] or {}).get(k) for k, _ in OBJECTIVES}}
-            for t, v in results.items() if not t.startswith("_")]
-    front = [r["tag"] for r in pareto_front(rows)]
-    results["_pareto"] = {"目标": [k for k, _ in OBJECTIVES], "前沿": front,
-                          "说明": "在 strict 563 上的非支配配置；论文报前沿、不报单一'最好'（`03` L129/L213-D）"}
+    # 🔴 2026-07-27 修（独立复审 L226-H）：**必须按动作箱分开算前沿**。
+    #   `full` 档给基线全物理量程（±0.24/±0.03），`rl` 档只给我方同款 RL 箱（±0.048/±0.018）——
+    #   操作权限根本不同 ⟹ full 档天然容易支配 rl 档。混在一条前沿里算，实测会把
+    #   **主口径档（rl = 与我们同权限、论文正表该用的那档）整组挤出前沿**，
+    #   于是唯一被标成"前沿"的产物混了两种不可比的权限。分箱各成一表，跨箱只做定性讨论。
+    rows_all = [{"tag": t, "box": v.get("box"), **{k: (v["strict"] or {}).get(k) for k, _ in OBJECTIVES}}
+                for t, v in results.items() if not t.startswith("_")]
+    fronts = {}
+    for _bx in sorted({r["box"] for r in rows_all if r.get("box")}):
+        fronts[_bx] = [r["tag"] for r in pareto_front([r for r in rows_all if r["box"] == _bx])]
+    results["_pareto"] = {"目标": [k for k, _ in OBJECTIVES], "按动作箱前沿": fronts,
+                          "说明": "在 strict 563 上、**每个动作箱各自**的非支配配置；论文报前沿、不报单一'最好'"
+                                  "（`03` L129/L213-D）。**绝不跨箱合并**：两档操作权限不同、不可比（L226-H）"}
     print("\n" + "─" * 104)
-    print(f"■ Pareto 前沿（strict·目标 {[k for k, _ in OBJECTIVES]}）：{front}", flush=True)
+    for _bx, _fr in fronts.items():
+        print(f"■ Pareto 前沿（strict·动作箱 {_bx}·目标 {[k for k, _ in OBJECTIVES]}）：{_fr}", flush=True)
     _dump(final=True)
 
     if trajs:
@@ -545,6 +587,33 @@ def selftest():
         RO.classify_pool([None, None], [1, 2], {1: "对遇", 2: "交叉"}) == {0: "对遇", 1: "交叉"})
     chk("S8c 标注里没有的键 → unknown（不静默丢局）",
         RO.classify_pool([None], [999], {1: "对遇"}) == {0: "unknown"})
+
+    # ── S9：变体名 fail-closed（独立复审 L226-F）──
+    def _raises(fn):
+        try:
+            fn()
+            return False
+        except SystemExit:
+            return True
+        except Exception:                                        # noqa: BLE001
+            return False
+    _g = sweep_grid()
+    chk("S9a 未知变体 → 中止（大小写不同也算未知）",
+        _raises(lambda: build_configs(["vo"], ["rl"], ["COLREGS"], _g))
+        and _raises(lambda: build_configs(["vo"], ["rl"], ["colreg"], _g)))
+    chk("S9b 合法变体照常通过",
+        len(build_configs(["vo"], ["rl"], ["colregs"], _g)) > 0
+        and len(build_configs(["vo"], ["rl"], ["plain"], _g)) > 0)
+    # ── S10：Pareto 前沿必须按动作箱分开（独立复审 L226-H）──
+    _rows = [{"tag": "a|rl", "box": "rl", "碰撞率%": 1.0, "违规次数/局": 1.0, "到达率%": 10.0},
+             {"tag": "b|rl", "box": "rl", "碰撞率%": 2.0, "违规次数/局": 0.5, "到达率%": 9.0},
+             {"tag": "c|full", "box": "full", "碰撞率%": 0.0, "违规次数/局": 0.0, "到达率%": 50.0}]
+    _mixed = {r["tag"] for r in pareto_front(_rows)}
+    _bybox = {bx: {r["tag"] for r in pareto_front([r for r in _rows if r["box"] == bx])}
+              for bx in ("rl", "full")}
+    chk("S10a 混算确实会把 rl 档挤掉（证明这条断言非平凡）", "a|rl" not in _mixed)
+    chk("S10b 分箱算 → rl 档自己的前沿仍在",
+        _bybox["rl"] == {"a|rl", "b|rl"} and _bybox["full"] == {"c|full"})
 
     print("  " + ("✅ selftest 通过（口径/分母/选择逻辑均对·**闭环仍须服务器冒烟才算真验**·`03` L202）"
                   if ok else "🔴 有洞"))
