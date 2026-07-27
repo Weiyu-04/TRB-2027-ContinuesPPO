@@ -268,6 +268,19 @@ def main():
     print(f"[run_baselines_official {SCRIPT_REV}] runner={RUNNER_REV} · reeval={RO.SCRIPT_REV}")
     print(f"  方法={METHODS} · 箱={BOX_NAMES} · 变体={VARIANTS} · 标称={NOMINAL}"
           + (f"（ckpt={os.path.basename(RL_CKPT)}）" if NOMINAL == "rl" else ""))
+    # 🔴 2026-07-27（`03` L226-X）：**启动就验产物目录能写**，别跑完一两个小时才发现存不下。
+    #   目录不存在会自动建（下面这行 = 落盘时那行的提前版），建不了/写不进就当场停。
+    _outdir = os.path.dirname(os.path.abspath(OUT))
+    try:
+        os.makedirs(_outdir, exist_ok=True)
+        _probe = os.path.join(_outdir, ".write_probe")
+        with open(_probe, "w") as _fh:
+            _fh.write("ok")
+        os.remove(_probe)
+    except Exception as _e:                                    # noqa: BLE001
+        raise SystemExit(f"🔒 产物目录不可写：{_outdir}（{type(_e).__name__}: {_e}）→ 现在停，"
+                         "免得跑完一两个小时才发现存不下。换个 BASELINE_OUT 路径重试。")
+    print(f"  产物 → {os.path.abspath(OUT)}（目录已就绪·可写）", flush=True)
     # 🔴 2026-07-27 提前告知（独立复审 L226-J）：`full` 档的**平顺度/次网格族指标必然全缺**，这不是 bug。
     #   机制：`evaluate._control_quality` 与 `metrics_subgrid` 的"只算正常操作步"过滤门**写死 RL 箱**
     #   （±0.048/±0.018·四臂公平口径），而 full 档命令值可到 ±0.24/±0.03 ⟹ 没有一步落在箱内
@@ -311,6 +324,15 @@ def main():
 
     # ---- 同分母【硬比对】：与主线 json 的 strict 键集合逐个对（这是"同一张表"最强的保证） ----
     if KEYS_REF:
+        # 🔴 2026-07-27（`03` L226-X）：路径写错时原来抛的是裸 FileNotFoundError 堆栈，
+        #   而**服务器上的结果目录结构与仓库不一样**（实测 user 的机器是 `/root/trb/结果0725-…`，
+        #   仓库里是 `结果/结果0725-…`）⟹ 这个参数最容易写错，必须给一句能照着修的话。
+        if not os.path.exists(KEYS_REF):
+            raise SystemExit(
+                f"🔒 BASELINE_KEYS_REF 指的文件不存在：{KEYS_REF}\n"
+                "   它是【同分母硬比对】要用的主线结果（全套里最强的一道闸）。\n"
+                "   先找到真路径再跑：find /root/trb -name 'reeval_official_ws.json' | head\n"
+                "   （确实拿不到主线 json 就先别加这个参数，但那样这道闸是关的、口径只靠计数断言。）")
         with open(KEYS_REF, encoding="utf-8") as fh:
             ref = json.load(fh)
         ref_strict = {str(x) for x in (ref.get("strict键") or [])}
