@@ -62,6 +62,7 @@ import json
 import math
 import os
 import random
+import shutil
 import sys
 import time
 
@@ -415,6 +416,13 @@ if _WARMSTART_CKPT and _CONTINUOUS_ALGO != "ppo":
 _PARTIAL = os.path.join(_RESULT_DIR, f"step4e_partial{_TAG}.jsonl")
 _TABLE3 = os.path.join(_RESULT_DIR, f"table3{_TAG}.txt")
 _CKPT_DIR = os.path.join(_RESULT_DIR, "checkpoints")            # L1c：每 (party,seed) 训后存 model+VecNorm（不重跑总保险·D42-Lschema CAT1）
+# 🆕 `03` L236-D②（user 2026-07-28 拍板"以后所有训练都开"）：**保留每一段的存档副本**。
+#   立项依据 = L236-B 实测：主存档是【覆盖式】的（每段盖掉上一段）⟹ 只留得下最后一段；而 `Discrete-safe s0`
+#   第 7 段已到 100%、最后两段崩回 5%，我们评的偏偏是末段 = 评到它最差的时刻，**而那个好存档已经没了、只能重训**。
+#   开了以后：中途任何一段都能事后重评（换"最好存档"口径 / 查崩溃前后 / 补学习曲线上的真实测试集数），**不必重训**。
+#   默认 **0 = 关 = 一个字节都不多写 = 逐位等价现状**；副本进 `checkpoints/segments/` 子目录（**绝不与主存档同层**，
+#   理由见 `_archive_segment` docstring：同层会被 reeval 的自动发现【静默】收成新臂）。
+_KEEP_SEGMENTS = os.environ.get("STEP4E_KEEP_SEGMENTS", "0").strip().lower() in ("1", "true", "yes", "on")
 
 
 # ---------------- 纯逻辑（可导入测试；无副作用）----------------
@@ -799,16 +807,55 @@ def write_progress(base, *, name, kind, weight, seed, seg_done, num_timesteps,
     write_atomic(base + ".progress.json", json.dumps(rec, ensure_ascii=False))
 
 
+def _archive_segment(base, seg_done):
+    """🆕 `03` L236-D②：把本段的三件套**另存一份**到 `<ckpt_dir>/segments/`（`STEP4E_KEEP_SEGMENTS=1` 才做）。
+
+    🔴 **为什么需要这个**（L236-B 的代价）：主存档是**覆盖式**的（每段盖掉上一段）⟹ 只留得下最后一段。
+      而 `Discrete-safe s0` 实测**第 7 段到 100%、最后两段崩回 5%**，我们评的偏偏是末段存档 = 评到它最差的时刻。
+      想换"最好存档"口径或事后查任何中途状态，**存档已经没了、只能重训**。这个开关就是让以后不再发生这件事。
+
+    🔴 **为什么放子目录 `segments/`、不能和主存档同层**：`tests/reeval_official.py:discover_ckpts()` 的自动发现
+      是 `glob(<dir>/*.zip)` + 有同名 `_vecnorm.pkl` 就收 —— **非递归**。放同层 ⟹ 分段副本会被**静默**当成新臂
+      收进重评，56 条臂的表当场变几百条（正是本项目反复踩的"静默污染"）。放子目录则自动发现扫不到；
+      `run_reeval_all.sh` 本就是显式点名（`REEVAL_CKPTS`）＋ `find "*/checkpoints/$a.zip"`，也扫不到 ⟹ 两条路都安全。
+      要评某个分段副本，**必须显式**把它的路径给 `REEVAL_CKPTS`（= 想用就得写明，不会不小心用上）。
+
+    工程点：
+    - 用 `shutil.copy2` **保留 mtime**：sidecar 里记的 `ckpt_fingerprint`(zip_mtime+zip_size) 才对得上，
+      分段副本的**锚点自检**才不会整条跳过（`03` L192 那道防线对副本同样有效）。
+    - 顺序与主存档一致：先 .zip/.pkl，**最后** .progress.json = 提交点；每件都先写 `.tmp` 再 `os.replace`。
+    - 磁盘：实测一段 ≈ 180KB(zip) + 4KB(pkl) + 进度 json（含 curves·随训练增长）⟹ 10 段/臂 量级在百 MB，起跑前留意即可。
+    """
+    seg_dir = os.path.join(os.path.dirname(base), "segments")
+    os.makedirs(seg_dir, exist_ok=True)
+    dst = os.path.join(seg_dir, f"{os.path.basename(base)}@s{int(seg_done):02d}")
+    for src_suf, dst_suf in ((".zip", ".zip"), ("_vecnorm.pkl", "_vecnorm.pkl"),
+                             (".progress.json", ".progress.json")):               # progress.json 最后 = 提交点
+        src = base + src_suf
+        if not os.path.exists(src):
+            continue
+        tmp = f"{dst}{dst_suf}.{os.getpid()}.tmp"
+        shutil.copy2(src, tmp)                                                    # copy2 = 连 mtime 一起拷（锚点自检要用）
+        os.replace(tmp, dst + dst_suf)
+    return dst
+
+
 def save_segment_checkpoint(model, venv, name, kind, weight, seed, ckpt_dir, *,
                             seg_done, num_timesteps, total_steps, n_seg, trend, config_sig,
                             curves=None, seg_per=None):
     """Layer-1 每段存档（L80-续4 ⑥）：原子存 model+VecNorm（覆盖最新）→ 最后写 progress.json 当 commit 点（提交顺序定死·D2 Q2）。
-    progress.json 含【增量诊断】curves+seg_per（中途可拉取·四臂同款）。调用方包 try/except（存盘失败不崩训练·同 :540/:697 容错纪律）。"""
+    progress.json 含【增量诊断】curves+seg_per（中途可拉取·四臂同款）。调用方包 try/except（存盘失败不崩训练·同 :540/:697 容错纪律）。
+    🆕 `STEP4E_KEEP_SEGMENTS=1` 时**额外**把这一段另存一份进 `segments/` 子目录（默认 0 = 一个字节都不多写 = 逐位等价现状·见 `_archive_segment`）。"""
     base = save_checkpoint(model, venv, name, seed, ckpt_dir)   # 先原子写 .zip + .pkl（commit 前两步）
     write_progress(base, name=name, kind=kind, weight=weight, seed=seed,
                    seg_done=seg_done, num_timesteps=num_timesteps, total_steps=total_steps,
                    n_seg=n_seg, trend=trend, config_sig=config_sig,
                    curves=curves, seg_per=seg_per)                                # 最后写 .progress.json = 提交点（含增量诊断）
+    if _KEEP_SEGMENTS:                                          # 🆕 L236-D②：主存档提交完之后才归档副本（副本失败绝不影响主存档）
+        try:
+            _archive_segment(base, seg_done)
+        except Exception as _e:                                 # 同 :540/:697 容错纪律：存盘失败不崩训练
+            print(f"  ⚠️ 分段副本归档失败（不影响主存档与训练）：{type(_e).__name__}: {_e}", flush=True)
     return base
 
 
@@ -1603,6 +1650,11 @@ def main():
         seeds = SEEDS_SMOKE if SMOKE else SEEDS_FULL
     parties = select_parties(os.environ.get("STEP4E_PARTIES"))
     mode = "SMOKE（冒烟）" if SMOKE else "FULL（非SMOKE；场景数看 N_TOTAL，非必=全2000）"
+    if _KEEP_SEGMENTS:   # 🆕 L236-D②：开着就明说（磁盘会涨·且这是有意选的口径，不该悄悄生效）
+        print(f"[step4e] 🟢 分段存档保留 = 开（STEP4E_KEEP_SEGMENTS=1）→ 每段另存一份到 "
+              f"{os.path.join(_CKPT_DIR, 'segments')}/<存档名>@sNN.*；"
+              f"预计 {len(seeds) * len(parties) * n_seg} 份 × 约 0.2~0.6MB。"
+              " 主存档与训练行为不变；副本在子目录 ⟹ 不会被重评自动发现（要评须显式点名）。", flush=True)
 
     # 输入校验（fail-fast）
     if n_seg < 1:
@@ -1740,6 +1792,7 @@ def main():
             "c_reach": _C_REACH, "dock_radius": _DOCK_R, "v_dock": _V_DOCK, "rate_dock": _RATE_DOCK,   # 🆕 第二条腿修法（run_config 自描述·`03` L172/L173·连续臂专属·provenance 完整）
             "warmstart_ckpt": (_WARMSTART_CKPT or None), "warmstart_src_fp": _WARMSTART_FP,   # 🆕 L190 热启动源 ckpt 路径+【内容指纹】（run_config 自描述·连续PPO臂专属·off=None=从零·provenance 命门=训练流程如实可查·指纹=真身份防同路径换源·第2轮审HIGH#1）
             "continuous_shield": _CONTINUOUS_SHIELD,   # 🆕 P0 SE-RL 盾 on/off（run_config 自描述·L146·连续臂专属·provenance 完整）
+            "keep_segments": _KEEP_SEGMENTS,   # 🆕 L236-D②：分段存档保留 on/off（run_config 自描述 = 事后能查"这个 run 有没有留中途存档"·**不进 config_sig**：它一个权重都不改·进了会让老 ckpt 续训从 0 重启）
             "goal_cone_half_deg": _GOAL_CONE_HALF_DEG, "goal_v_floor": _GOAL_V_FLOOR,
             "ctrl_slew_frac": _CTRL_SLEW, "ctrl_lowpass_alpha": _CTRL_LOWPASS, "act_dist": _ACT_DIST, "gw_entry": _GW_ENTRY,   # 🆕 L228 训练期转向平滑（None=不施加）+ 🆕 L230 动作分布档/让路入口档   # 🆕 ρ0 朝目标锥 Φ(度)/v_floor（run_config 自描述·PhaseC·L147·连续臂专属）
             "augment_rho": _AUGMENT_RHO,   # 🆕 腿1(L150/L152)：态势感知增广（run_config 自描述·连续臂专属）

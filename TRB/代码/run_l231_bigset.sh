@@ -58,6 +58,9 @@ export STEP4E_RATE_W=1.0                          # 治抖 ON（金标同款·**
 export STEP4E_CONTINUOUS_ALGO=ppo STEP4E_ENT_START=0.01 STEP4E_ENT_END=0.01 STEP4E_NENVS=8
 export STEP4E_PARTIES=Continuous-safe
 export STEP4E_ACT_DIST=beta STEP4E_GW_ENTRY=symmetric   # ← C 配方的两把钥匙（`03` L231/L232）
+export STEP4E_KEEP_SEGMENTS=1                     # 🆕 `03` L236-D②（user 2026-07-28 拍板"以后所有训练都开"）：每段存档另留一份到 checkpoints/segments/
+#   为什么：主存档是覆盖式的（每段盖掉上一段）⟹ Discrete-safe s0 那种"第 7 段 100%、末两段崩回 5%"的存档事后拿不回来、只能重训。
+#   开了之后想换"最好存档"口径 / 查崩溃前后 / 补学习曲线上的真实测试集数，都不必重训。副本在**子目录**⟹ 不会被重评自动发现（要评须显式点名）。
 export PY RES_DIR
 
 echo "===== [闸门 0] 路径 + 代码已同步（含 L231 新开关）====="

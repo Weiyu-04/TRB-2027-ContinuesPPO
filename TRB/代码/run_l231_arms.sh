@@ -116,6 +116,9 @@ run_one () {
     && echo "  [完] $T" || echo "  [⚠️失败] $T（看 $RES_DIR/${T}.log）"
 }
 export -f run_one
+export STEP4E_KEEP_SEGMENTS=1                     # 🆕 `03` L236-D②（user 2026-07-28 拍板"以后所有训练都开"）：每段存档另留一份到 checkpoints/segments/
+#   为什么：主存档是覆盖式的（每段盖掉上一段）⟹ Discrete-safe s0 那种"第 7 段 100%、末两段崩回 5%"的存档事后拿不回来、只能重训。
+#   开了之后想换"最好存档"口径 / 查崩溃前后 / 补学习曲线上的真实测试集数，都不必重训。副本在**子目录**⟹ 不会被重评自动发现（要评须显式点名）。
 for S in $SEEDS; do
   for _arm in $ARMS; do
     case "$_arm" in
