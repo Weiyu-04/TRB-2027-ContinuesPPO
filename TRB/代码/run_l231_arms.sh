@@ -19,8 +19,9 @@
 # ⚠️ 换分布 ⟹ 旧存档灌不进去 ⟹ 三臂**都必须从零**（本脚本不设 WARMSTART）。
 # ⚠️ TAG 三臂互不相同 ⟹ 各写各的 jsonl，不会 config_conflict 混写。
 #
-# 用法：  bash run_l231_arms.sh [并发上限]        # 默认 9（= 3 臂 × 3 种子一波跑完）
-#   种子想加到 5 颗：改下面 SEEDS 那一行。
+# 用法：  bash run_l231_arms.sh [并发上限]                          # 默认 = A/B/C 三臂 × 种子 0 1 2
+#         SEEDS="3 4 5 6 7 8 9" ARMS="C" bash run_l231_arms.sh 7   # 只补 C 臂 7 颗种子
+#         SEEDS="5 6" ARMS="A" bash run_l231_arms.sh 2              # 只补 A 臂那两颗崩种子
 # ══════════════════════════════════════════════════════════════════════════════════════════
 set -uo pipefail
 
@@ -32,8 +33,15 @@ MANIFEST="$HOME/trb/balanced_pool/manifest_hocr_200.json"
 BALANCED="$HOME/trb/balanced_pool"
 SDIR="$HOME/trb/scenarios"
 
-SEEDS="0 1 2"                                    # 3 臂 × 3 颗 = 9 个 run（想要 5 颗改成 "0 1 2 3 4"）
+# 🆕 种子与臂都可用环境变量覆盖（不用改文件）：
+#   SEEDS="3 4 5 6 7 8 9"  ARMS="C"  bash run_l231_arms.sh 7
+#   ARMS 取值 = A/B/C 的任意组合（空格分隔）；只冒烟被选中的臂。
+SEEDS="${SEEDS:-0 1 2}"
+ARMS="${ARMS:-A B C}"
 KMAX="${1:-9}"                                   # 并发上限（32 核 + 每 run NENVS=8 ⟹ 9 路≈2.3× 超订·与既往 10 路同量级）
+for _a in $ARMS; do
+  case "$_a" in A|B|C) ;; *) echo "❌ ARMS 只能是 A/B/C 的组合，得到 '$_a'"; exit 1 ;; esac
+done
 
 # ---- 配方：逐字 = run_leg1_rate.sh（金标 L1rateON），差异只有各臂自己的那一个开关 ----
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1
@@ -79,19 +87,23 @@ smoke_one () {   # $1=TAG $2..=开关
     || { echo "❌ 冒烟跑崩：$T（看 $RES_DIR/_${T}.log）"; tail -20 "$RES_DIR/_${T}.log"; exit 1; }
   echo "$SMK"
 }
-S_A="$(smoke_one _smkA231ppo STEP4E_ACT_DIST=beta)"                                || exit 1
-S_B="$(smoke_one _smkB231ppo STEP4E_GW_ENTRY=symmetric)"                           || exit 1
-S_C="$(smoke_one _smkC231ppo STEP4E_ACT_DIST=beta STEP4E_GW_ENTRY=symmetric)"      || exit 1
-grep -q '"act_dist": "beta"'      "$S_A" || { echo "❌ 臂A 冒烟没见 act_dist=beta → 开关【静默没生效】·别烧全量"; exit 1; }
-grep -q '"gw_entry": "paper"'     "$S_A" || { echo "❌ 臂A 的 gw_entry 应为 paper（单变量）"; exit 1; }
-grep -q '"gw_entry": "symmetric"' "$S_B" || { echo "❌ 臂B 冒烟没见 gw_entry=symmetric → 开关【静默没生效】·别烧全量"; exit 1; }
-grep -q '"act_dist": "gauss"'     "$S_B" || { echo "❌ 臂B 的 act_dist 应为 gauss（单变量）"; exit 1; }
-grep -q '"act_dist": "beta"'      "$S_C" && grep -q '"gw_entry": "symmetric"' "$S_C" \
-  || { echo "❌ 臂C 冒烟两个开关没同时落地·别烧全量"; exit 1; }
-grep -q '"rate_weight": 1.0'      "$S_A" || { echo "❌ 冒烟未见 rate_weight=1.0 → 治抖没真开（Beta 的机制就靠它）·别烧全量"; exit 1; }
-echo "  ✅ 三臂冒烟全过：开关逐条真落地 + 治抖 ON"
+for _a in $ARMS; do
+  case "$_a" in
+    A) SMK="$(smoke_one _smkA231ppo STEP4E_ACT_DIST=beta)" || exit 1
+       grep -q '"act_dist": "beta"'  "$SMK" || { echo "❌ 臂A 冒烟没见 act_dist=beta → 开关【静默没生效】·别烧全量"; exit 1; }
+       grep -q '"gw_entry": "paper"' "$SMK" || { echo "❌ 臂A 的 gw_entry 应为 paper（单变量）"; exit 1; } ;;
+    B) SMK="$(smoke_one _smkB231ppo STEP4E_GW_ENTRY=symmetric)" || exit 1
+       grep -q '"gw_entry": "symmetric"' "$SMK" || { echo "❌ 臂B 冒烟没见 gw_entry=symmetric → 开关【静默没生效】·别烧全量"; exit 1; }
+       grep -q '"act_dist": "gauss"'     "$SMK" || { echo "❌ 臂B 的 act_dist 应为 gauss（单变量）"; exit 1; } ;;
+    C) SMK="$(smoke_one _smkC231ppo STEP4E_ACT_DIST=beta STEP4E_GW_ENTRY=symmetric)" || exit 1
+       grep -q '"act_dist": "beta"'      "$SMK" || { echo "❌ 臂C 冒烟没见 act_dist=beta·别烧全量"; exit 1; }
+       grep -q '"gw_entry": "symmetric"' "$SMK" || { echo "❌ 臂C 冒烟没见 gw_entry=symmetric·别烧全量"; exit 1; } ;;
+  esac
+  grep -q '"rate_weight": 1.0' "$SMK" || { echo "❌ 冒烟未见 rate_weight=1.0 → 治抖没真开（Beta 的机制就靠它）·别烧全量"; exit 1; }
+done
+echo "  ✅ 选中的臂（$ARMS）冒烟全过：开关逐条真落地 + 治抖 ON"
 
-echo "===== [闸门 3] 起 $(echo $SEEDS|wc -w) 种子 × 3 臂 = $(( $(echo $SEEDS|wc -w) * 3 )) 个 run（5M·并发≤$KMAX）====="
+echo "===== [闸门 3] 起 $(echo $SEEDS|wc -w) 种子 × $(echo $ARMS|wc -w) 臂($ARMS) = $(( $(echo $SEEDS|wc -w) * $(echo $ARMS|wc -w) )) 个 run（5M·并发≤$KMAX）====="
 run_one () {
   local ARM="$1" S="$2"; shift 2
   local T
@@ -105,10 +117,14 @@ run_one () {
 }
 export -f run_one
 for S in $SEEDS; do
-  run_one A "$S" STEP4E_ACT_DIST=beta &
-  run_one B "$S" STEP4E_GW_ENTRY=symmetric &
-  run_one C "$S" STEP4E_ACT_DIST=beta STEP4E_GW_ENTRY=symmetric &
-  while [ "$(jobs -rp | wc -l)" -ge "$KMAX" ]; do sleep 20; done
+  for _arm in $ARMS; do
+    case "$_arm" in
+      A) run_one A "$S" STEP4E_ACT_DIST=beta & ;;
+      B) run_one B "$S" STEP4E_GW_ENTRY=symmetric & ;;
+      C) run_one C "$S" STEP4E_ACT_DIST=beta STEP4E_GW_ENTRY=symmetric & ;;
+    esac
+    while [ "$(jobs -rp | wc -l)" -ge "$KMAX" ]; do sleep 20; done
+  done
 done
 wait
 echo "===== 全部结束 ====="
