@@ -1,0 +1,59 @@
+
+── A 逐位等价（开关取默认 = 改动前行为）──
+[PASS] ① ColregsStatechart 默认档 = 'paper'
+[PASS] ② SafeActionScheduler 默认档 = 'paper'
+[PASS] ③ act_dist='gauss' → SB3 原生 'MlpPolicy'（=改动前那一支）
+[PASS] ④ 默认档与显式 'paper' 档在 40×30 步随机轨迹上转移序列逐步相同
+[PASS] ⑤ 'symmetric' 认出的让路步是 'paper' 的超集（只加不减·不会把已认出的判丢）
+
+── B1 Beta 分布数学与工程 ──
+[PASS] ① α,β 恒 > 1（softplus+1·哪怕 logit 很大很小）
+[PASS] ② 采样零越箱（4096×2 个样本·越箱 0 个）
+[PASS] ③ 众数严格落在开区间内（不是端点·也不是兜底的箱正中）
+[PASS] ④ mode() 与网格暴力搜出的密度最大点一致（说明 mode 是真众数、不是反众数）
+[PASS] ⑤ log_prob 归一（∫p(y)dy≈1·雅可比项没写反）
+[PASS] ⑥ entropy 坐标变换正确（+log scale）
+[PASS] ⑦ act_dist='beta' → BetaActorCriticPolicy
+[PASS] ⑧ 大小写/空白被规整（' Beta ' → beta）
+[PASS] ⑨ 非法 act_dist 一律 fail-fast（不静默回落高斯）·4/4 得 4
+
+── B2 Beta 策略：optimizer 重建 / log_std 真删 / save-load ──
+[PASS] ① 高斯的 log_std 已删（Beta 无此参数·留着=幽灵参数进 state_dict）
+[PASS] ② state_dict 里也没有 log_std
+[PASS] ③ 新动作头的参数【在】optimizer 里（不重建则它永远不更新=静默学不动）
+[PASS] ④ optimizer 参数数 == policy 参数数（无遗漏/无幽灵）
+[PASS] ⑤ 真训练 128 步跑通（rollout/log_prob/entropy/反传全链路）
+[PASS] ⑥ save/load 往返后确定性动作逐位一致
+[PASS] ⑦ 裸 PPO.load 能解析出 BetaDistribution（模块可导入）
+[PASS] ⑧ 确定性动作零越箱
+
+── B3 让路入口档：开局即让路态势能不能进 ──
+[PASS] ① 搜到 6 组『开局即 crossing 让路态势且未到紧急』的初始状态（得 6）
+[PASS] ② 这些状态上 persistent_crossing 恒 False（因为它要求 ¬X(now)·而 X(now) 已真）
+[PASS] ③ 'paper' 档：6/6 全程进不去让路态（进得去的有 0 组·应为 0）
+[PASS] ④ 'symmetric' 档：6/6 全部进得去让路态（进得去的有 6 组·应为 6）
+[PASS] ⑤ 态势【由无到有】时两档都能进（6/6·得 6）—— symmetric 不动这条既有路径
+
+── C 防静默：非法取值 / 跨档热启动 / 训评同档 ──
+[PASS] ① ColregsStatechart(gw_entry='Paper2') fail-fast
+[PASS] ① ColregsStatechart(gw_entry='sym') fail-fast
+[PASS] ① ColregsStatechart(gw_entry='') fail-fast
+[PASS] ①b 空串规整成默认 'paper'（不是崩）
+[PASS] ① ColregsStatechart(gw_entry='off') fail-fast
+[PASS] ② GW_ENTRY_CHOICES 就这两档
+[PASS] ③ ACT_DIST_CHOICES 就这两档
+[PASS] ④ 评估端从 sidecar 回读到 'symmetric'（当前环境变量是 'paper' 也不影响）= 训练什么就部署什么
+[PASS] ⑤ 老存档（sidecar 无该键）→ None → 调用方回落 'paper'（它训练时的真实档）
+[PASS] ⑥ 没有 sidecar → None（不崩）
+[PASS] ⑦ 热启动闸三处齐全: act_dist（白名单 True / 本run探针 True / config_sig True）
+[PASS] ⑦ 热启动闸三处齐全: gw_entry（白名单 True / 本run探针 True / config_sig True）
+[PASS] ⑦ 热启动闸三处齐全: ctrl_slew_frac（白名单 True / 本run探针 True / config_sig True）
+[PASS] ⑦ 热启动闸三处齐全: ctrl_lowpass_alpha（白名单 True / 本run探针 True / config_sig True）
+
+── D 前瞻用的临时状态机与在役状态机同档 ──
+[PASS] ① gw_entry='paper' 传到了投影盾自建的状态机
+[PASS] ① gw_entry='symmetric' 传到了投影盾自建的状态机
+[PASS] ② 两处终端可行性前瞻的临时状态机都显式继承在役档（否则前瞻与真实转移不一致）
+[PASS] ③ 显式传 statechart 时以该实例自己的档为准（不被形参悄悄改掉）
+
+✅ 全部 PASS：45 passed / 0 failed
