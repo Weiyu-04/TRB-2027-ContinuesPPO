@@ -11,12 +11,13 @@
 可证明 COLREGs（国际海上避碰规则）**方向**合规此前要么牺牲连续控制（Krasowski & Althoff 2024 用**离散**动作 + action masking），要么牺牲合规保证（连续动作工作全退回**软奖励**）。本文把**投影式安全盾**首次落到海事 COLREGs：
 
 ```
-观测 → SAC → 连续动作 u → ① 状态机判相遇态势+合规方向
+观测 → PPO → 连续动作 u → ① 状态机判相遇态势+合规方向
                           → ② zonotope 安全动作集（合规方向 + 无碰撞）
                           → ③ 二次规划投影修正 → 安全动作 → 环境
 ```
 
 **卖点 = 三重交集**：连续动作 ∩ 可证明**方向**合规 ∩ COLREGs（此前空白）。
+> **算法口径（2026-07-29 订正）**：正式实验的**连续臂全部走 PPO**（`run_formal_2027.sh:95` 对 `Continuous-safe` 一律加 `STEP4E_CONTINUOUS_ALGO=ppo`；`run_step4e.py:405-410` 有 PPO 隔离闸，TAG 不含 `ppo` 起跑即拦），离散臂走 MaskablePPO。**探索期曾用 SAC，本文不用**——旧文档/旧稿里的 "SAC" 一律按 PPO 读。仓库名 `ContinuesPPO` 即此意。
 > **"provably" 诚实档（`03` L164 审计 + L165 gap#1 攻坚后·正式命题见 `Paper/可证明层_正式命题_0707.md`）**：能严证 = **远场单步无碰(命题1·v_obs≤9.5 全池 2000 场景验 max 7.10)+每让路步方向合规(命题2·give-way 触发 ~13-16% 相遇[encounter 级·非 per-step])+紧急迫近不可避 sound 证书(命题3·gap#1)**；**🚫 绝不写 provably collision-free / provably compliant(裸) / 完整可证明覆盖**（紧急态 55-60% 是经验 Alg.1·多障碍/机动他船未覆盖·全押 CV+单障碍须显式假设）。可证明档 = **中**。
 > **🟡 新增 provable 候选·PROVISIONAL(2026-07-25·任务A·详 `02` banner + `03` L201)**：**命题4 = 可清障集 A 上前向不变(递归可行)无碰**(cert_v2 backup-maneuver 终端约束·A控制不变已证·A∩U_colregs 情形1证+情形2=0经验)。**未落定**：盾闭环[待服务器冒烟]·门数字[local RK4·待官方--gates]·独立复审[待]。**红线不变**：仍 scoped(可清障集 A·单 CV·非裸 collision-free)·U_term 闭环未验前【绝不写"已实现前向不变盾"·只写"证 A 不变+设计终端约束"】。**验证通过(服务器闭环+官方值+复审)后·档位升 medium-strong·本 §0 才补 Prop4 进"能严证"正列。**
 
