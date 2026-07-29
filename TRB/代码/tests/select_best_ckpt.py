@@ -26,8 +26,19 @@
 🔴 **绝不能用测试集挑存档** —— 那是拿考题选答案。这里读的 `trend` 是训练期在
    **官方 1400 里切出的 100 个验证场景**上评的，与测试 600 零交集。
 
+═══ 🆕 预算截取（`03` L242 · user 2026-07-29 要求"弹性、不返工"）═══════════════
+`BUDGET_SEG=N` ⟹ **只在前 N 段里挑**。因为分段存档每 507,904 步留一份，
+"如果 8M 大家就够了，那就截到 8M 报数"这件事**天然可做、零返工**：
+
+    BUDGET_SEG=16 …   ⟹ 报「8.13M 步预算」（16 × 507,904 = 8,126,464）
+    BUDGET_SEG=20 …   ⟹ 报「10.16M 步预算」（默认 = 全部段）
+
+🔴 **同一张表里所有臂必须用同一个 BUDGET_SEG**，否则就不是同预算比较了。
+🔴 报数时预算写实际值（段数 × 507,904），别写名义的"10M"。
+
 ═══ 用法 ═══════════════════════════════════════════════════════════════════
     python3 -B 代码/tests/select_best_ckpt.py <结果目录> [输出.json]
+    BUDGET_SEG=16 python3 -B 代码/tests/select_best_ckpt.py <结果目录> 表_8M.json
 产物 = 一份 JSON（进版本控制），含每条臂每颗种子选中的段号、该段与末段的指标、
 以及可直接喂给 `reeval_official.py` 的 `REEVAL_CKPTS` 字符串。
 """
@@ -38,6 +49,7 @@ import re
 import sys
 
 METRIC = "到达率%"          # 单一选取指标（验证集）
+SEG_STEPS = 507904          # 每段实际步数（= ceil(名义/16384)×16384·PPO 粒度 2048×8）
 WATCH = ("碰撞率%", "违规次数/局")   # 不参与选取，但异常要报警
 
 
@@ -64,13 +76,18 @@ def main():
     runs = _runs(root)
     if not runs:
         raise SystemExit(f"🔒 {root} 下没找到任何带 trend 的 checkpoint sidecar")
+    cap = int(os.environ.get("BUDGET_SEG", "0"))     # 0 = 不截取（用全部段）
     sel, warn, missing = {}, [], []
     print(f"# 验证集挑最佳存档 · {os.path.basename(root)}\n")
-    print(f"规则：验证集**{METRIC}**最高；平局取**更早**的段。无其它旋钮。\n")
+    print(f"规则：验证集**{METRIC}**最高；平局取**更早**的段。无其它旋钮。")
+    if cap:
+        print(f"🔴 **预算截取**：只在前 {cap} 段里挑 ⟹ 报数预算 = {cap} × {SEG_STEPS:,} = "
+              f"**{cap*SEG_STEPS:,} 步**（同一张表所有臂必须用同一个 BUDGET_SEG）。")
+    print()
     print(f"{'run':<44}{'段/共':>8}{'选中'+METRIC:>12}{'末段'+METRIC:>12}{'抬升':>8}   备注")
     for name in sorted(runs):
         base, d = runs[name]
-        tr = d["trend"]
+        tr = d["trend"][:cap] if cap else d["trend"]      # 🆕 预算截取
         vals = [t.get(METRIC) for t in tr]
         if any(v is None for v in vals):
             missing.append(name)
@@ -109,7 +126,9 @@ def main():
 
     out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(root, "best_ckpt_selection.json")
     json.dump({"规则": f"验证集 {METRIC} 最高，平局取更早的段；无其它旋钮",
-               "指标": METRIC, "选取": sel,
+               "指标": METRIC, "预算段数": cap or "全部",
+               "预算步数": (cap * SEG_STEPS) if cap else "全部段",
+               "选取": sel,
                "REEVAL_CKPTS_最佳存档": ",".join(v["path"] for v in sel.values() if v["副本存在"]),
                "REEVAL_CKPTS_末段存档": ",".join(runs[k][0] for k in sel)},
               open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
