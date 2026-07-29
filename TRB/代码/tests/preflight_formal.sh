@@ -32,16 +32,28 @@ tree_fp () {   # $1=目录  $2=排除的相对路径（可空）
       | xargs sha256sum 2>/dev/null | sha256sum | cut -c1-16 )
 }
 G_CODE=$(tree_fp 代码 tests/preflight_formal.sh)
-G_PAPER=$(tree_fp "Paper/正式实验")
 [ "$G_CODE" = "$BASE_CODE" ] && ok "代码/ 整棵树逐字一致（$G_CODE）" \
   || no "代码/ 树指纹 $G_CODE ≠ 应为 $BASE_CODE  ← **有文件没同步**（下面会逐个点名）"
-[ "$G_PAPER" = "$BASE_PAPER" ] && ok "Paper/正式实验/ 整棵树逐字一致（$G_PAPER）" \
-  || no "Paper/正式实验/ 树指纹 $G_PAPER ≠ 应为 $BASE_PAPER  ← 出表/出图脚本没同步"
+
+# 🔴 `Paper/正式实验/` 是**出表出图**用的，训练机器不需要它（只同步 代码/ + balanced_pool/ + scenarios/ 即可）。
+#   ⟹ 目录不在 = 这台只跑训练，**跳过、不算不过**；目录在 = 这台要出表，那就必须是最新的。
+HAS_PAPER=0
+[ -d "Paper/正式实验" ] && HAS_PAPER=1
+if [ "$HAS_PAPER" = "1" ]; then
+  G_PAPER=$(tree_fp "Paper/正式实验")
+  [ "$G_PAPER" = "$BASE_PAPER" ] && ok "Paper/正式实验/ 整棵树逐字一致（$G_PAPER）" \
+    || no "Paper/正式实验/ 树指纹 $G_PAPER ≠ 应为 $BASE_PAPER  ← 出表/出图脚本没同步"
+else
+  G_PAPER="$BASE_PAPER"
+  echo "  ⓘ 本机没有 Paper/正式实验/ —— **只跑训练的机器不需要它**（出表出图在合并那台做），跳过"
+fi
 
 # 树对不上时，逐个文件点名到底是哪几个 —— 光说"树不一致"没法动手
 if [ "$G_CODE" != "$BASE_CODE" ] || [ "$G_PAPER" != "$BASE_PAPER" ]; then
   echo "     ── 逐文件指纹（拿去和主窗口的对，不一样的就是没同步的）──"
-  ( find 代码 "Paper/正式实验" \( -name '*.py' -o -name '*.sh' \) 2>/dev/null | LC_ALL=C sort \
+  _DIRS=代码; [ "$HAS_PAPER" = "1" ] && _DIRS="代码 Paper/正式实验"
+  # shellcheck disable=SC2086
+  ( find $_DIRS \( -name '*.py' -o -name '*.sh' \) 2>/dev/null | LC_ALL=C sort \
     | xargs sha256sum 2>/dev/null | cut -c1-16,65- | sed 's/^/       /' )
 fi
 
@@ -67,8 +79,12 @@ grep -qF 'seg_no = best' 代码/tests/select_best_ckpt.py \
   && ok "挑最佳存档的段号没差一" || no "挑最佳存档段号差一 ← 评的是下一段的模型"
 grep -qF 'BUDGET_SEG' 代码/tests/select_best_ckpt.py \
   && ok "挑最佳存档认 BUDGET_SEG" || no "select_best_ckpt 不认 BUDGET_SEG ← 报数口径会静默错掉"
-grep -qF '"F240" not in ck' "Paper/正式实验/_common.py" \
-  && ok "出表脚本不会把正式臂贴成探索期标签" || no "出表脚本会把正式臂认成探索期臂 ← 两代实验混一行"
+if [ "$HAS_PAPER" = "1" ]; then
+  grep -qF '"F240" not in ck' "Paper/正式实验/_common.py" \
+    && ok "出表脚本不会把正式臂贴成探索期标签" || no "出表脚本会把正式臂认成探索期臂 ← 两代实验混一行"
+else
+  echo "  ⓘ 出表脚本不在本机 —— 跳过（合并出表那台再查）"
+fi
 
 echo "── ③ 数据与依赖 ──"
 [ -f balanced_pool/manifest_official_1300.json ] && ok "训练清单在" || no "缺 balanced_pool/manifest_official_1300.json"
