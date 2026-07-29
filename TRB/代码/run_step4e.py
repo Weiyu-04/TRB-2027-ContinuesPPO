@@ -1343,6 +1343,15 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
                     "pg_loss": _g("train/policy_gradient_loss"), "value_loss": _g("train/value_loss"),
                     "entropy_loss": _g("train/entropy_loss"), "approx_kl": _g("train/approx_kl"),
                     "clip_fraction": _g("train/clip_fraction"), "policy_std": _g("train/std"),
+                    # 🆕 2026-07-29（user 要求"PPO 本身的指标要记全"）：以下四项 SB3 本来就往 logger 里写，
+                    #   我们此前没取 ⟹ 白丢。**纯字典读、零开销、不碰训练**（同上面各项）。
+                    #   · explained_variance = 值函数解释了多少回报方差（**PPO 最关键的健康指标**：
+                    #     长期贴 0 = critic 没学到东西；掉负 = 比直接猜均值还差 ⟹ 崩塌的先行信号）
+                    #   · loss = 总损失（策略+值+熵的加权和）· clip_range = 本次更新的裁剪半径（退火时会变）
+                    #   · n_updates = 已做过的梯度更新次数（对齐"步数 vs 更新数"两种横轴）
+                    "explained_variance": _g("train/explained_variance"),
+                    "loss": _g("train/loss"), "clip_range": _g("train/clip_range"),
+                    "n_updates": _g("train/n_updates"),
                     "ep_rew_mean": _ep_rew_mean(self),               # 原始 episode 回报滚动均值（callback 自算·替 Monitor·Node L L54-续）
                     "ep_rew_mean_logger": _g("rollout/ep_rew_mean"), # sb3 logger 值（需 Monitor·当前 None，保留对照）
                 })
