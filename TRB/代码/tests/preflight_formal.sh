@@ -36,8 +36,18 @@ echo "── ③ 数据与依赖 ──"
 [ -f balanced_pool/manifest_official_1300.json ] && ok "训练清单在" || no "缺 balanced_pool/manifest_official_1300.json"
 N=$(ls scenarios/T-*.xml 2>/dev/null | wc -l); [ "$N" -ge 2000 ] && ok "场景 $N 个" || no "场景只有 $N 个（应 ≥2000）"
 PY=/root/miniconda3/bin/python; [ -x "$PY" ] || PY=$(command -v python3)
-"$PY" -c "import torch,stable_baselines3,sb3_contrib,numpy,scipy,shapely,osqp,cvxpy" 2>/dev/null \
-  && ok "依赖齐（python $("$PY" -c 'import sys;print(sys.version.split()[0])')）" || no "依赖缺（照 代码/requirements.txt 装）"
+DEPS_OK=0
+if "$PY" -c "import torch,stable_baselines3,sb3_contrib,numpy,scipy,shapely,osqp,cvxpy,vesselmodels" 2>/dev/null; then
+  DEPS_OK=1
+  ok "依赖齐（python $("$PY" -c 'import sys;print(sys.version.split()[0])') · numpy $("$PY" -c 'import numpy;print(numpy.__version__)')）"
+else
+  no "依赖缺 —— 逐个点名："
+  for m in torch stable_baselines3 sb3_contrib numpy scipy shapely osqp cvxpy vesselmodels commonocean; do
+    "$PY" -c "import $m" 2>/dev/null && echo "       ✓ $m" || echo "       ✗ $m  ← 缺这个"
+  done
+  echo "     装法：pip install --no-cache-dir -r 代码/requirements.txt"
+  echo "     （torch 若镜像已带就别重装；commonocean-io 卡在 antlr4 时见 requirements.txt 里的踩坑记）"
+fi
 "$PY" -B 代码/make_official_manifest.py --check balanced_pool/manifest_official_1300.json >/dev/null 2>&1 \
   && ok "清单六项自洽（训练 1300 + 验证 100 · 与测试 600 零交集）" || no "清单校验没过 → 别烧卡"
 
@@ -46,7 +56,19 @@ CORE=$(nproc); MEM=$(awk '/MemTotal/{printf "%.0f",$2/1048576}' /proc/meminfo)
 AV=$(awk '/MemAvailable/{printf "%.0f",$2/1048576}' /proc/meminfo)
 DF=$(df -BG --output=avail . 2>/dev/null | tail -1 | tr -dc 0-9)
 echo "     核数 $CORE · 内存 ${MEM}G（可用 ${AV}G）· 磁盘可用 ${DF}G"
-[ "${DF:-0}" -ge 30 ] && ok "磁盘够（108 run × 20 段约 5~10G·留足余量）" || no "磁盘只剩 ${DF}G，先清"
+# 🔴 磁盘门槛按【实测】定，不拍脑袋（`03` L243-续6）：
+#   单 run 实测 ≈ 12 MB（主存档 0.2 + progress 0.7 + 20 段副本 3.6 + 分段 progress 累计 7.6）
+#   每台 36 run（12 种子 ÷ 3 台 = 4 列 × 9 臂）⟹ **训练本身只要约 0.5 GB**。
+#   真正吃盘的是【装依赖】（torch 2~3G + 其余）与 pip 缓存 ⟹ 门槛随"依赖装没装"分两档。
+NEED_TRAIN=2                                   # 训练产物 0.5G，给 4 倍余量
+if [ "$DEPS_OK" = "1" ]; then NEED=$NEED_TRAIN; WHY="依赖已装 ⟹ 只需训练产物的空间"
+else NEED=8; WHY="依赖还没装 ⟹ 要留 torch 等约 4~5G 的安装空间"; fi
+[ "${DF:-0}" -ge "$NEED" ] && ok "磁盘够（需 ≥${NEED}G · $WHY）" || {
+  no "磁盘只剩 ${DF}G < ${NEED}G（$WHY）"
+  echo "     盘被谁吃了（前 8 名）："
+  du -shx /root/* 2>/dev/null | sort -h | tail -8 | sed 's/^/       /'
+  echo "     常见可删：~/.cache/pip（pip 缓存）· /root/miniconda3/pkgs（conda 包缓存）· 旧的 结果/ 批次目录"
+}
 # 粗判：单 run 光场景池 ≈ 8 worker × 1300 × 0.20MB ≈ 2.1G，加 torch 基线保守按 3.5G/run 估
 NEED=$((10 * 35 / 10))
 [ "${AV:-0}" -ge "$NEED" ] && ok "内存粗判够跑 10 路（需约 ${NEED}G）" \
