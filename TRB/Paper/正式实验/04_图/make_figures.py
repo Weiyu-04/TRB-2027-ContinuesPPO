@@ -77,9 +77,12 @@ def save_pub(fig, path_no_ext):
     plt.close(fig)
 
 RES = os.path.abspath(os.path.join(HERE, "..", "..", "..", "结果"))
-TRAIN_DIRS = [os.path.join(RES, x) for x in
-              ("结果0702-地基第1版-12:18", "结果0710-22:00-10种子最优方案",
-               "结果0727-大集指标提升", "结果0728-beta测试训练", "结果0728-正式大集smoke")]
+# 🔴 `03` L243-续7：**别写死目录**。正式实验的产物落在 `结果/` 根目录，不在下面这几个探索期目录里；
+#   写死 ⟹ 出图时静默找不到正式臂的曲线。⟹ 根目录 + 递归发现，探索期那几个只当兜底。
+TRAIN_DIRS = [RES] + [os.path.join(RES, x) for x in
+                      ("结果0702-地基第1版-12:18", "结果0710-22:00-10种子最优方案",
+                       "结果0727-大集指标提升", "结果0728-beta测试训练", "结果0728-正式大集smoke")]
+MISSING_TREND = []   # 拿不到曲线的 (tag, seed) —— **必须报出来，不许静默少画一条**
 N_VAL = 100          # 训练期评估集大小（由 main() 覆盖）
 N_STRICT = 0         # 报数分母（由 main() 按实测填·**绝不写死**·`03` L240）
 CUTOFF = ""         # 训练预算文字（同上）
@@ -111,12 +114,41 @@ def boot_ci(xs, alpha=0.05):
 
 
 def trend(tag, seed):
+    """取一个 run 的训练期验证曲线。
+
+    🔴 `03` L243-续7（起飞前最后一次复查抓出）：**先读 `progress.json`，jsonl 只当后备。**
+    原因 —— 两者的写入时机完全不同：
+      · `progress.json`：**每跑完一段就写**（`save_segment_checkpoint` → `write_progress`）
+      · `*.jsonl`：**只在整个 run 跑完时才 append**（`main()` 里的 `append_record`）
+    ⟹ 只读 jsonl 的话：被杀 / OOM / 时间到而没跑完的 run，**明明 progress.json 里有 18 段曲线，
+      图里却一条都画不出来**，而且原来是 `return None` + 调用处 `if t` 过滤 = **静默少画一条**
+      （连 n= 都会悄悄变小）。这正是本项目反复栽的"静默"那一族。
+    ⟹ 改成：progress.json 优先 → jsonl 后备 → 都拿不到就**记进 MISSING_TREND 并在最后报出来**。
+    附带好处：训练**still 在跑的时候**就能画曲线（progress.json 每段都在更新）。
+    """
+    # ① progress.json（权威·每段都写·递归找，兼容 结果/checkpoints 与 结果/*/checkpoints 两种深度）
+    for pat in (f"*_s{seed}_{tag}S{seed}.progress.json", f"*_s{seed}_{tag}_s{seed}.progress.json",
+                f"*{tag}S{seed}.progress.json", f"*{tag}_s{seed}.progress.json"):
+        for hit in sorted(glob.glob(os.path.join(RES, "**", "checkpoints", pat), recursive=True)):
+            if os.sep + "segments" + os.sep in hit:        # 分段副本的 trend 是截到那一段的，不用
+                continue
+            try:
+                d = json.load(open(hit, encoding="utf-8"))
+            except Exception:
+                continue
+            if d.get("trend"):
+                return d["trend"]
+    # ② jsonl 后备（老产物有些只有 jsonl）
     for d in TRAIN_DIRS:
         for pat in (f"step4e_partial_{tag}_s{seed}.jsonl", f"step4e_partial_{tag}S{seed}.jsonl"):
             p = os.path.join(d, pat)
             if os.path.exists(p):
-                with open(p, encoding="utf-8") as f:
-                    return json.loads(f.read().strip().split("\n")[-1])["trend"]
+                try:
+                    with open(p, encoding="utf-8") as f:
+                        return json.loads(f.read().strip().split("\n")[-1])["trend"]
+                except Exception:
+                    pass
+    MISSING_TREND.append((tag, seed))
     return None
 
 
@@ -127,8 +159,16 @@ def fig1_sample_efficiency(ba, out):
     ax_a, ax_b, ax_c = (fig.add_subplot(gs[0, i]) for i in range(3))
 
     # ── a：学习曲线（hero）───────────────────────────────────────────────────
-    series = [("L1rateON_ppo", range(10), "Old recipe", PALETTE_OLD := N.PALETTE["neutral_mid"]),
-              ("C231bothPpo", range(10), "Ours", N.PALETTE["blue_main"])]
+    # 🔴 `03` L243-续7：正式实验的臂在就用正式臂，否则退回探索期那两条（**别写死**）。
+    #   正式口径下最有信息量的一对 = ⑦ab0（旧配方/消融基准）↔ ①ours（两把钥匙都上）——
+    #   它们同种子、同预算、只差那两个开关 ⟹ 学习曲线放一起就是"样本效率"本身。
+    _formal = bool(glob.glob(os.path.join(RES, "**", "checkpoints", "*F240oursPpo*.progress.json"),
+                             recursive=True))
+    _seeds = range(12) if _formal else range(10)
+    series = ([("F240ab0Ppo", _seeds, "Ablation base", PALETTE_OLD := N.PALETTE["neutral_mid"]),
+               ("F240oursPpo", _seeds, "Ours", N.PALETTE["blue_main"])] if _formal else
+              [("L1rateON_ppo", range(10), "Old recipe", PALETTE_OLD := N.PALETTE["neutral_mid"]),
+               ("C231bothPpo", range(10), "Ours", N.PALETTE["blue_main"])])
     for tag, seeds, lab, col in series:
         ts = [t for t in (trend(tag, s) for s in seeds) if t]
         if not ts:
@@ -142,7 +182,10 @@ def fig1_sample_efficiency(ba, out):
         ax_a.plot(xs, med, color=col, lw=1.8)
         ax_a.text(xs[-1] + 0.06, med[-1], f"{lab}\n(n={len(ts)})", color=col,
                   fontsize=6, va="center", ha="left", fontweight="bold")   # 直接标注，不用图例
-    ax_a.set_xlim(0.3, 6.6)
+    # 🔴 横轴上限从数据算，别写死（正式实验 10.16M，写死 6.6 会把曲线截掉一大半）
+    _xmax = max((x["step"] for tg, sds, _, _ in series for s in sds
+                 for x in (trend(tg, s) or [])), default=6.6e6) / 1e6
+    ax_a.set_xlim(0.3, _xmax * 1.10)
     ax_a.set_ylim(-3, 105)
     ax_a.set_xlabel("Training steps (millions)")
     ax_a.set_ylabel(f"Arrival rate (%)\ntrain-time milestone, {N_VAL} validation scenarios")
@@ -358,6 +401,12 @@ def main():
     fig2_ablation(ba, out)
     fig3_tradeoff(ba, out)
     fig4_traj(d, out)
+    if MISSING_TREND:                       # 🔴 不许静默少画：拿不到曲线的逐个报出来
+        print(f"\n🔴 有 {len(MISSING_TREND)} 个 (臂, 种子) 取不到训练曲线 ⟹ Fig.1 里少了这几条，"
+              "**别当成'这些种子不存在'**：")
+        for tg, sd in MISSING_TREND[:20]:
+            print(f"     · {tg} seed={sd}")
+        print("   先查 结果/**/checkpoints/*.progress.json 在不在；确实没跑就在图注里写明 n=多少。")
     print(f"[written] {out}  (svg 主 + pdf + png)")
 
 
