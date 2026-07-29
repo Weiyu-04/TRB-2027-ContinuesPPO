@@ -1389,19 +1389,23 @@ def train_eval_one(name, kind, weight, seed, train_paths, test_pool, *,
                 _seg_fail = 0
     try:                                                       # L1c：训后存 ckpt（additive·venv.close 前）；存盘失败【不丢训练结果】（同 write_run_metadata 容错纪律）
         _ckpt_base = save_checkpoint(model, venv, name, seed, ckpt_dir) if ckpt_dir is not None else None
-        # 🔴 L243-续8 O3：上面这次保存**重写了 .zip 却没重写 sidecar** ⟹ progress.json 里记的
-        #   `ckpt_fingerprint.zip_mtime` 是旧的。`reeval_official.py:_sidecar_in_sync` 用 **1 秒**容差比 mtime，
-        #   而中间隔着 `_archive_segment` 拷三个文件（含 MB 级 progress.json）+ 再存一次模型，
-        #   10 路并发同机时超 1 秒完全可能 ⟹ **锚点自检被整条跳过**（有的臂过、有的臂跳，非确定性）。
-        #   补一次 write_progress，让 sidecar 与最终 .zip 对齐。
-        if _ckpt_base is not None:
+    except Exception as _ce:
+        _ckpt_base = None
+        print(f"    ⚠️ checkpoint 存盘失败（不影响训练结果，继续）：{_ce}", flush=True)
+    # 🔴 L243-续8 O3：上面这次保存**重写了 .zip 却没重写 sidecar** ⟹ progress.json 里记的
+    #   `ckpt_fingerprint.zip_mtime` 是旧的。`reeval_official.py:_sidecar_in_sync` 用 **1 秒**容差比 mtime，
+    #   而中间隔着 `_archive_segment` 拷三个文件（含 MB 级 progress.json）+ 再存一次模型，
+    #   10 路并发同机时超 1 秒完全可能 ⟹ **锚点自检被整条跳过**（有的臂过、有的臂跳，非确定性）。
+    #   补一次 write_progress，让 sidecar 与最终 .zip 对齐。**另起一个 try**：补写失败不该把
+    #   已经存好的存档路径一起打成 None。
+    if _ckpt_base is not None:
+        try:
             write_progress(_ckpt_base, name=name, kind=kind, weight=weight, seed=seed,
                            seg_done=n_seg - 1, num_timesteps=model.num_timesteps,
                            total_steps=total_steps, n_seg=n_seg, trend=trend, config_sig=_config_sig,
                            curves=(curve_cb.records if curve_cb is not None else None), seg_per=seg_per)
-    except Exception as _ce:
-        _ckpt_base = None
-        print(f"    ⚠️ checkpoint 存盘失败（不影响训练结果，继续）：{_ce}", flush=True)
+        except Exception as _we:
+            print(f"    ⚠️ 末段 sidecar 补写失败（存档本身没事，但重评的锚点自检可能被跳过）：{_we}", flush=True)
     venv.close()
     # 🔴 L243-续8 A10：`seg = total_steps // n_seg` 是**名义**段长，SB3 会把它向上取整到 rollout 边界
     #   （2048×8 = 16,384）⟹ 名义 500,000 实跑 **507,904**。拿名义步数算 fps 会低报 1.58%
@@ -1633,7 +1637,16 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
     t_train = 0.0
     t_eval = 0.0
     # 🆕 L190 第2轮审 MEDIUM（源语义配置校验·别再甩"人肉预检责任"）：源 ckpt 旁的 .progress.json sidecar【现成记着源的 config_sig】→
-    #   拿它与本 run 的 _config_sig 取【两边都有的语义键】交集比对·不一致 fail-fast（防"有盾源灌进无盾run/异奖励配方"=obs维相同→维度守卫抓不到的【静默方法论错】·agent 实跑坐实零报错通过）。
+    #   拿它与本 run 的 _config_sig 取【两边都有的语义键】交集比对·不一致 fail-fast（防"异奖励配方"=obs维相同→维度守卫抓不到的【静默方法论错】·agent 实跑坐实零报错通过）。
+    #   🔴 **诚实订正（L243-续8·E 线复审 F2）**：原注释里"防**有盾源灌进无盾 run**"这半句是**假的** ——
+    #     `continuous_shield` 故意不进 `_config_sig`（见 :222 的理由），而比对条件是
+    #     `if k in _src_sig and k in _cur_sig_probe` ⟹ 源 sidecar 里根本没有这个键 ⟹ **盾的开关这道闸看不见**。
+    #     光把它加进 `_SEMANTIC_KEYS` 是纯装饰（还是进不了 `_src_sig`）；要真管用得同时改 `_config_sig`，
+    #     而那是**本次正式实验的 provenance 记录格式**，起跑前不动（改了还会牵动体检的对子判据）。
+    #     ⟹ 本轮的实际保障是：① 9 条臂**一条都不用热启动**（`arm_env` 里没有 STEP4E_WARMSTART_CKPT）；
+    #        ② 盾开没开改由 `check_formal_integrity.py` 的 ⑤b 从训练期采的 `roll_source` 直接看
+    #           （盾关⟹每步 "unshielded"；盾开⟹绝不会有）—— 那是**观测到的行为**，比声明的配置更硬。
+    #        补跑某条臂时若要热启动，**必须人肉确认源臂的盾档与目标臂一致**，这道闸帮不了你。
     #   sidecar 缺失/读失败/无 config_sig → 显眼 warning 不硬拒（老档缺键=既定可接受口径·同 c_reach）。
     if _WARMSTART_CKPT and _algo == "ppo":
         _SEMANTIC_KEYS = ("kind", "colregs_weight", "gamma", "norm_reward", "well_shaping_weight", "shaping_radius",
@@ -1745,14 +1758,17 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
                 _seg_fail = 0
     try:                                                       # L1c：训后存 ckpt（additive·venv.close 前）；存盘失败【不丢训练结果】（同 write_run_metadata 容错纪律）
         _ckpt_base = save_checkpoint(model, venv, "Continuous-safe", seed, ckpt_dir) if ckpt_dir is not None else None
-        if _ckpt_base is not None:                             # 🔴 L243-续8 O3：同离散臂——补写 sidecar，否则末段存档那趟的锚点自检随机失效
+    except Exception as _ce:
+        _ckpt_base = None
+        print(f"    ⚠️ checkpoint 存盘失败（不影响训练结果，继续）：{_ce}", flush=True)
+    if _ckpt_base is not None:                                 # 🔴 L243-续8 O3：同离散臂——补写 sidecar，否则末段存档那趟的锚点自检随机失效
+        try:
             write_progress(_ckpt_base, name="Continuous-safe", kind="continuous", weight=_COLREGS_W_CONT, seed=seed,
                            seg_done=n_seg - 1, num_timesteps=model.num_timesteps,
                            total_steps=total_steps, n_seg=n_seg, trend=trend, config_sig=_config_sig,
                            curves=sac_curve_cb.records, seg_per=seg_per)
-    except Exception as _ce:
-        _ckpt_base = None
-        print(f"    ⚠️ checkpoint 存盘失败（不影响训练结果，继续）：{_ce}", flush=True)
+        except Exception as _we:
+            print(f"    ⚠️ 末段 sidecar 补写失败（存档本身没事，但重评的锚点自检可能被跳过）：{_we}", flush=True)
     venv.close()
     # 🔴 L243-续8 A10：`seg = total_steps // n_seg` 是**名义**段长，SB3 会把它向上取整到 rollout 边界
     #   （2048×8 = 16,384）⟹ 名义 500,000 实跑 **507,904**。拿名义步数算 fps 会低报 1.58%
