@@ -1,0 +1,144 @@
+========================================================================================================
+[reeval_official r13-2026-07-27] 发现 8 个 checkpoint：
+  Continuous-safe_s3_D232bigCppoS3                     臂=Continuous-safe  kind=continuous  seed=3 步=5079040 数据集=manifest_official_1300.json 末段到达=17.0
+  Continuous-safe_s1_B231gwsymPpoS1                    臂=Continuous-safe  kind=continuous  seed=1 步=5079040 数据集=manifest_hocr_200.json 末段到达=80.0
+  Continuous-safe_s6_C231bothPpoS6                     臂=Continuous-safe  kind=continuous  seed=6 步=5079040 数据集=manifest_hocr_200.json 末段到达=87.5
+  Continuous-safe_s4_L1rateON_ppo_s4                   臂=Continuous-safe  kind=continuous  seed=4 步=5079040 数据集=manifest_hocr_200.json 末段到达=82.5
+  Continuous-safe_s2_wsHOCRppo_s2                      臂=Continuous-safe  kind=continuous  seed=2 步=3047424 数据集=manifest_hocr_200.json 末段到达=97.5
+  Continuous-safe_s1_wsBIGppo_s1                       臂=Continuous-safe  kind=continuous  seed=1 步=2539520 数据集=manifest_official_1300.json 末段到达=76.0
+  Base_s0_baseW0_s0                                    臂=Base             kind=unshielded  seed=0 步=5079040 数据集=manifest_hocr_200.json 末段到达=100.0
+  Rule-reward_s3_rrW0_s3                               臂=Rule-reward      kind=unshielded  seed=3 步=5079040 数据集=manifest_hocr_200.json 末段到达=100.0
+========================================================================================================
+[env] 连续臂 eval env：shield=True cone=None v_floor=2.0 augment_rho=False 去朝向门=False
+  [数据集] Continuous-safe_s3_D232bigCppoS3 ← manifest_official_1300.json：训练 1300 / 验证 100
+  [数据集] Continuous-safe_s1_B231gwsymPpoS1 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s6_C231bothPpoS6 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s4_L1rateON_ppo_s4 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s2_wsHOCRppo_s2 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Continuous-safe_s1_wsBIGppo_s1 ← manifest_official_1300.json：训练 1300 / 验证 100
+  [数据集] Base_s0_baseW0_s0 ← manifest_hocr_200.json：训练 94 / 验证 40
+  [数据集] Rule-reward_s3_rrW0_s3 ← manifest_hocr_200.json：训练 94 / 验证 40
+  ⚠️⚠️ 被评的 checkpoint 用了【不同数据集】{'Continuous-safe_s3_D232bigCppoS3': 'manifest_official_1300.json', 'Continuous-safe_s1_B231gwsymPpoS1': 'manifest_hocr_200.json', 'Continuous-safe_s6_C231bothPpoS6': 'manifest_hocr_200.json', 'Continuous-safe_s4_L1rateON_ppo_s4': 'manifest_hocr_200.json', 'Continuous-safe_s2_wsHOCRppo_s2': 'manifest_hocr_200.json', 'Continuous-safe_s1_wsBIGppo_s1': 'manifest_official_1300.json', 'Base_s0_baseW0_s0': 'manifest_hocr_200.json', 'Rule-reward_s3_rrW0_s3': 'manifest_hocr_200.json'} → 泄漏取并集剔除（clean 更小但所有臂同分母·可比）
+  …下载 200/600（失败 0）
+  …下载 400/600（失败 0）
+  …下载 600/600（失败 0）
+
+[池] 官方 1400/600 划分的测试 600（官方 2000 无追越）：N=600（请求 600）·二项 SE@p=0.8 ≈ 1.63pt
+[口径] 全部 600 − 训练泄漏 23 = **clean 577** ； 再 − 验证泄漏 14 = **strict 563**
+[分型] {'crossing': 395, 'head-on': 205}
+[轨迹] 记 ['1', '100', '1006', '1016'] 这几个场景的逐步轨迹（`04 §1.5` 第⑥条·离散臂与连续臂同格式可叠图）
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s3_D232bigCppoS3  臂=Continuous-safe kind=continuous seed=3 步=5079040
+  …下载 200/1300（失败 0）
+  …下载 400/1300（失败 0）
+  …下载 600/1300（失败 0）
+  …下载 800/1300（失败 0）
+  …下载 1000/1300（失败 0）
+  …下载 1200/1300（失败 0）
+  [锚点] 自记测试集 N=100：记录 17.00% vs 重评 17.00%（差 0.00pt）✅ 逐位复现
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  全部                         n= 600  到达  9.33%±1.19  碰撞 1.00%  违规/局  1.04  紧急步   5.0%  位置进框(宽松) 52.0%
+  clean（没训练过）                n= 577  到达  9.53%±1.22  碰撞 0.87%  违规/局  1.04  紧急步   5.0%  位置进框(宽松) 51.8%
+  strict（真一眼没见过）             n= 563  到达  9.77%±1.25  碰撞 0.89%  违规/局  1.02  紧急步   5.0%  位置进框(宽松) 51.9%
+      平滑: jerk 0.422 转艏Δ 0.0045 油门Δ 0.0132 路径 4431m ｜ 次网格细调率: 转艏 0.696 油门 0.732 ｜ 转艏|Δω|: 让路步 0.0033 其他步 0.0045
+  对照：训练/验证见过的                n=  37  到达  2.70%±2.67  碰撞 2.70%  违规/局  1.30  紧急步   5.4%  位置进框(宽松) 54.1%
+    · crossing（strict）       n= 376  到达  9.04%±1.48  碰撞 1.06%  违规/局  0.65  紧急步   6.5%  位置进框(宽松) 55.6%
+    · head-on（strict）        n= 187  到达 11.23%±2.31  碰撞 0.53%  违规/局  1.76  紧急步   2.1%  位置进框(宽松) 44.4%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s1_B231gwsymPpoS1  臂=Continuous-safe kind=continuous seed=1 步=5079040
+  [锚点] 自记测试集 N=40：记录 80.00% vs 重评 80.00%（差 0.00pt）✅ 逐位复现
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  全部                         n= 600  到达 85.17%±1.45  碰撞 0.00%  违规/局  0.85  紧急步   3.1%  位置进框(宽松) 86.7%
+  clean（没训练过）                n= 577  到达 85.10%±1.48  碰撞 0.00%  违规/局  0.86  紧急步   3.2%  位置进框(宽松) 86.7%
+  strict（真一眼没见过）             n= 563  到达 85.44%±1.49  碰撞 0.00%  违规/局  0.87  紧急步   3.3%  位置进框(宽松) 87.0%
+      平滑: jerk 0.934 转艏Δ 0.0162 油门Δ 0.0026 路径 4316m ｜ 次网格细调率: 转艏 0.084 油门 0.010 ｜ 转艏|Δω|: 让路步 0.0042 其他步 0.0163
+  对照：训练/验证见过的                n=  37  到达 81.08%±6.44  碰撞 0.00%  违规/局  0.57  紧急步   0.5%  位置进框(宽松) 81.1%
+    · crossing（strict）       n= 376  到达 86.44%±1.77  碰撞 0.00%  违规/局  0.56  紧急步   4.4%  位置进框(宽松) 88.0%
+    · head-on（strict）        n= 187  到达 83.42%±2.72  碰撞 0.00%  违规/局  1.49  紧急步   1.2%  位置进框(宽松) 85.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s6_C231bothPpoS6  臂=Continuous-safe kind=continuous seed=6 步=5079040
+  [锚点] 自记测试集 N=40：记录 87.50% vs 重评 87.50%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 91.33%±1.15  碰撞 0.33%  违规/局  0.68  紧急步   2.6%  位置进框(宽松) 93.8%
+  clean（没训练过）                n= 577  到达 91.33%±1.17  碰撞 0.35%  违规/局  0.69  紧急步   2.7%  位置进框(宽松) 93.9%
+  strict（真一眼没见过）             n= 563  到达 91.47%±1.18  碰撞 0.36%  违规/局  0.70  紧急步   2.8%  位置进框(宽松) 94.1%
+      平滑: jerk 0.175 转艏Δ 0.0023 油门Δ 0.0038 路径 4270m ｜ 次网格细调率: 转艏 0.885 油门 0.917 ｜ 转艏|Δω|: 让路步 0.0030 其他步 0.0023
+  对照：训练/验证见过的                n=  37  到达 89.19%±5.10  碰撞 0.00%  违规/局  0.32  紧急步   0.0%  位置进框(宽松) 89.2%
+    · crossing（strict）       n= 376  到达 91.22%±1.46  碰撞 0.27%  违规/局  0.44  紧急步   3.4%  位置进框(宽松) 94.4%
+    · head-on（strict）        n= 187  到达 91.98%±1.99  碰撞 0.53%  违规/局  1.22  紧急步   1.4%  位置进框(宽松) 93.6%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s4_L1rateON_ppo_s4  臂=Continuous-safe kind=continuous seed=4 步=5079040
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  [锚点] 自记测试集 N=40：记录 82.50% vs 重评 82.50%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 78.50%±1.68  碰撞 0.00%  违规/局  1.32  紧急步   4.3%  位置进框(宽松) 83.5%
+  clean（没训练过）                n= 577  到达 78.34%±1.71  碰撞 0.00%  违规/局  1.31  紧急步   4.4%  位置进框(宽松) 83.4%
+  strict（真一眼没见过）             n= 563  到达 77.98%±1.75  碰撞 0.00%  违规/局  1.29  紧急步   4.4%  位置进框(宽松) 83.1%
+      平滑: jerk 0.936 转艏Δ 0.0161 油门Δ 0.0032 路径 4144m ｜ 次网格细调率: 转艏 0.038 油门 0.019 ｜ 转艏|Δω|: 让路步 0.0033 其他步 0.0161
+  对照：训练/验证见过的                n=  37  到达 86.49%±5.62  碰撞 0.00%  违规/局  1.76  紧急步   2.0%  位置进框(宽松) 89.2%
+    · crossing（strict）       n= 376  到达 85.37%±1.82  碰撞 0.00%  违规/局  0.70  紧急步   3.3%  位置进框(宽松) 88.3%
+    · head-on（strict）        n= 187  到达 63.10%±3.53  碰撞 0.00%  违规/局  2.48  紧急步   6.7%  位置进框(宽松) 72.7%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s2_wsHOCRppo_s2  臂=Continuous-safe kind=continuous seed=2 步=3047424
+  [锚点] 自记测试集 N=40：记录 97.50% vs 重评 97.50%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 92.67%±1.06  碰撞 0.00%  违规/局  1.43  紧急步   4.4%  位置进框(宽松) 95.3%
+  clean（没训练过）                n= 577  到达 92.55%±1.09  碰撞 0.00%  违规/局  1.42  紧急步   4.4%  位置进框(宽松) 95.1%
+  strict（真一眼没见过）             n= 563  到达 92.36%±1.12  碰撞 0.00%  违规/局  1.43  紧急步   4.5%  位置进框(宽松) 95.0%
+      平滑: jerk 0.947 转艏Δ 0.0162 油门Δ 0.0035 路径 4269m ｜ 次网格细调率: 转艏 0.073 油门 0.022 ｜ 转艏|Δω|: 让路步 0.0043 其他步 0.0162
+  对照：训练/验证见过的                n=  37  到达 97.30%±2.67  碰撞 0.00%  违规/局  1.43  紧急步   2.7%  位置进框(宽松) 100.0%
+    · crossing（strict）       n= 376  到达 94.41%±1.18  碰撞 0.00%  违规/局  0.89  紧急步   3.6%  位置进框(宽松) 96.3%
+    · head-on（strict）        n= 187  到达 88.24%±2.36  碰撞 0.00%  违规/局  2.51  紧急步   6.2%  位置进框(宽松) 92.5%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Continuous-safe_s1_wsBIGppo_s1  臂=Continuous-safe kind=continuous seed=1 步=2539520
+  …下载 200/1300（失败 0）
+  …下载 400/1300（失败 0）
+  …下载 600/1300（失败 0）
+  …下载 800/1300（失败 0）
+  …下载 1000/1300（失败 0）
+  …下载 1200/1300（失败 0）
+  [锚点] 自记测试集 N=100：记录 76.00% vs 重评 76.00%（差 0.00pt）✅ 逐位复现
+/root/miniconda3/lib/python3.10/site-packages/cvxpy/problems/problem.py:1539: UserWarning: Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.
+  warnings.warn(
+  全部                         n= 600  到达 79.00%±1.66  碰撞 0.17%  违规/局  1.16  紧急步   3.4%  位置进框(宽松) 81.0%
+  clean（没训练过）                n= 577  到达 79.20%±1.69  碰撞 0.17%  违规/局  1.17  紧急步   3.5%  位置进框(宽松) 81.3%
+  strict（真一眼没见过）             n= 563  到达 78.69%±1.73  碰撞 0.18%  违规/局  1.15  紧急步   3.4%  位置进框(宽松) 80.8%
+      平滑: jerk 0.892 转艏Δ 0.0153 油门Δ 0.0028 路径 4196m ｜ 次网格细调率: 转艏 0.028 油门 0.014 ｜ 转艏|Δω|: 让路步 0.0012 其他步 0.0153
+  对照：训练/验证见过的                n=  37  到达 83.78%±6.06  碰撞 0.00%  违规/局  1.27  紧急步   3.0%  位置进框(宽松) 83.8%
+    · crossing（strict）       n= 376  到达 82.45%±1.96  碰撞 0.00%  违规/局  0.69  紧急步   2.7%  位置进框(宽松) 83.8%
+    · head-on（strict）        n= 187  到达 71.12%±3.31  碰撞 0.53%  违规/局  2.07  紧急步   4.8%  位置进框(宽松) 74.9%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Base_s0_baseW0_s0  臂=Base kind=unshielded seed=0 步=5079040
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 98.50%±0.50  碰撞 1.50%  违规/局  2.08  紧急步   0.0%
+  clean（没训练过）                n= 577  到达 98.44%±0.52  碰撞 1.56%  违规/局  2.09  紧急步   0.0%
+  strict（真一眼没见过）             n= 563  到达 98.40%±0.53  碰撞 1.60%  违规/局  2.08  紧急步   0.0%
+      平滑: jerk 0.888 转艏Δ 0.0136 油门Δ 0.0143 路径 4023m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0136
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  2.14  紧急步   0.0%
+    · crossing（strict）       n= 376  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.19  紧急步   0.0%
+    · head-on（strict）        n= 187  到达 95.19%±1.57  碰撞 4.81%  违规/局  3.87  紧急步   0.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+▶ Rule-reward_s3_rrW0_s3  臂=Rule-reward kind=unshielded seed=3 步=5079040
+  [锚点] 自记测试集 N=40：记录 100.00% vs 重评 100.00%（差 0.00pt）✅ 逐位复现
+  全部                         n= 600  到达 97.83%±0.59  碰撞 2.17%  违规/局  2.18  紧急步   0.0%
+  clean（没训练过）                n= 577  到达 97.75%±0.62  碰撞 2.25%  违规/局  2.19  紧急步   0.0%
+  strict（真一眼没见过）             n= 563  到达 97.69%±0.63  碰撞 2.31%  违规/局  2.21  紧急步   0.0%
+      平滑: jerk 0.796 转艏Δ 0.0125 油门Δ 0.0099 路径 4032m ｜ 次网格细调率: 转艏 0.000 油门 0.000 ｜ 转艏|Δω|: 让路步 — 其他步 0.0125
+  对照：训练/验证见过的                n=  37  到达 100.00%±0.00  碰撞 0.00%  违规/局  1.68  紧急步   0.0%
+    · crossing（strict）       n= 376  到达 98.94%±0.53  碰撞 1.06%  违规/局  1.47  紧急步   0.0%
+    · head-on（strict）        n= 187  到达 95.19%±1.57  碰撞 4.81%  违规/局  3.69  紧急步   0.0%
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+■ 锚点汇总（8 个 ckpt）：平均有符号差 +0.00pt · 最大绝对差 0.00pt · 8 个逐位复现 / 0 偏高 / 0 偏低
+  判读：平均差 ≈ 0 且正负混杂 ⟹ 只是浮点重放噪声，**eval 配置正确**；若平均差明显偏离 0 且方向一致 ⟹ 配置很可能真的错了，别信本次数字。
+
+[reeval_official] 完成 → /root/trb/结果/结果0729-59臂同趟重评/g1.json
+[轨迹] 8 个 checkpoint × 4 个场景 → /root/trb/结果/结果0729-59臂同趟重评/g1_traj.json
