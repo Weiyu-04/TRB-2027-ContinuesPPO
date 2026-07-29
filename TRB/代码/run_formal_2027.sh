@@ -200,7 +200,20 @@ for A in $ARMS; do
 d=json.load(open(sys.argv[1],encoding='utf-8'))
 c=d.get('config_sig') or {}
 print(f\"{int(d.get('seg_done',-1))+1}/{d.get('n_seg', c.get('n_seg','?'))} 段 · {d.get('num_timesteps','?')}/{d.get('total_steps', c.get('total_steps','?'))} 步\")" "$PRG" 2>/dev/null || echo "读不到 progress.json")
-      echo "  ↻ 已有存档：${P}_s${S}${T}${S}  上次跑到 $DONE"
+      # 🔴🔴 L243-续10（**我自己埋的雷**·独立工作流抓出）：下面那句 `rm segments/...@s*` 原来是
+      #   **无条件**执行的 —— 只要找到存档就删，**完全不看这条 run 是不是已经整条跑完了**。
+      #   而整条跑完的 run 随后会被 `done_keys` 跳过 ⟹ 副本**永远不会再生成** ⟹
+      #   「用验证集挑最佳存档」这个定稿口径的唯一依据**当场全废、不可逆**。
+      #   （末段存档和 trend 还在，指标还能重算；废掉的是"挑最佳那一段的权重"。）
+      #   失败场景：第一批跑完几条臂之后，再敲一次带 RESUME=1 的命令补别的臂 ——
+      #   已经跑完那几条的分段副本会被静默删光，而屏幕上只打一行"↻ 已有存档"。
+      #   ⟹ 判据：run 跑完才会写出自己的 jsonl 记录（`append_record` 在整条 run 结束时才调）。
+      JL="$RES_DIR/step4e_partial${T}${S}.jsonl"
+      if [ -s "$JL" ]; then
+        echo "  ✅ 已整条跑完：${P}_s${S}${T}${S}（$DONE）—— 会被自动跳过，**分段副本原样保留**"
+        continue
+      fi
+      echo "  ↻ 半截存档：${P}_s${S}${T}${S}  上次跑到 $DONE —— 🔴 会**从第 0 步重训**（没有段级续训）"
       # 🔴 L243-续8（A/B/E 三线独立复审都抓到）：**段级续训在 run_step4e.py 里根本不存在**。
       #   全文只有一处会加载模型（热启动，要显式给 STEP4E_WARMSTART_CKPT），训练永远新建模型；
       #   唯一的"跳过"是整条 (方,种子) 已经写完 jsonl 记录。⟹ 跑到一半被杀，再敲同一条命令 = **从 0 重训**。
@@ -387,11 +400,24 @@ if [ "$PEAK_KB" -gt 0 ]; then
     if [ -n "$v" ] && [ "$v" -gt 0 ] 2>/dev/null && [ "$v" -lt 1000000000000000 ] 2>/dev/null; then
       echo $(( v / 1024 )); else echo 0; fi
   }
+  # 🆕 L243-续10：同一台机器上**开两个窗口**分头跑时（比如 disc 单独一个窗口），
+  #   两趟各自算各自的额度、都能通过，加起来却超了。⟹ 把**当前已占用**扣掉再判。
+  cg_used_kb () {
+    local v=""
+    [ -r /sys/fs/cgroup/memory.current ] && v=$(cat /sys/fs/cgroup/memory.current 2>/dev/null)
+    [ -z "$v" ] && [ -r /sys/fs/cgroup/memory/memory.usage_in_bytes ] \
+      && v=$(cat /sys/fs/cgroup/memory/memory.usage_in_bytes 2>/dev/null)
+    case "$v" in ''|*[!0-9]*) echo 0 ;; *) echo $(( v / 1024 )) ;; esac
+  }
   HOST_AVAIL_KB=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
   TOTAL_KB=$(awk '/^MemTotal:/{print $2}' /proc/meminfo)
   CG_KB=$(cg_limit_kb)
   if [ "$CG_KB" -gt 0 ] && [ "$CG_KB" -lt "$HOST_AVAIL_KB" ]; then
-    AVAIL_KB="$CG_KB"; TOTAL_KB="$CG_KB"
+    USED_KB=$(cg_used_kb)
+    AVAIL_KB=$(( CG_KB - USED_KB )); [ "$AVAIL_KB" -lt 0 ] && AVAIL_KB=0
+    TOTAL_KB="$CG_KB"
+    [ "$USED_KB" -gt 0 ] && printf "  📦 已被占用 %.1f GiB（同机另一个窗口在跑？）⟹ 本趟只按剩下的 %.1f GiB 判\n" \
+      "$(echo "$USED_KB" | awk '{print $1/1048576}')" "$(echo "$AVAIL_KB" | awk '{print $1/1048576}')"
     printf "  📦 **容器限额 %.1f GiB**（/proc/meminfo 报的 %.0f GB 是宿主机的，不作数）\n" \
       "$(echo "$CG_KB" | awk '{print $1/1048576}')" "$(echo "$HOST_AVAIL_KB" | awk '{print $1/1048576}')"
   else
