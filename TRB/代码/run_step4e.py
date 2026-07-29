@@ -966,6 +966,126 @@ def replay_eval(base, kind, weight, test_pool, *, continuous_algo=None, return_p
 
 
 # ---------------- ep_rew_mean 原始 episode 回报追踪（Node L·替代 Monitor·不碰共享 make_vec_env）----------------
+class _RolloutStats:
+    """🆕 2026-07-29（正式实验起跑前补·`03` L239）：**训练 rollout 期**的 info 采集器。
+
+    🔴 **为什么必须现在补**：环境每一步都把这些东西算好放进 `info` 交出来了 ——
+    终止旗 / 奖励各分量 / 盾的六档归口 / 策略原始动作 / 盾之后真施加的动作 ——
+    而两个曲线记录器**从头到尾只读 `model.logger.name_to_value`，一次都没碰过 `infos`**。
+    这些是**训练期量**：跑完就没了，拿存档重评补不回来（重评只能给你"最终策略在测试集上"的静态快照，
+    给不了"训练过程中策略自己在干什么"）。
+
+    拿到手的三条动态证据（正好对应论文三个卖点）：
+      · **盾介入率随训练下降** ⟹ "盾不是拐杖，是保险"（卖点：可证明合规的代价很小）
+      · **打满舵率随训练下降** ⟹ 有界动作分布这把钥匙的机理证据（卖点：控制平顺）
+      · **到达/碰撞/违规的高分辨率曲线**（~200 点 vs `trend` 的 20 点）⟹ 样本效率
+
+    **安全边界**（照 `_accumulate_ep_returns` 的既有先例，逐条守）：
+      1. **只读** `cb.locals`，**绝不修改** `infos` 里任何 dict（SB3 之后还要用 terminal_observation）
+      2. 不调用任何会采样的 torch 路径（**不重新 forward**）⟹ 不消耗任何 RNG
+      3. **固定大小累加器**（计数器 + running sum），不每步 append ⟹ 内存恒定
+      4. 整体 try/except 兜住 ⟹ 采集出错绝不打断训练
+    ⟹ 训练结果**逐位不变**。
+    """
+
+    __slots__ = ("n", "n_act", "n_pair", "ep_n", "ep_flag", "src", "rho", "rp", "sat", "rev", "du",
+                 "corr", "n_corr", "_prev_sign", "r_alias", "r_rate")
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.n = 0                      # 累计步数
+        # 🔴 L216-D：动作类指标必须有**自己的分母** —— 离散臂结构上没有 u_desired，
+        #   若共用 self.n，"不适用" 会被算成 "测了，结果是 0"，两者必须分得开。
+        self.n_act = 0                  # 有策略原始动作的步数（连续臂才有）
+        self.n_pair = 0                 # 相邻步对数（算 |Δ| 与反转率的分母）
+        self.n_corr = 0                 # 能算盾改写量的步数
+        self.ep_n = 0                   # 本窗口内结束的 episode 数
+        self.ep_flag = {}               # 终止旗计数（goal/collision/time/stopped/area）
+        self.src = {}                   # 盾六档归口计数（projection/emergency/relaxed/...）
+        self.rho = {}                   # 态势直方图（0-5）
+        self.rp = {}                    # 奖励各分量 running sum
+        self.sat = 0.0                  # 打满舵步数（|策略原始转艏| ≥ 95% 箱半宽）
+        self.rev = 0.0                  # 转艏方向反转次数（bang-bang 的直读）
+        self.du = 0.0                   # Σ|Δ策略原始转艏|
+        self.corr = 0.0                 # Σ‖盾施加 − 策略原始‖（盾改写强度）
+        self._prev_sign = {}            # 每个并行环境上一步的转艏符号
+        self.r_alias = 0.0
+        self.r_rate = 0.0
+
+    def feed(self, infos, dones, w_box):
+        for i, info in enumerate(infos):
+            if not isinstance(info, dict):
+                continue
+            self.n += 1
+            f = info.get("flags")
+            if isinstance(f, dict) and (dones is None or (i < len(dones) and dones[i])):
+                self.ep_n += 1
+                for k, v in f.items():
+                    if v:
+                        self.ep_flag[k] = self.ep_flag.get(k, 0) + 1
+            sc = info.get("source")
+            if sc is not None:
+                self.src[str(sc)] = self.src.get(str(sc), 0) + 1
+            rh = info.get("rho_acting", info.get("rho"))
+            if rh is not None:
+                self.rho[str(int(rh))] = self.rho.get(str(int(rh)), 0) + 1
+            rp = info.get("reward_parts")
+            if isinstance(rp, dict):
+                for k, v in rp.items():
+                    try:
+                        self.rp[k] = self.rp.get(k, 0.0) + float(v)
+                    except (TypeError, ValueError):
+                        pass
+            for k in ("r_alias", "r_rate"):
+                v = info.get(k)
+                if v is not None:
+                    setattr(self, k, getattr(self, k) + float(v))
+            ud, ua = info.get("u_desired"), info.get("u_applied")
+            if ud is not None:                       # 连续臂才有；离散臂动作是格点下标，跳过
+                self.n_act += 1
+                w = float(ud[1])
+                if abs(w) >= 0.95 * w_box:
+                    self.sat += 1.0
+                sgn = (w > 0) - (w < 0)
+                ps = self._prev_sign.get(i)
+                if ps is not None:
+                    self.n_pair += 1
+                    self.du += abs(w - ps[1])
+                    if sgn != 0 and ps[0] != 0 and sgn != ps[0]:
+                        self.rev += 1.0              # 舵打到另一边 = 一次反转
+                self._prev_sign[i] = (sgn, w)
+                if ua is not None:
+                    self.n_corr += 1
+                    self.corr += float(abs(ua[0] - ud[0]) + abs(ua[1] - ud[1]))
+
+    def snapshot(self):
+        """吐一个窗口汇总并清零（**除数一律带出去**，`03` L216-D：没采到 vs 采到了但为 0 必须分得开）。"""
+        n = max(1, self.n)
+        out = {"roll_steps": self.n, "roll_eps": self.ep_n,
+               # 各自的分母一并带出（缺了就分不清"没测"和"测了是 0"）
+               "roll_n_act": self.n_act, "roll_n_pair": self.n_pair, "roll_n_corr": self.n_corr,
+               "roll_ep_flags": dict(self.ep_flag), "roll_source": dict(self.src),
+               "roll_rho": dict(self.rho),
+               "roll_reward_parts": {k: v / n for k, v in self.rp.items()},
+               "roll_yaw_sat_frac": (self.sat / self.n_act) if self.n_act else None,
+               "roll_yaw_reversal_rate": (self.rev / self.n_pair) if self.n_pair else None,
+               "roll_yaw_incr_mean": (self.du / self.n_pair) if self.n_pair else None,
+               "roll_shield_corr_mean": (self.corr / self.n_corr) if self.n_corr else None,
+               "roll_r_alias_mean": self.r_alias / n, "roll_r_rate_mean": self.r_rate / n}
+        self.reset()
+        return out
+
+
+def _feed_rollout_stats(cb, w_box):
+    """在 callback 的 `_on_step` 里调。整体 try/except：采集出错绝不打断训练。"""
+    try:
+        cb._roll.feed(cb.locals.get("infos") or (), cb.locals.get("dones"), w_box)
+    except Exception:
+        pass
+
+
 def _accumulate_ep_returns(cb):
     """curve callback 的 _on_step 每步调：用 `VecNormalize.get_original_reward()` 累积【原始(非归一化)】episode 回报，
     on done 压入 cb._ep_returns（窗口 mean=ep_rew_mean）。**等价 Monitor 的 rollout/ep_rew_mean 但不需包 Monitor**
@@ -1059,6 +1179,7 @@ def train_eval_one(name, kind, weight, seed, train_paths, test_pool, *,
             self.records = []
             self._ep_acc = []                              # ep_rew_mean：每 env 当前 episode 原始回报累积
             self._ep_returns = []                          # 已完成 episode 原始回报（窗口 mean）
+            self._roll = _RolloutStats()                   # 🆕 L239：训练 rollout 期 info 采集（A 类量·跑完补不回）
 
         def _on_rollout_end(self):
             _vn = self.model.get_vec_normalize_env()
@@ -1080,10 +1201,17 @@ def train_eval_one(name, kind, weight, seed, train_paths, test_pool, *,
                 "clip_fraction": _g("train/clip_fraction"),
                 "value_loss": _g("train/value_loss"),
                 "policy_gradient_loss": _g("train/policy_gradient_loss"),   # advantage 尺度间接代理（复审 B MEDIUM-1）
+                # 🆕 L239：本 rollout 的 info 统计。离散臂没有 u_desired ⟹ 打满舵/反转/盾改写量恒 None，
+                #   但终止旗、态势直方图、奖励分量照收 —— 这几样正是四臂能对齐画在同一张学习曲线上的部分。
+                **self._roll.snapshot(),
+                # 🆕 L239 补齐：连续臂有、离散臂原先没有的四项（两臂都是 PPO，SB3 一样往 logger 写）
+                "loss": _g("train/loss"), "clip_range": _g("train/clip_range"),
+                "n_updates": _g("train/n_updates"), "learning_rate": _g("train/learning_rate"),
             })
 
         def _on_step(self):
             _accumulate_ep_returns(self)                   # 每步累积原始 episode 回报（ep_rew_mean·只读不扰训练）
+            _feed_rollout_stats(self, A_NORMAL_OMEGA_MAX)  # 🆕 L239：同上（离散臂无 u_desired ⟹ 动作类字段自动为 None，其余照收）
             return True
 
     curve_cb = _CurveLogger() if LOG_CURVES else None
@@ -1321,9 +1449,11 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
             self._last = -1
             self._ep_acc = []                                # ep_rew_mean：每 env 当前 episode 原始回报累积
             self._ep_returns = []                            # 已完成 episode 原始回报（窗口 mean）
+            self._roll = _RolloutStats()                     # 🆕 L239：训练 rollout 期 info 采集（A 类量·跑完补不回）
 
         def _on_step(self):
             _accumulate_ep_returns(self)                     # 每步累积原始 episode 回报（ep_rew_mean·只读不扰训练）
+            _feed_rollout_stats(self, A_NORMAL_OMEGA_MAX)    # 🆕 L239：同上·纯只读 locals["infos"]
             t = self.model.num_timesteps
             if t - self._last >= self._every:
                 self._last = t
@@ -1354,6 +1484,10 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
                     "n_updates": _g("train/n_updates"),
                     "ep_rew_mean": _ep_rew_mean(self),               # 原始 episode 回报滚动均值（callback 自算·替 Monitor·Node L L54-续）
                     "ep_rew_mean_logger": _g("rollout/ep_rew_mean"), # sb3 logger 值（需 Monitor·当前 None，保留对照）
+                    "ret_rms_var": (lambda _vn: float(_vn.ret_rms.var) if _vn is not None
+                                    and getattr(_vn, "ret_rms", None) is not None else None)(
+                                        self.model.get_vec_normalize_env()),   # 🆕 L239 补齐：离散臂本来就有、连续臂漏了。这是本项目历史上诊断塌种子的关键信号（L39）
+                    **self._roll.snapshot(),                        # 🆕 L239：本窗口的 rollout 统计（终止旗/盾归口/态势/奖励分量/打满舵率/反转率/盾改写量）
                 })
             return True
 
