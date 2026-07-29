@@ -59,9 +59,9 @@ def main():
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
     d = os.path.abspath(sys.argv[1])
-    rows, n_strict, n_grp = C.load_pass(d)
+    rows, n_strict, n_grp = C.load_pass(d, expect_strict=C.FORMAL['n_strict'] if '正式' in os.path.basename(d) else None)
     ba = C.by_arm(rows)
-    print(f"# 统计 · {os.path.basename(d)}\n\n> {C.BUDGET_NOTE}")
+    print(f"# 统计 · {os.path.basename(d)}\n\n> {C.budget_note(n_strict, C.FORMAL['steps'], C.FORMAL['ckpt'])}")
     print(f"> 自助法 B={B_BOOT}、按**种子**重采样（种子才是独立单位）、固定随机种子 ⟹ 区间可复现。\n")
 
     print("## ① 到达率：均值 + 95% 自助法区间（按种子重采样）\n")

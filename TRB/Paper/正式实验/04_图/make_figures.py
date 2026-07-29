@@ -3,7 +3,7 @@
 
 ═══ 图的契约（按规范要求，先写清楚再画）═══════════════════════════════════════
 【Fig.1 样本效率 · hero】
-  核心结论（一句话）：在**同一 5.08M 步训练预算**下，新配方把学习速度提高约一个数量级；
+  核心结论（一句话）：在**同一训练预算**下（预算数字由 main() 按实际填·不写死），新配方把学习速度提高约一个数量级；
     旧配方到期时**仍未收敛** ⟹ 这是**样本效率**声明，不是"收敛后更好"。
   证据链：a 学习曲线（hero·旧 vs 新）→ 速度差；b 同种子配对哑铃图 → 逐颗都变好、非均值假象；
           c 到期仍在上升的种子数 → 坐实"预算点非收敛点"（`03` L236-A）。
@@ -26,7 +26,7 @@
 统计口径（规范要求写进图里，不是"标题清洁工作"）：
   · n = 种子数（**种子才是独立单位**，不是 episode）
   · 中心 = 均值；误差棒 = **按种子重采样的 95% 自助法区间**（B=20000·固定随机种子 ⟹ 可复现）
-  · 每张图脚注标死："5.08M-step budget · last checkpoint · official test set, strict 563 · single machine, single pass"
+  · 每张图脚注**按实测拼**（`03` L240：绝不写死。写死不会报错，会把错的预算/分母静默印到图上）
 
 跑法：
     python3 -B Paper/正式实验/04_图/make_figures.py <重评目录> [输出目录]
@@ -80,9 +80,12 @@ RES = os.path.abspath(os.path.join(HERE, "..", "..", "..", "结果"))
 TRAIN_DIRS = [os.path.join(RES, x) for x in
               ("结果0702-地基第1版-12:18", "结果0710-22:00-10种子最优方案",
                "结果0727-大集指标提升", "结果0728-beta测试训练", "结果0728-正式大集smoke")]
+N_VAL = 100          # 训练期评估集大小（由 main() 覆盖）
+N_STRICT = 0         # 报数分母（由 main() 按实测填·**绝不写死**·`03` L240）
+CUTOFF = ""         # 训练预算文字（同上）
 RNG = random.Random(20260729)
 B_BOOT = 20000
-FOOT = ("5.08M-step budget · last checkpoint · official test set (strict 563) · single machine, single pass")
+FOOT = ""   # 由 main() 按实测分母拼（`03` L240：绝不写死，写死会静默把错数字印到图上）
 
 #: 中文臂名 → 图上用的英文名（图内一律英文；中文只留在代码与 README）
 EN = {
@@ -142,7 +145,7 @@ def fig1_sample_efficiency(ba, out):
     ax_a.set_xlim(0.3, 6.6)
     ax_a.set_ylim(-3, 105)
     ax_a.set_xlabel("Training steps (millions)")
-    ax_a.set_ylabel("Arrival rate (%)\ntrain-time milestone, 40 scenarios")
+    ax_a.set_ylabel(f"Arrival rate (%)\ntrain-time milestone, {N_VAL} validation scenarios")
     ax_a.set_xticks([1, 2, 3, 4, 5])
     ax_a.grid(axis="y", alpha=0.2, lw=0.4)
     N.panel_label(ax_a, "a", x=-0.13)
@@ -159,7 +162,7 @@ def fig1_sample_efficiency(ba, out):
             ax_b.scatter([ac[s]], [i], s=9, color=N.PALETTE["blue_main"], zorder=2)
         ax_b.set_yticks(range(len(order)))
         ax_b.set_yticklabels([f"s{s}" for s in order])
-        ax_b.set_xlabel("Arrival rate (%), strict 563")
+        ax_b.set_xlabel(f"Arrival rate (%), strict {N_STRICT}")
         n_up = sum(1 for s in common if ac[s] > ag[s])
         ax_b.set_title(f"paired by seed: {n_up}/{len(common)} improved\ntwo-sided sign test p = {2/2**len(common):.2e}",
                        fontsize=6, pad=3)
@@ -188,7 +191,7 @@ def fig1_sample_efficiency(ba, out):
     ax_c.set_xticks(list(xs))
     ax_c.set_xticklabels([b[0] for b in bars])
     ax_c.set_ylim(0, 118)
-    ax_c.set_ylabel("Seeds still improving\nat the 5.08M cutoff (%)")
+    ax_c.set_ylabel(f"Seeds still improving\nat the {CUTOFF} cutoff (%)")
     ax_c.grid(axis="y", alpha=0.2, lw=0.4)
     N.panel_label(ax_c, "c", x=-0.42)
 
@@ -343,6 +346,12 @@ def main():
     out = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 else HERE
     os.makedirs(out, exist_ok=True)
     rows, n_strict, n_grp = C.load_pass(d)     # fail-closed
+    global FOOT, N_VAL, N_STRICT, CUTOFF
+    N_VAL = int(os.environ.get("N_VAL_SCEN", "100"))          # 训练期评估集大小（官方 1300 口径 = 100 验证场景）
+    N_STRICT = n_strict
+    CUTOFF = os.environ.get("BUDGET_LABEL", "10.16M")
+    FOOT = (f"{CUTOFF}-step budget · validation-selected checkpoint · official test set, strict {n_strict} "
+            "· single machine, single pass")
     ba = C.by_arm(rows)
     print(f"[figures] {os.path.basename(d)} · {len(rows)} arms · strict {n_strict} · {n_grp} groups")
     fig1_sample_efficiency(ba, out)

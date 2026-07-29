@@ -55,13 +55,13 @@ def main():
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
     d = os.path.abspath(sys.argv[1])
-    rows, n_strict, n_grp = C.load_pass(d)     # fail-closed：分母/重名/锚点任一不过直接抛错
+    rows, n_strict, n_grp = C.load_pass(d, expect_strict=C.FORMAL['n_strict'] if '正式' in os.path.basename(d) else None)     # fail-closed：分母/重名/锚点任一不过直接抛错
     ba = C.by_arm(rows)
     md = [f"# 头条表 · {os.path.basename(d)}",
           "",
           f"> 由 `Paper/正式实验/03_表/make_头条表.py` 从 `{os.path.basename(d)}/g*.json` **自动生成**，"
           "一个数字都没有手抄（协议 §1 铁律）。",
-          f"> {C.BUDGET_NOTE}",
+          f"> {C.budget_note(n_strict, C.FORMAL['steps'], C.FORMAL['ckpt'])}",
           f"> 自查通过：{n_grp} 组 strict 键**逐位相同**且 =={n_strict} · {len(rows)} 条臂无重名 · 锚点 {len(rows)}/{len(rows)} 全过。",
           "",
           "## 主表（全部种子）", "", table(ba, False), "",

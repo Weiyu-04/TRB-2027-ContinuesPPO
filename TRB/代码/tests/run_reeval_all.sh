@@ -1,6 +1,7 @@
 #!/bin/bash
 # ══════════════════════════════════════════════════════════════════════════════════════════
-# 全臂【同一趟】重评 → strict 563 头条表（`04 §2` 的报数纪律）
+# 全臂【同一趟】重评 → 同分母头条表（`04 §2` 的报数纪律）
+#   分母由 REEVAL_EXPECT_STRICT 显式声明：小集训练的臂 = 563；正式实验全部官方 1300 = 600。
 #
 # 为什么要有这个脚本（别手敲 REEVAL_CKPTS）：
 #   ① `04 §2` 写死：**必须显式点名每一条臂**。不点名 = 自动发现会捞到 277 个存档，其中 54 个 sidecar
@@ -126,9 +127,18 @@ for f in files:
             merged[k] = v
 if bad:
     raise SystemExit(f"🔒 这些组的 strict 键列表与其它组【不一致】：{bad} ⟹ 分母不同、不可同表。中止。")
-print(f"  ✅ 各组 strict 键列表逐位相同 · n = {len(ref)}（必须 == 563）")
-if len(ref) != 563:
-    raise SystemExit(f"🔒 strict 分母 = {len(ref)} ≠ 563 ⟹ 泄漏剔除口径不对，别信这趟数字。")
+# 🔴 分母**不再写死**（`03` L240）：以往写死 563，是因为所有臂都在小集上训、与官方测试 600 撞了
+#   23 训练 + 14 验证 = 37 个场景。正式实验全部改在官方 1300 上训，与测试 600 **零交集** ⟹ 分母 = 600。
+#   ⟹ 由环境变量 REEVAL_EXPECT_STRICT 显式声明本趟期望多少；**必须显式**，不许"看到多少算多少"。
+_EXPECT = int(os.environ.get("REEVAL_EXPECT_STRICT", "0"))
+print(f"  ✅ 各组 strict 键列表逐位相同 · n = {len(ref)}"
+      + (f"（本趟声明期望 {_EXPECT}）" if _EXPECT else "（⚠️ 未声明期望值，只查了组间一致）"))
+if _EXPECT and len(ref) != _EXPECT:
+    raise SystemExit(f"🔒 strict 分母 = {len(ref)} ≠ 声明的 {_EXPECT} ⟹ 口径不对"
+                     "（同趟里混进了别的训练集的臂？），别信这趟数字。")
+if not _EXPECT:
+    print("  ⚠️ 没设 REEVAL_EXPECT_STRICT ⟹ 分母没有被守卫。正式实验必须设"
+          "（小集口径 563 / 官方 1300 口径 600）。")
 print(f"  ✅ 合并得 {len(merged)} 条臂（期望 {n_expect}）")
 if len(merged) != n_expect:
     print(f"  ⚠️ 条数对不上，缺的臂：看各组 g*.log 里的 ❌")

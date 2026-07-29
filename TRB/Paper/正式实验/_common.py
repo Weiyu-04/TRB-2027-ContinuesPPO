@@ -32,6 +32,17 @@ ARM_SPECS = [
     ("A（从零·只 Beta）",            lambda ck: "A231betaPpo" in ck,               False),
     ("B（从零·只改状态机）",          lambda ck: "B231gwsymPpo" in ck,              False),
     ("C（从零·两个都上·主线候选）",    lambda ck: "C231bothPpo" in ck,               True),
+    # ── 正式实验 9 条臂（`03` L240 定稿·TAG 前缀 F240）────────────────────────────
+    #    TAG 里必须含 ppo/diag/probe/ab 之一，否则 run_step4e 的 PPO 隔离闸会拦（:405-410）
+    ("【正式】Ours（Beta+对称让路+盾）",  lambda ck: "F240oursPpo" in ck,               True),
+    ("【正式】Discrete-safe 对标",      lambda ck: "F240discPpo" in ck,               True),
+    ("【正式】Base 离散无盾",           lambda ck: "F240basePpo" in ck,               True),
+    ("【正式】Rule-reward 离散软奖励",   lambda ck: "F240rrPpo" in ck,                 True),
+    ("【正式】U-无盾（连续·极简）",       lambda ck: "F240unsPpo" in ck,                True),
+    ("【正式】U-有盾（与无盾逐字同配方）",  lambda ck: "F240ushPpo" in ck,                True),
+    ("【正式】消融·都不改",             lambda ck: "F240ab0Ppo" in ck,                False),
+    ("【正式】消融·只 Beta",           lambda ck: "F240abBPpo" in ck,                False),
+    ("【正式】消融·只改状态机",          lambda ck: "F240abGPpo" in ck,                False),
 ]
 
 
@@ -42,7 +53,7 @@ def arm_of(ck):
     return None
 
 
-def load_pass(d, prefix="g", expect_strict=563, strict_n=True):
+def load_pass(d, prefix="g", expect_strict=None):
     """读一趟同趟重评 → {checkpoint: 结果}。**只吃 `<前缀><数字>.json`**（`g*_traj.json` 混进来会污染统计）。"""
     files = sorted(f for f in glob.glob(os.path.join(d, prefix + "*.json"))
                    if re.fullmatch(prefix + r"\d+\.json", os.path.basename(f)))
@@ -53,8 +64,13 @@ def load_pass(d, prefix="g", expect_strict=563, strict_n=True):
     for n, g in groups.items():
         if g[f"{SEC}键"] != ref:
             raise SystemExit(f"🔒 {n} 的 {SEC} 键与第一组**不逐位相同** ⟹ 分母不一致，这张表不能出。")
-    if strict_n and len(ref) != expect_strict:
-        raise SystemExit(f"🔒 {SEC} 场景数 = {len(ref)}，期望 {expect_strict} ⟹ 口径不对（单独评过？跨趟拼过？），这张表不能出。")
+    # 🔴 分母**不再写死**（`03` L240）：以往写死 563 是因为所有臂都在小集上训、与官方测试 600 撞了
+    #   23 训练 + 14 验证 = 37 个场景。正式实验全部改在官方 1300 上训，与测试 600 **零交集**
+    #   ⟹ 分母是 **600**。写死一个数就会在换口径时要么让脚本罢工、要么把错数字印进论文。
+    #   ⟹ 调用方**必须显式**说自己期望多少（`expect_strict=`），不传就只查组间一致并把实测值打出来。
+    if expect_strict is not None and len(ref) != expect_strict:
+        raise SystemExit(f"🔒 {SEC} 场景数 = {len(ref)}，调用方期望 {expect_strict} ⟹ 口径不对"
+                         "（同趟里混进了别的训练集的臂？单独评过？跨趟拼过？）这张表不能出。")
     rows = {}
     for g in groups.values():
         for ck, v in g["结果"].items():
@@ -114,5 +130,19 @@ def per_seed(entries, key):
     return out
 
 
-BUDGET_NOTE = ("口径：**5.08M 步训练预算 · 末段存档 · 官方测试 600 剔泄漏后 strict 563 · 同机同趟评**。"
-               "『5.08M 是预算点、不是收敛点』见 `03` L236-A。")
+def budget_note(n_strict, steps=None, ckpt_policy=None):
+    """口径脚注**按实测拼**，不许写死（`03` L240）。
+
+    🔴 教训：原来这里是一句字面量 "5.08M 步 … strict 563"。它**不会报错**，
+    换了口径之后会一声不响地把**错的预算和错的分母**印进论文的表和图。
+    三处同款字面量（本文件 + 出图脚本两处）在起跑前审计里被一起抓出来。
+    """
+    lead = f"{steps}" if steps else "训练预算见正文"
+    pol = ckpt_policy or "存档口径见正文"
+    return (f"口径：**{lead} · {pol} · 官方测试集 strict {n_strict} · 同机同趟评**。"
+            "『步数上限是预算点、不是收敛点』见 `03` L236-A。")
+
+
+#: 正式实验的口径常量（定稿后写死在这里，各脚本一律从这里取，别各处再抄一遍）
+FORMAL = {"steps": "10.16M 步预算（10,158,080 = 20 段 × 507,904）",
+          "ckpt": "验证集最佳存档", "ckpt_alt": "末段存档", "n_strict": 600, "n_seeds": 10}
