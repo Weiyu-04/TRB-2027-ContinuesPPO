@@ -89,6 +89,11 @@ def load_trends(root, needle):
 def judge_one(trend, budget):
     """→ (标签, Δ到达pt, Δ时长%, 末段到达, 末段每局秒)。budget = 在第几段处判。"""
     tr = trend[:budget]
+    # 🔴 L243-续8（C 线 R1）：原来只要 `len(tr) >= 6` 就判，**与 budget 完全脱钩** ⟹
+    #   一条只跑到第 7 段就崩掉的 run，在"第 20 段处判"时会被当成**已经跑满 20 段**来判，
+    #   而它最后 6 段其实是第 2~7 段。判据本身没错，错在拿错了段。⟹ 必须真的跑到 budget 段。
+    if len(trend) < budget:
+        return "段数不足", None, None, None, None
     if len(tr) < 6:
         return "段数不足", None, None, None, None
     arr = [x["到达率%"] for x in tr]
@@ -142,13 +147,26 @@ def main():
     print(f"\n  汇总：已收敛 {n_ok} · 还在爬 {n_up} · 崩 {n_spin}"
           + (f" · 段数不足 {short}" if short else ""))
     if short:
-        print(f"  ❌ 有 {short} 个 run 段数不足 ⟹ 还没跑到第 {budget} 段，等跑到了再判。")
+        print(f"  ❌ 有 {short} 个 run **没跑满 {budget} 段** ⟹ 要么还在跑（等跑到了再判），"
+              f"要么中途崩了（那几条不能进同预算比较）。先用 check_formal_integrity.py 分清是哪一种。")
         return 1
     print(f"  ⚠️ 崩掉的 {n_spin} 颗**不进分母**：它们会走平在天花板上，机械算成『已收敛』是错的；"
           "加步数也救不了打转（`03` L235/L238）。" if n_spin else "")
 
+    # 🔴 L243-续8（C 线 R2）：原来只看"还在爬"几颗，**崩了几颗完全不影响结论**。
+    #   极端情形：10 颗里 8 颗崩、2 颗收敛、0 颗在爬 ⟹ 照样打印"✅ 这个预算够"。
+    #   但 8/10 崩的臂根本不是"预算够不够"的问题，是**这条配方本身不成立**，
+    #   拿它的段数去定其余 8 条臂的预算是把错误放大 9 倍。⟹ 崩过半直接判否。
+    n_all = n_ok + n_up + n_spin
+    if n_all and n_spin * 2 >= n_all:
+        print(f"\n  ❌ **崩掉 {n_spin}/{n_all} 颗（过半）—— 这不是预算问题，是这条配方本身有问题。**")
+        print(f"     加步数救不了打转（`03` L235/L238）。先看是不是配方/种子的事，别拿它定其余臂的预算。")
+        return 1
+    if n_ok == 0 and n_all:
+        print(f"\n  ❌ **一颗都没收敛**（{n_all} 颗里 {n_up} 颗还在爬、{n_spin} 颗崩）⟹ 这个预算显然不够。")
+        return 1
     if n_up <= MAX_CLIMBING:
-        print(f"\n  ✅ **这个预算够**（还在爬 {n_up} ≤ {MAX_CLIMBING}）")
+        print(f"\n  ✅ **这个预算够**（还在爬 {n_up} ≤ {MAX_CLIMBING}；已收敛 {n_ok} · 崩 {n_spin}）")
         print(f"     ⟹ 报数用 BUDGET_SEG={budget}（= {budget*507904:,} 步）；其余 8 条臂可用 NSEG={budget} 起跑。")
         print(f"     ⟹ 主线这 {n_ok+n_up+n_spin} 个 run 可在第 {budget} 段停（已完成的段都在 segments/ 里，一步没浪费）。")
         return 0

@@ -23,9 +23,12 @@ user 2026-07-29：「数据采集只有一次机会，就是这次正式去跑�
   ⑧ 存档不重名            —— 重名 = 组间重复计数
 
 ═══ 用法 ═════════════════════════════════════════════════════════════════════
-    python3 -B 代码/tests/check_formal_integrity.py [结果目录] [期望种子数]
-    SEEDS="0 1 2 3" python3 -B 代码/tests/check_formal_integrity.py 结果    # 只查这几颗
+    python3 -B 代码/tests/check_formal_integrity.py [结果目录]
+    SEEDS="0 1 2 3" ARMS="ours ab0" NSEG=20 python3 -B ... 结果   # 只查这几颗/这几条臂
 退出码：0 = 全过 · 1 = 有硬伤（别继续，先修）· 2 = 只有提醒
+
+🔴 `ARMS` **必须传**（L243-续8 A4）：臂清单原来是硬编码 9 条，它把"已开工种子里缺的臂"判成硬伤
+   ⟹ 只跑主线（`ARMS="ours"`）时，第一列跑完必定被自己判死，而屏幕上的理由是"体检没过"。
 """
 import glob
 import json
@@ -98,7 +101,20 @@ def load(root):
 def main():
     root = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else "结果")
     seeds_env = os.environ.get("SEEDS")
-    print(f"【正式实验完整性体检】{root}")
+    # 🔴 L243-续8 A4：只查本次真正要跑的臂（不传 = 查全部 9 条）
+    arms_env = [a for a in (os.environ.get("ARMS") or "").split() if a]
+    if arms_env:
+        _unknown = [a for a in arms_env if a not in ARMS]
+        if _unknown:
+            print(f"  ❌ ARMS 里有未知臂名：{_unknown}（合法：{sorted(ARMS)}）")
+            return 1
+        for a in list(ARMS):
+            if a not in arms_env:
+                ARMS.pop(a)
+    _nseg_exp = int(os.environ.get("NSEG") or 0) or None
+    print(f"【正式实验完整性体检】{root}"
+          + (f"（只查臂 {arms_env}）" if arms_env else "")
+          + (f"（目标 {_nseg_exp} 段）" if _nseg_exp else ""))
 
     runs = load(root)
     if not runs:
@@ -128,6 +144,9 @@ def main():
     print("\n② 预算是否一致（不一致 = 不是同预算比较 = 不能同表）")
     tot = {r["total_steps"] for r, _ in runs.values()}
     nsg = {r["n_seg"] for r, _ in runs.values()}
+    nsg_all = set(nsg)                                   # ② 里会 pop 掉 nsg，③ 还要用
+    if _nseg_exp and nsg_all != {_nseg_exp}:
+        hard(f"n_seg 与本次要求的 NSEG={_nseg_exp} 对不上：实际 {sorted(nsg_all)}")
     (ok if len(tot) == 1 else hard)(f"total_steps = {sorted(tot)}")
     (ok if len(nsg) == 1 else hard)(f"n_seg = {sorted(nsg)}")
     if len(tot) == 1 and len(nsg) == 1:
@@ -150,8 +169,29 @@ def main():
             print(f"  {a:<5} n={len(v):<3} 段数 {v[0]}~{v[-1]}")
     lo = min(done.values())
     ok(f"**BUDGET_SEG 上限 = {lo}**（= {lo*SEG_STEPS:,} 步）—— 报数时全部臂都用这个数")
-    if lo * SEG_STEPS < 5_000_000:
-        warn(f"目前最小段数才 {lo}（{lo*SEG_STEPS:,} 步），还早")
+    # 🔴 L243-续8（C 线 R5）：原来只报"跑到第几段"，**从不拿它跟目标段数比** ⟹
+    #   一条跑到第 9 段就崩掉的 run，在这里看上去和正常在跑的一模一样。
+    #   区分办法：run_one 给每条 run 独立 TAG ⟹ 它**跑完**才会写出自己的 jsonl 记录。
+    #   有记录 + 段数不足 = **它已经收工了，但没跑满** = 硬伤（这条数据不能进同预算比较）。
+    _tgt = _nseg_exp or (sorted(nsg_all)[0] if len(nsg_all) == 1 else None)
+    if _tgt:
+        short_done, short_running = [], []
+        for (a, s), d in sorted(done.items()):
+            if d >= _tgt:
+                continue
+            tag = ARMS[a][1] + str(s)
+            _jl = os.path.join(root, f"step4e_partial{tag}.jsonl")
+            (short_done if (os.path.exists(_jl) and os.path.getsize(_jl) > 0)
+             else short_running).append(f"{a}/s{s}={d}/{_tgt}段")
+        if short_done:
+            hard(f"{len(short_done)} 个 run **已经收工却没跑满**（中途崩了/被杀）⟹ 不是同预算，"
+                 f"别进同一张表：{short_done[:8]}")
+        if short_running:
+            print(f"  · 还在跑（正常）：{len(short_running)} 个 —— {short_running[:6]}")
+        if not short_done and not short_running:
+            ok(f"全部 run 都跑满了 {_tgt} 段")
+    else:
+        warn("拿不到目标段数（NSEG 没传、且各 run 的 n_seg 不一致）⟹ 这一条没查")
 
     # ④ 分段副本 ──────────────────────────────────────────────────────────────
     print("\n④ 分段副本齐不齐（『验证集挑最佳存档』全靠它·这功能从没在真实训练里跑过）")
@@ -175,19 +215,62 @@ def main():
     # ⑤ 单变量对子 ────────────────────────────────────────────────────────────
     print("\n⑤ 单变量对子干不干净（逐对比 config_sig，只许差计划内那一个键）")
     for x, y, allowed in PAIRS:
-        s0 = next((s for s in seeds if (x, s) in runs and (y, s) in runs), None)
-        if s0 is None:
+        # 🔴 L243-续8（C 线 O3）：原来只查**第一颗**同时存在的种子。一条臂在第 5 颗种子上配方被改坏，
+        #   这里永远看不见。⟹ 逐颗种子都查。
+        both = [s for s in seeds if (x, s) in runs and (y, s) in runs]
+        if not both:
             print(f"  · {x} ↔ {y}：还没有同种子的两条都跑完，跳过")
             continue
-        cx = runs[(x, s0)][0].get("config_sig") or {}
-        cy = runs[(y, s0)][0].get("config_sig") or {}
-        diff = {k for k in set(cx) | set(cy) if k not in IGNORE and cx.get(k) != cy.get(k)}
-        extra = diff - allowed
-        if extra:
-            hard(f"{x} ↔ {y}（s{s0}）出现计划外差异 {sorted(extra)}："
-                 + "; ".join(f"{k}: {cx.get(k)!r} vs {cy.get(k)!r}" for k in sorted(extra)))
+        bad = []
+        for s0 in both:
+            cx = runs[(x, s0)][0].get("config_sig") or {}
+            cy = runs[(y, s0)][0].get("config_sig") or {}
+            diff = {k for k in set(cx) | set(cy) if k not in IGNORE and cx.get(k) != cy.get(k)}
+            extra = diff - allowed
+            if extra:
+                bad.append(f"s{s0}: " + "; ".join(f"{k}: {cx.get(k)!r} vs {cy.get(k)!r}"
+                                                  for k in sorted(extra)))
+        if bad:
+            hard(f"{x} ↔ {y} 有 {len(bad)}/{len(both)} 颗种子出现计划外差异：{bad[:4]}")
         else:
-            ok(f"{x} ↔ {y}（s{s0}）差异仅 {sorted(diff) or '（完全相同）'}")
+            ok(f"{x} ↔ {y}：{len(both)} 颗种子逐颗比过，差异都只在计划内 {sorted(allowed) or '（应完全相同）'}")
+
+    # 🔴 L243-续8（C 线 R4·**这一条最要紧**）：上面那个 `uns ↔ ush` 的"config_sig 应完全相同"
+    #   在数学上是**空的** —— `continuous_shield` 故意不进 config_sig（它一个权重都不改、进了会让续训从 0 重启），
+    #   所以**盾开着还是关着，config_sig 里根本看不出来**。这一对恰恰是"盾值多少"的唯一干净证据，
+    #   它的开关却是整套体检里唯一没人验的。
+    #   ⟹ 换个能真看见的地方查：训练期采集的 `roll_source`。
+    #     · 盾关（uns）  ⟹ 每一步都是 "unshielded"（`usv_continuous_shield.py:224`）
+    #     · 盾开（其余）  ⟹ 只会出现 no_obstacle / goal_cone / projection / emergency / relaxed…，**绝不会有 unshielded**
+    print("\n⑤b 盾到底开没开（config_sig 里看不见 ⟹ 只能从训练期采集的 roll_source 看）")
+    for a in sorted(set(ARMS) & CONT):
+        want_off = (a == "uns")
+        srcs, empty = {}, []
+        for s in seeds:
+            if (a, s) not in runs:
+                continue
+            cur = runs[(a, s)][0].get("curves") or []
+            agg = {}
+            for c in cur:
+                for k, v in (c.get("roll_source") or {}).items():
+                    agg[k] = agg.get(k, 0) + int(v or 0)
+            if not agg:
+                empty.append(f"s{s}")
+            for k, v in agg.items():
+                srcs[k] = srcs.get(k, 0) + v
+        if empty:
+            hard(f"{a}：{len(empty)} 颗种子的 roll_source 整个是空的 ⟹ 盾归口这条 A 类量没采到：{empty[:6]}")
+        if not srcs:
+            continue
+        has_unshielded = srcs.get("unshielded", 0) > 0
+        only_unshielded = set(srcs) == {"unshielded"}
+        if want_off and not only_unshielded:
+            hard(f"uns（应当**关盾**）的 roll_source 里出现了盾档：{srcs} ⟹ 盾没关掉，"
+                 f"『盾值多少』这一对作废")
+        elif (not want_off) and has_unshielded:
+            hard(f"{a}（应当**开盾**）的 roll_source 里出现 unshielded={srcs['unshielded']} ⟹ 盾没开")
+        else:
+            ok(f"{a}：盾{'关' if want_off else '开'}——roll_source = {dict(sorted(srcs.items()))}")
 
     # ⑥ 训练集 ────────────────────────────────────────────────────────────────
     print("\n⑥ 训练集是不是官方 1300（配错 = 分母不是 600 = 整套口径塌）")
@@ -196,30 +279,65 @@ def main():
 
     # ⑦ A 类量 ────────────────────────────────────────────────────────────────
     print("\n⑦ A 类量采到没有（跑完补不回来）")
-    no_curves, no_roll, no_act = [], [], []
+    # 🔴 L243-续8（C 线 O4）：原来只查"**曾经**非零" —— 一个 run 只有第一个窗口采到、后面 199 个窗口
+    #   全空，这里照样打勾。改成查**覆盖率**（有数据的窗口占比）+ 新加的 `roll_n_err`（采集抛异常次数）。
+    no_curves, no_roll, no_act, thin, errs, no_corr = [], [], [], [], [], []
     for (a, s), (r, _) in sorted(runs.items()):
         cur = r.get("curves") or []
         if not cur:
             no_curves.append(f"{a}/s{s}")
             continue
-        if max((int(c.get("roll_steps") or 0) for c in cur), default=0) <= 0:
+        n_win = len(cur)
+        n_step_win = sum(1 for c in cur if int(c.get("roll_steps") or 0) > 0)
+        n_act_win = sum(1 for c in cur if int(c.get("roll_n_act") or 0) > 0)
+        n_err = sum(int(c.get("roll_n_err") or 0) for c in cur)
+        if n_step_win == 0:
             no_roll.append(f"{a}/s{s}")
-        if a in CONT and max((int(c.get("roll_n_act") or 0) for c in cur), default=0) <= 0:
+        elif n_step_win < 0.9 * n_win:
+            thin.append(f"{a}/s{s}: 只有 {n_step_win}/{n_win} 个窗口有数据")
+        # 动作类量：连续臂读 info、离散臂由格点下标还原 ⟹ **两臂现在都该有**（L243-续8 R3）
+        if n_act_win == 0:
             no_act.append(f"{a}/s{s}")
+        elif n_act_win < 0.9 * n_win:
+            thin.append(f"{a}/s{s}: 动作统计只有 {n_act_win}/{n_win} 个窗口")
+        if n_err:
+            errs.append(f"{a}/s{s}: {n_err} 次")
+        # 盾改写量：只有**开盾的连续臂**才该有
+        if a in CONT and a != "uns" and max((int(c.get("roll_n_corr") or 0) for c in cur), default=0) <= 0:
+            no_corr.append(f"{a}/s{s}")
     if no_curves:
         hard(f"{len(no_curves)} 个 run 一条 curves 都没有（STEP4E_LOG_CURVES 没开？）：{no_curves[:6]}")
     if no_roll:
         hard(f"{len(no_roll)} 个 run 的 roll_steps 全 0（rollout 采集没生效）：{no_roll[:6]}")
     if no_act:
-        hard(f"{len(no_act)} 个**连续臂** roll_n_act 全 0 ⟹ 打满舵率/盾改写量这些"
-             f"卖点级 A 类量【采不到】（采集被 try/except 静默吞了）：{no_act[:6]}")
-    if not (no_curves or no_roll or no_act):
-        ok(f"{len(runs)} 个 run 的 curves + roll_* 都在；连续臂 roll_n_act > 0")
+        hard(f"{len(no_act)} 个 run 的 roll_n_act 全 0 ⟹ 打满舵率/反转率这些**卖点级** A 类量采不到"
+             f"（连续臂读 info、离散臂由格点下标还原，两臂都该有）：{no_act[:6]}")
+    if no_corr:
+        hard(f"{len(no_corr)} 个**开盾连续臂**的 roll_n_corr 全 0 ⟹ 盾改写量采不到：{no_corr[:6]}")
+    if thin:
+        warn(f"{len(thin)} 个 run 的采集**断断续续**（不是全程都有）：{thin[:6]}")
+    if errs:
+        warn(f"{len(errs)} 个 run 的采集抛过异常（roll_n_err>0，那些步的数据缺了）：{errs[:6]}")
+    if not (no_curves or no_roll or no_act or no_corr or thin or errs):
+        ok(f"{len(runs)} 个 run 的 curves + roll_* 全程都在（覆盖率 ≥90%）、零采集异常")
 
     # ⑧ 不重名 ────────────────────────────────────────────────────────────────
-    print("\n⑧ 存档不重名")
-    names = [os.path.basename(b) for _, b in runs.values()]
-    (ok if len(names) == len(set(names)) else hard)(f"{len(names)} 个存档名 · 去重后 {len(set(names))} 个")
+    # 🔴 L243-续8（C 线 O2）：原来比的是 `runs.values()` 的名字，而 `runs` 本来就是按 (臂,种子) 建的字典
+    #   ⟹ 这个检查**恒成立**，什么都拦不住。真正的风险是**三台机器的 `结果/` 合并到一起**时同名文件
+    #   分处两个子目录 —— 那才会让同一条 run 被数两遍。⟹ 直接扫盘上所有正式存档，按 basename 找重复。
+    print("\n⑧ 存档不重名（三台机器合并时同名分处两个子目录 = 同一条 run 被数两遍）")
+    seen = {}
+    for p in glob.glob(os.path.join(root, "**", "checkpoints", "*_F240*.zip"), recursive=True):
+        if os.sep + "segments" + os.sep in p:
+            continue
+        seen.setdefault(os.path.basename(p), []).append(p)
+    dup = {k: v for k, v in seen.items() if len(v) > 1}
+    if dup:
+        hard(f"{len(dup)} 个存档名在盘上出现多次 ⟹ 合并时会重复计数：")
+        for k, v in list(dup.items())[:4]:
+            print(f"       · {k} → {v}")
+    else:
+        ok(f"盘上 {len(seen)} 个正式存档，无同名")
 
     print("\n" + "=" * 90)
     if N_HARD:

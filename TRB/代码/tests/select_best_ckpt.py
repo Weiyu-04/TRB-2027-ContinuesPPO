@@ -53,11 +53,20 @@ SEG_STEPS = 507904          # 每段实际步数（= ceil(名义/16384)×16384·
 WATCH = ("碰撞率%", "违规次数/局")   # 不参与选取，但异常要报警
 
 
+#: 🔴 `03` L243-续8（复审 D 线 O1）：**只挑正式臂**。`_runs()` 原来是全库 glob ⟹ 本地实测捞到
+#   **270 条历史臂、正式臂 0 条**；服务器上历史臂也开着 `KEEP_SEGMENTS` ⟹ 它们的副本存在
+#   ⟹ 会被塞进 `REEVAL_CKPTS`，`PASS=formal_best` 就会连着几十条**小集 563 臂**一起评
+#   ⟹ 泄漏取并集、分母掉回 563。虽然 `load_pass` 的分母闸挡得住，但要**烧掉一两小时机时才炸**。
+ARM_FILTER = os.environ.get("ARM_FILTER", "F240")      # 置空 = 不过滤（复现历史产物时用）
+
+
 def _runs(root):
-    """找出每个 run 的末段 sidecar（它的 trend 是完整的 20 段）。"""
+    """找出每个 run 的末段 sidecar（它的 trend 是完整的全部段）。"""
     out = {}
     for p in glob.glob(os.path.join(root, "**", "checkpoints", "*.progress.json"), recursive=True):
         if os.sep + "segments" + os.sep in p:          # 分段副本的 sidecar 只含到该段为止，不用
+            continue
+        if ARM_FILTER and ARM_FILTER not in os.path.basename(p):
             continue
         base = p[:-len(".progress.json")]
         try:
@@ -93,11 +102,34 @@ def main():
             missing.append(name)
             continue
         best = max(range(len(tr)), key=lambda i: (vals[i], -i))   # 最大值·平局取更小 i
-        seg_no = best + 1                                          # 段号从 1 开始（与 @sNN 一致）
+        # 🔴 `03` L243-续8（独立复审 D 线抓出·**差一 bug**）：段号是 **0 起**的，不是 1 起。
+        #   `run_step4e.py:1247/1575` 是 `for c in range(n_seg)`，`:1270/:1598` 传 `seg_done=c`，
+        #   `:831` 命名 `@s{seg_done:02d}` ⟹ 磁盘上是 `@s00 … @s{n_seg-1}`。
+        #   而 `trend.append(row)` 在 `save_segment_checkpoint` **之前** ⟹ 存第 c 段时 trend 有 c+1 条
+        #   ⟹ **`trend[i]` 与 `@s{i:02d}` 是同一段**。
+        #   原来写 `best+1` 的后果有两条，都很贵：
+        #     ① 评的是"最佳段的**下一段**"——论文写"验证集最佳存档"，评的却是别的模型；
+        #     ② `best = len(tr)-1`（末段最好）⟹ `@s{n_seg}` 永不存在 ⟹ 判"副本缺失" ⟹
+        #        **该 run 从最佳存档清单里静默消失**，而"一路在爬、末段最好"正是最该报的 run。
+        #   ⚠️ 这个 bug 被一个**假夹具**掩盖过：`test_keep_segments.py:116` 直接调 `archive(base, 1)`，
+        #      绕开了真正的调用方，所以那条断言给的是假保证。
+        seg_no = best                                              # 段号 0 起，与 seg_done=c 一致
         segp = os.path.join(os.path.dirname(base), "segments", f"{name}@s{seg_no:02d}")
         ok = os.path.exists(segp + ".zip")
         if not ok:
-            missing.append(f"{name}（选中第 {seg_no} 段，但副本不存在：{segp}.zip）")
+            missing.append(f"{name}（选中第 {seg_no} 段〔0 起〕，但副本不存在：{segp}.zip）")
+        else:
+            # 🔴 硬校验：副本自带的 sidecar 的 trend 长度必须 == best+1，否则就不是这一段的模型。
+            #   这一条直接把"段号对不对"变成可验证的，而不是靠人记住 0 起还是 1 起。
+            try:
+                _n = len((json.load(open(segp + ".progress.json", encoding="utf-8")) or {}).get("trend") or [])
+            except Exception as _e:
+                _n = -1
+            if _n != best + 1:
+                raise SystemExit(
+                    f"🔒 {name}：选中第 {seg_no} 段（0 起），但副本 sidecar 的 trend 长度 = {_n}，应为 {best+1}"
+                    " ⟹ **段号与存档对不上，选出来的不是那一段的模型**，中止。"
+                    "（若是老产物用 1 起命名，请先统一命名，别改这里的判据。）")
         note = "" if ok else "🔴 副本缺失"
         # 报警：选中段在不参与选取的指标上明显差于末段
         for w in WATCH:
@@ -130,7 +162,9 @@ def main():
                "预算步数": (cap * SEG_STEPS) if cap else "全部段",
                "选取": sel,
                "REEVAL_CKPTS_最佳存档": ",".join(v["path"] for v in sel.values() if v["副本存在"]),
-               "REEVAL_CKPTS_末段存档": ",".join(runs[k][0] for k in sel)},
+               "REEVAL_CKPTS_末段存档": ",".join(runs[k][0] for k in sel),
+               "臂过滤": ARM_FILTER or "（无）",
+               "⚠️": "两串都只含通过 ARM_FILTER 的臂；最佳存档串还额外只含副本齐全的。"},
               open(out, "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     print(f"\n[已写入] {out}")
     print("  两串 REEVAL_CKPTS 都在里面：**最佳存档**与**末段存档**各评一趟，论文两版都报。")

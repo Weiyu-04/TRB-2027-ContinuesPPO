@@ -258,6 +258,17 @@ else:
         raise SystemExit(f"🔒 STEP4E_GOAL_CONE_HALF（锥半角·度）须 ∈(0,180]，得 {_GOAL_CONE_HALF_DEG}")
 _GOAL_CONE_HALF_RAD = math.radians(_GOAL_CONE_HALF_DEG) if _GOAL_CONE_HALF_DEG is not None else None   # 传盾用弧度；度=用户面/记录/config_conflict 口径（避免转换浮点噪声致假冲突）
 from trb_env.usv_dynamics import PAPER_V_MAX as _PAPER_V_MAX   # v_max 单一真相源（论文 §VII=9.5·盾层 goal_v_floor 上界据此）
+# 🔴 L243-续8（起跑前最后一刻抓出·**本轮最严重的一个**）：`A_NORMAL_OMEGA_MAX` 被 `:1214`/`:1456` 两处
+#   `_feed_rollout_stats(self, A_NORMAL_OMEGA_MAX)` 用着，**却从来没在本文件里导入或定义过**。
+#   Python 的全局名是**调用时**才解析的 ⟹ 只要那两个 callback 真被装上，第一步就 `NameError`；
+#   而它是在**调用点**（求实参时）抛的，`_feed_rollout_stats` 自己那层 try/except **拦不住**
+#   （已实证），异常一路穿过 SB3 的 `callback.on_step()` → `collect_rollouts` → `model.learn`
+#   ⟹ **每条连续臂（曲线 callback 无条件装）当场崩、每条离散臂在 `STEP4E_LOG_CURVES=1` 下当场崩**。
+#   正式脚本恰恰两条都满足 ⟹ 不修的话 9 条臂一条都跑不出来。此前没炸只是因为 L239 这段采集是新加的、
+#   而默认 `LOG_CURVES=0` 让离散路径绕开了它，连续路径则从加进来那天起就没真跑过。
+#   顺带把加速度轴的箱半宽一起导进来 —— 两轴统计（L243-续8 R4）要用。
+from trb_env.usv_env import (A_NORMAL_ACCEL_MAX, A_NORMAL_OMEGA_MAX,
+                             DISCRETE_ACTIONS, IDX_EMERGENCY)
 _GOAL_V_FLOOR = float(os.environ.get("STEP4E_GOAL_V_FLOOR", "2.0"))   # 锥内保底机动速度（仅锥开时用·默认 2.0=盾默认）
 if not (math.isfinite(_GOAL_V_FLOOR) and 0.0 <= _GOAL_V_FLOOR <= _PAPER_V_MAX):   # 上界=v_max（复审⑤·与 Φ 双层守卫对称；否则 >v_max 在 Subproc worker 盾层晚爆 EOFError·父进程拿不到根因）
     raise SystemExit(f"🔒 STEP4E_GOAL_V_FLOOR（锥内保底速度）须 ∈ [0, v_max={_PAPER_V_MAX}]，得 {_GOAL_V_FLOOR}")
@@ -978,18 +989,41 @@ class _RolloutStats:
     拿到手的三条动态证据（正好对应论文三个卖点）：
       · **盾介入率随训练下降** ⟹ "盾不是拐杖，是保险"（卖点：可证明合规的代价很小）
       · **打满舵率随训练下降** ⟹ 有界动作分布这把钥匙的机理证据（卖点：控制平顺）
-      · **到达/碰撞/违规的高分辨率曲线**（~200 点 vs `trend` 的 20 点）⟹ 样本效率
+      · **到达/碰撞的高分辨率曲线**（~200 点 vs `trend` 的 20 点）⟹ 样本效率
+        🔴 **诚实口径（L243-续8 修正）**：原注释写的是"到达/碰撞/**违规**的高分辨率曲线"，
+           但训练期 info 里**根本没有违规量**（`ViolationCounter` 要 `_ego_vs()/_obs_vs()`，
+           两个 wrapper 只在 evaluate 侧用、没进 info）⟹ **违规只有 `trend` 那 20 个评估点**。
+           这里不加采集（要改安全关键 wrapper + 每步几何开销，起跑前不动），**改说明**。
+
+    ═══ L243-续8 起跑前复审补齐的四件（都是"跑完补不回"的 A 类量）═══════════════════
+      · **离散臂的动作统计**：离散 wrapper 的 info 里**一个动作字节都没有**（`usv_shield.py:115/238`
+        只放 rho/rho_acting/action_mask）⟹ 原实现下 `roll_yaw_*` 对 Base/RR/Discrete-safe 恒 None，
+        而论文头号卖点恰恰是"**有界连续动作 vs 离散 7×7 网格**"，这个对照结构上采不到。
+        ⟹ 改为从 `cb.locals["actions"]`（SB3 每步都有、离散臂就是格点下标）用 `DISCRETE_ACTIONS`
+        还原 (a, ω) 走同一套统计。离散网格的 |ω| 上界恰是 `A_NORMAL_OMEGA_MAX`(0.018)
+        ⟹ "打满舵" 判据两臂**同一条线**，可直接叠图。
+      · **加速度轴**：原来只统计转艏轴（`ud[1]`），加速度轴（`ud[0]`）一个数都没有。而 Beta↔Gauss
+        消融测的正是"动作被裁到箱边界"，高斯策略**两个轴都会被裁** ⟹ 只有一半证据。两轴各自统计。
+      · **盾改写量的量纲**：原来 `|Δa| + |Δω]` 把 m/s² 和 rad/s **直接相加**，加速度轴可动范围是
+        转艏轴的 2.67 倍 ⟹ 这条曲线实际被加速度轴支配，而 COLREGs 让路主要是**转向**。
+        ⟹ 拆成两轴各自的量 + 一个按箱半宽归一化的合量（与 `usv_continuous_shield.py:263` 的
+        `r_alias` 同口径），三者都存，事后想画哪个画哪个。
+      · **异常计数 `roll_n_err`**：原来整个 `feed` 包一层 try/except ⟹ 一个环境的一次异常会把
+        **同一步里排在它后面的所有并行环境**整个丢掉，且**不留任何痕迹**。改成 per-env 兜住 + 计数
+        ⟹ 落实 L216-D 那条纪律（"0 是因为没发生" vs "0 是因为抛了" 必须分得开）。
 
     **安全边界**（照 `_accumulate_ep_returns` 的既有先例，逐条守）：
       1. **只读** `cb.locals`，**绝不修改** `infos` 里任何 dict（SB3 之后还要用 terminal_observation）
       2. 不调用任何会采样的 torch 路径（**不重新 forward**）⟹ 不消耗任何 RNG
       3. **固定大小累加器**（计数器 + running sum），不每步 append ⟹ 内存恒定
-      4. 整体 try/except 兜住 ⟹ 采集出错绝不打断训练
+      4. per-env try/except 兜住 ⟹ 采集出错绝不打断训练（且**留计数**，不再静默）
     ⟹ 训练结果**逐位不变**。
     """
 
-    __slots__ = ("n", "n_act", "n_pair", "ep_n", "ep_flag", "src", "rho", "rp", "sat", "rev", "du",
-                 "corr", "n_corr", "_prev_sign", "r_alias", "r_rate")
+    __slots__ = ("n", "n_act", "n_pair", "ep_n", "ep_flag", "src", "rho", "rp",
+                 "sat", "rev", "du", "sat_a", "rev_a", "du_a",
+                 "corr_a", "corr_w", "corr_norm", "n_corr", "_prev_sign",
+                 "r_alias", "r_rate", "n_err", "n_em", "n_src")
 
     def __init__(self):
         self.reset()
@@ -998,92 +1032,164 @@ class _RolloutStats:
         self.n = 0                      # 累计步数
         # 🔴 L216-D：动作类指标必须有**自己的分母** —— 离散臂结构上没有 u_desired，
         #   若共用 self.n，"不适用" 会被算成 "测了，结果是 0"，两者必须分得开。
-        self.n_act = 0                  # 有策略原始动作的步数（连续臂才有）
+        self.n_act = 0                  # 有动作可统计的步数（连续臂读 info；离散臂由格点下标还原）
         self.n_pair = 0                 # 相邻步对数（算 |Δ| 与反转率的分母）
-        self.n_corr = 0                 # 能算盾改写量的步数
+        self.n_corr = 0                 # 能算盾改写量的步数（**只有连续臂有**：离散没有"盾改写动作值"这回事）
         self.ep_n = 0                   # 本窗口内结束的 episode 数
         self.ep_flag = {}               # 终止旗计数（goal/collision/time/stopped/area）
         self.src = {}                   # 盾六档归口计数（projection/emergency/relaxed/...）
         self.rho = {}                   # 态势直方图（0-5）
         self.rp = {}                    # 奖励各分量 running sum
-        self.sat = 0.0                  # 打满舵步数（|策略原始转艏| ≥ 95% 箱半宽）
+        self.sat = 0.0                  # 转艏轴打满步数（|ω| ≥ 95% 箱半宽；离散网格恰好 ±0.018=箱半宽 ⟹ 两臂同判据）
         self.rev = 0.0                  # 转艏方向反转次数（bang-bang 的直读）
-        self.du = 0.0                   # Σ|Δ策略原始转艏|
-        self.corr = 0.0                 # Σ‖盾施加 − 策略原始‖（盾改写强度）
-        self._prev_sign = {}            # 每个并行环境上一步的转艏符号
+        self.du = 0.0                   # Σ|Δω|
+        self.sat_a = 0.0                # 🆕 加速度轴打满步数（Gauss 档两个轴都会被裁，只看转艏轴 = 只有一半证据）
+        self.rev_a = 0.0                # 🆕 加速度方向反转次数
+        self.du_a = 0.0                 # 🆕 Σ|Δa|
+        # 🆕 盾改写量拆两轴 + 一个归一化合量：原来 |Δa|+|Δω| 把 m/s² 和 rad/s 直接相加，
+        #   加速度轴可动范围是转艏轴的 2.67 倍 ⟹ 曲线被加速度轴支配，而 COLREGs 让路主要是转向。
+        self.corr_a = 0.0               # Σ|盾施加a − 策略a|（m/s²）
+        self.corr_w = 0.0               # Σ|盾施加ω − 策略ω|（rad/s）
+        self.corr_norm = 0.0            # Σ(|Δa|/箱半宽a + |Δω|/箱半宽ω)/2（无量纲·同 r_alias 口径）
+        self._prev_sign = {}            # 每个并行环境上一步的 (加速度符号, 加速度值, 转艏符号, 转艏值)
         self.r_alias = 0.0
         self.r_rate = 0.0
+        self.n_err = 0                  # 🆕 采集抛异常的次数（"0 是因为没发生" vs "0 是因为抛了" 必须分得开·L216-D）
+        self.n_em = 0                   # 🆕 离散臂选中紧急槽 idx49 的步数（那一步的 (a,ω) 由调度器算·不在格点上）
+        self.n_src = 0                  # 🆕 有 source 字段的步数（离散臂恒 0 ⟹ 下游别把空字典读成"盾从不介入"）
 
-    def feed(self, infos, dones, w_box):
+    def feed(self, infos, dones, w_box, actions=None, a_box=None):
+        """吃一步的 `infos`（+ `dones` + SB3 的 `actions`）。**per-env 兜异常**：一个环境抛了不能把
+        同一步里排在它后面的环境全丢掉（原实现整段 try/except，正是这个后果，而且不留痕迹）。"""
+        a_box = float(a_box) if a_box else float(A_NORMAL_ACCEL_MAX)
         for i, info in enumerate(infos):
-            if not isinstance(info, dict):
-                continue
-            self.n += 1
-            f = info.get("flags")
-            if isinstance(f, dict) and (dones is None or (i < len(dones) and dones[i])):
-                self.ep_n += 1
-                for k, v in f.items():
-                    if v:
-                        self.ep_flag[k] = self.ep_flag.get(k, 0) + 1
-            sc = info.get("source")
-            if sc is not None:
-                self.src[str(sc)] = self.src.get(str(sc), 0) + 1
-            rh = info.get("rho_acting", info.get("rho"))
-            if rh is not None:
-                self.rho[str(int(rh))] = self.rho.get(str(int(rh)), 0) + 1
-            rp = info.get("reward_parts")
-            if isinstance(rp, dict):
-                for k, v in rp.items():
-                    try:
-                        self.rp[k] = self.rp.get(k, 0.0) + float(v)
-                    except (TypeError, ValueError):
-                        pass
-            for k in ("r_alias", "r_rate"):
-                v = info.get(k)
-                if v is not None:
-                    setattr(self, k, getattr(self, k) + float(v))
-            ud, ua = info.get("u_desired"), info.get("u_applied")
-            if ud is not None:                       # 连续臂才有；离散臂动作是格点下标，跳过
-                self.n_act += 1
-                w = float(ud[1])
-                if abs(w) >= 0.95 * w_box:
-                    self.sat += 1.0
-                sgn = (w > 0) - (w < 0)
-                ps = self._prev_sign.get(i)
-                if ps is not None:
-                    self.n_pair += 1
-                    self.du += abs(w - ps[1])
-                    if sgn != 0 and ps[0] != 0 and sgn != ps[0]:
-                        self.rev += 1.0              # 舵打到另一边 = 一次反转
-                self._prev_sign[i] = (sgn, w)
-                if ua is not None:
-                    self.n_corr += 1
-                    self.corr += float(abs(ua[0] - ud[0]) + abs(ua[1] - ud[1]))
+            try:
+                self._feed_one(i, info, dones, w_box, actions, a_box)
+            except Exception:                        # 采集出错绝不打断训练 —— 但**留计数**，不再静默
+                self.n_err += 1
+
+    def _feed_one(self, i, info, dones, w_box, actions, a_box):
+        if not isinstance(info, dict):
+            return
+        self.n += 1
+        f = info.get("flags")
+        # 🔴 L243-续8 修：原来是 `dones is None or (...)` —— 拿不到 dones 时把**每一步**都当 episode 结束，
+        #   `roll_eps` 会膨胀 ~170 倍、训练期到达率整条曲线错（看上去像"到达率贴 0"）。
+        #   安全兜底应该是**拿不到 dones 就不计 episode**（宁可缺，不要错）。
+        _done_i = (dones is not None and i < len(dones) and bool(dones[i]))
+        if isinstance(f, dict) and _done_i:
+            self.ep_n += 1
+            for k, v in f.items():
+                if v:
+                    self.ep_flag[k] = self.ep_flag.get(k, 0) + 1
+        sc = info.get("source")
+        if sc is not None:
+            self.n_src += 1
+            self.src[str(sc)] = self.src.get(str(sc), 0) + 1
+        rh = info.get("rho_acting", info.get("rho"))
+        if rh is not None:
+            self.rho[str(int(rh))] = self.rho.get(str(int(rh)), 0) + 1
+        rp = info.get("reward_parts")
+        if isinstance(rp, dict):
+            for k, v in rp.items():
+                try:
+                    self.rp[k] = self.rp.get(k, 0.0) + float(v)
+                except (TypeError, ValueError):
+                    pass
+        for k in ("r_alias", "r_rate"):
+            v = info.get(k)
+            if v is not None:
+                setattr(self, k, getattr(self, k) + float(v))
+        ud, ua = info.get("u_desired"), info.get("u_applied")
+        if ud is None and actions is not None and i < len(actions):
+            # 🆕 L243-续8 R3：**离散臂的动作从来没进过 info**（wrapper 只放 rho/mask）⟹ 打满舵率/反转率
+            #   对 Base/RR/Discrete-safe 恒 None，而论文头号卖点正是"连续 vs 离散网格"。
+            #   SB3 每步都把 `actions` 放进 callback locals，离散臂就是格点下标 ⟹ 查表还原 (a, ω)。
+            #   idx49 = 紧急槽，值由调度器算、不在格点上 ⟹ 单独计数、不进 (a,ω) 统计（否则把盾的动作
+            #   算成策略的动作）。离散网格 |ω| 上界恰是 A_NORMAL_OMEGA_MAX ⟹ 打满判据与连续臂同一条线。
+            _a = actions[i]
+            try:
+                _idx = int(_a)
+            except (TypeError, ValueError):
+                _idx = None
+            if _idx is not None and 0 <= _idx < len(DISCRETE_ACTIONS):
+                ud = DISCRETE_ACTIONS[_idx]
+            elif _idx == IDX_EMERGENCY:
+                self.n_em += 1
+        if ud is not None:
+            self.n_act += 1
+            a_, w = float(ud[0]), float(ud[1])
+            if abs(w) >= 0.95 * w_box:
+                self.sat += 1.0
+            if abs(a_) >= 0.95 * a_box:
+                self.sat_a += 1.0
+            sgn, sgn_a = (w > 0) - (w < 0), (a_ > 0) - (a_ < 0)
+            ps = self._prev_sign.get(i)
+            if ps is not None:
+                self.n_pair += 1
+                self.du += abs(w - ps[1])
+                self.du_a += abs(a_ - ps[3])
+                if sgn != 0 and ps[0] != 0 and sgn != ps[0]:
+                    self.rev += 1.0              # 舵打到另一边 = 一次反转
+                if sgn_a != 0 and ps[2] != 0 and sgn_a != ps[2]:
+                    self.rev_a += 1.0
+            # 🔴 L243-续8 修：episode 边界必须断开 —— 否则"上一局末步"和"下一局首步"被当成相邻对，
+            #   170 步/局 ≈ 0.6% 污染，方向上**高估**抖动，且局越短污染越大（与"越训越平顺"同向 ⟹
+            #   是系统性偏差、不是白噪声）。
+            self._prev_sign[i] = None if _done_i else (sgn, w, sgn_a, a_)
+            if ua is not None:
+                self.n_corr += 1
+                _da, _dw = abs(float(ua[0]) - a_), abs(float(ua[1]) - w)
+                self.corr_a += _da
+                self.corr_w += _dw
+                self.corr_norm += 0.5 * (_da / a_box + _dw / w_box)
 
     def snapshot(self):
         """吐一个窗口汇总并清零（**除数一律带出去**，`03` L216-D：没采到 vs 采到了但为 0 必须分得开）。"""
         n = max(1, self.n)
+        _na, _np_, _nc = self.n_act, self.n_pair, self.n_corr
         out = {"roll_steps": self.n, "roll_eps": self.ep_n,
                # 各自的分母一并带出（缺了就分不清"没测"和"测了是 0"）
-               "roll_n_act": self.n_act, "roll_n_pair": self.n_pair, "roll_n_corr": self.n_corr,
+               "roll_n_act": _na, "roll_n_pair": _np_, "roll_n_corr": _nc,
+               "roll_n_err": self.n_err,        # 🆕 本窗口采集抛异常次数（非 0 = 这段数据不完整，别当真）
+               "roll_n_em": self.n_em,          # 🆕 离散臂选紧急槽的步数（不进 (a,ω) 统计）
+               "roll_n_src": self.n_src,        # 🆕 有 source 的步数（离散臂恒 0 ⟹ 空字典≠"盾从不介入"）
                "roll_ep_flags": dict(self.ep_flag), "roll_source": dict(self.src),
                "roll_rho": dict(self.rho),
                "roll_reward_parts": {k: v / n for k, v in self.rp.items()},
-               "roll_yaw_sat_frac": (self.sat / self.n_act) if self.n_act else None,
-               "roll_yaw_reversal_rate": (self.rev / self.n_pair) if self.n_pair else None,
-               "roll_yaw_incr_mean": (self.du / self.n_pair) if self.n_pair else None,
-               "roll_shield_corr_mean": (self.corr / self.n_corr) if self.n_corr else None,
-               "roll_r_alias_mean": self.r_alias / n, "roll_r_rate_mean": self.r_rate / n}
+               # ── 转艏轴（离散臂现在也有：由格点下标还原·同一条打满判据）──
+               "roll_yaw_sat_frac": (self.sat / _na) if _na else None,
+               "roll_yaw_reversal_rate": (self.rev / _np_) if _np_ else None,
+               "roll_yaw_incr_mean": (self.du / _np_) if _np_ else None,
+               # ── 🆕 加速度轴（Gauss 档两个轴都会被裁 ⟹ 只看转艏轴只有一半证据）──
+               "roll_acc_sat_frac": (self.sat_a / _na) if _na else None,
+               "roll_acc_reversal_rate": (self.rev_a / _np_) if _np_ else None,
+               "roll_acc_incr_mean": (self.du_a / _np_) if _np_ else None,
+               # ── 🆕 盾改写量拆两轴 + 归一化合量（原来把 m/s² 和 rad/s 直接相加 = 量纲混算）──
+               "roll_shield_corr_a_mean": (self.corr_a / _nc) if _nc else None,
+               "roll_shield_corr_w_mean": (self.corr_w / _nc) if _nc else None,
+               "roll_shield_corr_norm_mean": (self.corr_norm / _nc) if _nc else None,
+               # 兼容旧列名：仍给一个"合量"，但**明确用归一化口径**（老的量纲混算值不再产出）
+               "roll_shield_corr_mean": (self.corr_norm / _nc) if _nc else None,
+               "roll_r_alias_mean": (self.r_alias / n) if self.n else None,
+               "roll_r_rate_mean": (self.r_rate / n) if self.n else None}
         self.reset()
         return out
 
 
 def _feed_rollout_stats(cb, w_box):
-    """在 callback 的 `_on_step` 里调。整体 try/except：采集出错绝不打断训练。"""
+    """在 callback 的 `_on_step` 里调。异常在 `feed` 内部**逐环境**兜住并计数（`roll_n_err`）；
+    这里再包一层只为兜住"连 `cb.locals` 都取不到"这类整体性故障。
+    🔴 注意：`w_box` 这个实参本身必须是**能取到的名字** —— 它是在**调用点**求值的，
+    这里的 try/except 拦不住调用点的 NameError（L243-续8 血的教训，见文件头 import 处的注释）。"""
     try:
-        cb._roll.feed(cb.locals.get("infos") or (), cb.locals.get("dones"), w_box)
+        cb._roll.feed(cb.locals.get("infos") or (), cb.locals.get("dones"), w_box,
+                      actions=cb.locals.get("actions"), a_box=A_NORMAL_ACCEL_MAX)
     except Exception:
-        pass
+        try:
+            cb._roll.n_err += 1
+        except Exception:
+            pass
 
 
 def _accumulate_ep_returns(cb):
@@ -1211,7 +1317,7 @@ def train_eval_one(name, kind, weight, seed, train_paths, test_pool, *,
 
         def _on_step(self):
             _accumulate_ep_returns(self)                   # 每步累积原始 episode 回报（ep_rew_mean·只读不扰训练）
-            _feed_rollout_stats(self, A_NORMAL_OMEGA_MAX)  # 🆕 L239：同上（离散臂无 u_desired ⟹ 动作类字段自动为 None，其余照收）
+            _feed_rollout_stats(self, A_NORMAL_OMEGA_MAX)  # 🆕 L239：同上（🆕 L243-续8：离散臂的动作由 locals["actions"] 查 DISCRETE_ACTIONS 还原 ⟹ 打满舵率/反转率两臂都有、可直接叠图）
             return True
 
     curve_cb = _CurveLogger() if LOG_CURVES else None
@@ -1244,6 +1350,7 @@ def train_eval_one(name, kind, weight, seed, train_paths, test_pool, *,
                    "xtrack_weight": _WELL_X, "xtrack_radius": _XTRACK_RADIUS,   # 对症 横向进带势=影响训练→进续训匹配白名单（`03` L88）
                    "dataset": _DATASET_SIG,   # 🆕 数据集模式（均衡/strided·`03` L113-L115·影响场景池→自描述+防混）
                    "lr_anneal_end": _LR_ANNEAL_END, "lr_anneal_frac": _LR_ANNEAL_FRAC}   # LR 退火=影响训练的配置→进续训匹配白名单（`03` L88·off 时 end=None）
+    _seg_fail = 0                                  # 🆕 L243-续8 W2：连续存盘失败计数（≥2 次主动中止·防磁盘满白烧两天）
     for c in range(n_seg):
         _t = time.time()
         model.learn(total_timesteps=seg, reset_num_timesteps=(c == 0), callback=learn_cb)
@@ -1271,14 +1378,37 @@ def train_eval_one(name, kind, weight, seed, train_paths, test_pool, *,
                                         total_steps=total_steps, n_seg=n_seg, trend=trend, config_sig=_config_sig,
                                         curves=(curve_cb.records if curve_cb is not None else None), seg_per=seg_per)  # 增量诊断（离散臂）
             except Exception as _se:
+                _seg_fail += 1
                 print(f"    ⚠️ 每段 checkpoint 存盘失败（不影响训练，继续）：{_se}", flush=True)
+                # 🔴 L243-续8 W2：原来只打一行警告、不计数不中止 ⟹ **磁盘满会连续 20 段全失败、
+                #   训练照跑两天、最后一个存档都没有**。这次"只有一次机会"，早死远好过白烧两天。
+                if _seg_fail >= 2:
+                    raise SystemExit(f"🔒 连续 {_seg_fail} 段 checkpoint 存盘失败（多半是磁盘满 / 权限）"
+                                     f"——**主动中止**，别白跑：{type(_se).__name__}: {_se}")
+            else:
+                _seg_fail = 0
     try:                                                       # L1c：训后存 ckpt（additive·venv.close 前）；存盘失败【不丢训练结果】（同 write_run_metadata 容错纪律）
         _ckpt_base = save_checkpoint(model, venv, name, seed, ckpt_dir) if ckpt_dir is not None else None
+        # 🔴 L243-续8 O3：上面这次保存**重写了 .zip 却没重写 sidecar** ⟹ progress.json 里记的
+        #   `ckpt_fingerprint.zip_mtime` 是旧的。`reeval_official.py:_sidecar_in_sync` 用 **1 秒**容差比 mtime，
+        #   而中间隔着 `_archive_segment` 拷三个文件（含 MB 级 progress.json）+ 再存一次模型，
+        #   10 路并发同机时超 1 秒完全可能 ⟹ **锚点自检被整条跳过**（有的臂过、有的臂跳，非确定性）。
+        #   补一次 write_progress，让 sidecar 与最终 .zip 对齐。
+        if _ckpt_base is not None:
+            write_progress(_ckpt_base, name=name, kind=kind, weight=weight, seed=seed,
+                           seg_done=n_seg - 1, num_timesteps=model.num_timesteps,
+                           total_steps=total_steps, n_seg=n_seg, trend=trend, config_sig=_config_sig,
+                           curves=(curve_cb.records if curve_cb is not None else None), seg_per=seg_per)
     except Exception as _ce:
         _ckpt_base = None
         print(f"    ⚠️ checkpoint 存盘失败（不影响训练结果，继续）：{_ce}", flush=True)
     venv.close()
-    fps = (seg * n_seg) / t_train if t_train > 0 else 0.0
+    # 🔴 L243-续8 A10：`seg = total_steps // n_seg` 是**名义**段长，SB3 会把它向上取整到 rollout 边界
+    #   （2048×8 = 16,384）⟹ 名义 500,000 实跑 **507,904**。拿名义步数算 fps 会低报 1.58%
+    #   （测速档 STEPS=60000/NSEG=1 更狠：真跑 65,536 步，低报 9.2%），而这个数字要拿去排两天的档期、
+    #   还要写进论文。改用 `model.num_timesteps`（SB3 记的真跑步数）。
+    _steps_real = int(getattr(model, "num_timesteps", 0)) or (seg * n_seg)
+    fps = _steps_real / t_train if t_train > 0 else 0.0
     _wall = t_train + t_eval
     _eval_pct = round(100 * t_eval / _wall, 1) if _wall > 0 else 0.0
     if fps:
@@ -1453,7 +1583,7 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
 
         def _on_step(self):
             _accumulate_ep_returns(self)                     # 每步累积原始 episode 回报（ep_rew_mean·只读不扰训练）
-            _feed_rollout_stats(self, A_NORMAL_OMEGA_MAX)    # 🆕 L239：同上·纯只读 locals["infos"]
+            _feed_rollout_stats(self, A_NORMAL_OMEGA_MAX)    # 🆕 L239：同上·纯只读 locals["infos"]/["actions"]
             t = self.model.num_timesteps
             if t - self._last >= self._every:
                 self._last = t
@@ -1470,6 +1600,10 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
                     "ent_coef_loss": _g("train/ent_coef_loss"),
                     "learning_rate": _g("train/learning_rate"),
                     # PPO(连续 hedge)内部量（SAC 臂这些键 None·PPO 臂 actor/critic_loss/ent_coef None）——双算法各记自己的、防诊断盲点（红队 LOW·L67-续3）
+                    # 🆕 L243-续8 Y1：离散臂用的是 `policy_gradient_loss`、这里原来叫 `pg_loss`，
+                    #   **同一个 SB3 键两个名字** ⟹ 九条臂叠同一张图时任一侧的列半空。统一成离散臂那个名字，
+                    #   `pg_loss` 保留一份别名（老产物/老脚本还在读它）。
+                    "policy_gradient_loss": _g("train/policy_gradient_loss"),
                     "pg_loss": _g("train/policy_gradient_loss"), "value_loss": _g("train/value_loss"),
                     "entropy_loss": _g("train/entropy_loss"), "approx_kl": _g("train/approx_kl"),
                     "clip_fraction": _g("train/clip_fraction"), "policy_std": _g("train/std"),
@@ -1572,6 +1706,7 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
     if _arr_slack_anneal_cb is not None:                                 # 🆕 B1 到达门课程退火同步（off 时不 append=字节级不变·同 penalty/LR）
         _cont_cbs.append(_arr_slack_anneal_cb)
     _cont_cb = sac_curve_cb if len(_cont_cbs) == 1 else _cont_cbs
+    _seg_fail = 0                                  # 🆕 L243-续8 W2：同离散臂
     for c in range(n_seg):
         _t = time.time()
         model.learn(total_timesteps=seg, reset_num_timesteps=(c == 0), callback=_cont_cb)   # SAC 无 ent 退火；curve callback 记内部曲线(CAT6)·_lr_anneal_cb 同步累积步给 lr_schedule
@@ -1599,14 +1734,32 @@ def train_eval_one_continuous(seed, train_paths, test_pool, *, total_steps, n_se
                                         total_steps=total_steps, n_seg=n_seg, trend=trend, config_sig=_config_sig,
                                         curves=sac_curve_cb.records, seg_per=seg_per)  # 增量诊断（连续臂·SAC/PPO 同款）
             except Exception as _se:
+                _seg_fail += 1
                 print(f"    ⚠️ 每段 checkpoint 存盘失败（不影响训练，继续）：{_se}", flush=True)
+                # 🔴 L243-续8 W2：原来只打一行警告、不计数不中止 ⟹ **磁盘满会连续 20 段全失败、
+                #   训练照跑两天、最后一个存档都没有**。这次"只有一次机会"，早死远好过白烧两天。
+                if _seg_fail >= 2:
+                    raise SystemExit(f"🔒 连续 {_seg_fail} 段 checkpoint 存盘失败（多半是磁盘满 / 权限）"
+                                     f"——**主动中止**，别白跑：{type(_se).__name__}: {_se}")
+            else:
+                _seg_fail = 0
     try:                                                       # L1c：训后存 ckpt（additive·venv.close 前）；存盘失败【不丢训练结果】（同 write_run_metadata 容错纪律）
         _ckpt_base = save_checkpoint(model, venv, "Continuous-safe", seed, ckpt_dir) if ckpt_dir is not None else None
+        if _ckpt_base is not None:                             # 🔴 L243-续8 O3：同离散臂——补写 sidecar，否则末段存档那趟的锚点自检随机失效
+            write_progress(_ckpt_base, name="Continuous-safe", kind="continuous", weight=_COLREGS_W_CONT, seed=seed,
+                           seg_done=n_seg - 1, num_timesteps=model.num_timesteps,
+                           total_steps=total_steps, n_seg=n_seg, trend=trend, config_sig=_config_sig,
+                           curves=sac_curve_cb.records, seg_per=seg_per)
     except Exception as _ce:
         _ckpt_base = None
         print(f"    ⚠️ checkpoint 存盘失败（不影响训练结果，继续）：{_ce}", flush=True)
     venv.close()
-    fps = (seg * n_seg) / t_train if t_train > 0 else 0.0
+    # 🔴 L243-续8 A10：`seg = total_steps // n_seg` 是**名义**段长，SB3 会把它向上取整到 rollout 边界
+    #   （2048×8 = 16,384）⟹ 名义 500,000 实跑 **507,904**。拿名义步数算 fps 会低报 1.58%
+    #   （测速档 STEPS=60000/NSEG=1 更狠：真跑 65,536 步，低报 9.2%），而这个数字要拿去排两天的档期、
+    #   还要写进论文。改用 `model.num_timesteps`（SB3 记的真跑步数）。
+    _steps_real = int(getattr(model, "num_timesteps", 0)) or (seg * n_seg)
+    fps = _steps_real / t_train if t_train > 0 else 0.0
     _wall = t_train + t_eval
     _eval_pct = round(100 * t_eval / _wall, 1) if _wall > 0 else 0.0
     if fps:
@@ -1935,6 +2088,7 @@ def main():
             "c_reach": _C_REACH, "dock_radius": _DOCK_R, "v_dock": _V_DOCK, "rate_dock": _RATE_DOCK,   # 🆕 第二条腿修法（run_config 自描述·`03` L172/L173·连续臂专属·provenance 完整）
             "warmstart_ckpt": (_WARMSTART_CKPT or None), "warmstart_src_fp": _WARMSTART_FP,   # 🆕 L190 热启动源 ckpt 路径+【内容指纹】（run_config 自描述·连续PPO臂专属·off=None=从零·provenance 命门=训练流程如实可查·指纹=真身份防同路径换源·第2轮审HIGH#1）
             "continuous_shield": _CONTINUOUS_SHIELD,   # 🆕 P0 SE-RL 盾 on/off（run_config 自描述·L146·连续臂专属·provenance 完整）
+            "rate_weight": _RATE_W, "alias_weight": _ALIAS_W,   # 🆕 L243-续8：这两个原来**只进 jsonl 不进静态元数据** ⟹ 起跑前的"配方对账闸"查不到它们（rate_weight 正是 SHAPE=full/none 的分界之一）。additive 补齐 provenance。
             "keep_segments": _KEEP_SEGMENTS,   # 🆕 L236-D②：分段存档保留 on/off（run_config 自描述 = 事后能查"这个 run 有没有留中途存档"·**不进 config_sig**：它一个权重都不改·进了会让老 ckpt 续训从 0 重启）
             "goal_cone_half_deg": _GOAL_CONE_HALF_DEG, "goal_v_floor": _GOAL_V_FLOOR,
             "ctrl_slew_frac": _CTRL_SLEW, "ctrl_lowpass_alpha": _CTRL_LOWPASS, "act_dist": _ACT_DIST, "gw_entry": _GW_ENTRY,   # 🆕 L228 训练期转向平滑（None=不施加）+ 🆕 L230 动作分布档/让路入口档   # 🆕 ρ0 朝目标锥 Φ(度)/v_floor（run_config 自描述·PhaseC·L147·连续臂专属）

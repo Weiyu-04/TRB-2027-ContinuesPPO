@@ -227,8 +227,12 @@ if [ "$N_UNS" -gt 0 ]; then
   UG=$NGROUP
   ULIST=$(printf "%s," "${ARMS_NOSHIELD[@]}"); ULIST="${ULIST%,}"
   echo "  组 $UG【无盾·单独进程·STEP4E_CONTINUOUS_SHIELD=0】: $N_UNS 条"
+  # 🔴 L243-续8（D 线 R2）：`reeval_official.py:701` 的 eval-env 守卫要求 `STEP4E_CONTINUOUS_SHIELD`
+  #   必须是金标默认（True），否则 SystemExit。而这一组**故意**把它设成 0 ⟹ 不加 REEVAL_ENVCFG_ACK=1
+  #   的话，无盾臂这一组**每次都会当场死掉**，而其余组照跑 ⟹ 表里静默少一条臂。
   OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
   STEP4E_CONTINUOUS_SHIELD=0 \
+  REEVAL_ENVCFG_ACK=1 \
   STEP4E_SDIR="$ROOT/scenarios" STEP4E_CODE_DIR="$CODE_DIR" \
   REEVAL_MANIFEST_DIRS="$ROOT/balanced_pool" REEVAL_CKDIRS="$CKDIRS" \
   REEVAL_POOL=official REEVAL_CKPTS="$ULIST" REEVAL_TRAJ_KEYS="$TRAJ_KEYS" \
@@ -243,7 +247,12 @@ echo "===== [闸门 2] 同分母核对 + 合并 ====="
 "$PY" - "$OUT_DIR" "$N_ALL" <<'PYEOF'
 import json, os, sys, glob
 out_dir, n_expect = sys.argv[1], int(sys.argv[2])
-files = sorted(glob.glob(os.path.join(out_dir, "g*.json")))
+# 🔴 L243-续8（D 线 R4）：原来是 `glob("g*.json")`，它把**同目录的 `g0_traj.json` 等轨迹文件也收进来**。
+#   轨迹文件里没有 `strict键` ⟹ `keys=None ≠ ref` ⟹ 闸门 2 判"组间分母不一致"、**每一趟都中止**，
+#   `all.json` 永远生不出来（现存的 0729 重评目录里确实没有 all.json，正是这个原因）。
+import re as _re
+files = sorted(f for f in glob.glob(os.path.join(out_dir, "g*.json"))
+               if _re.fullmatch(r"g\d+\.json", os.path.basename(f)))
 if not files:
     raise SystemExit("🔒 一个结果文件都没有 → 看 g*.log")
 ref = None; merged = {}; bad = []
@@ -272,8 +281,14 @@ if not _EXPECT:
     print("  ⚠️ 没设 REEVAL_EXPECT_STRICT ⟹ 分母没有被守卫。正式实验必须设"
           "（小集口径 563 / 官方 1300 口径 600）。")
 print(f"  ✅ 合并得 {len(merged)} 条臂（期望 {n_expect}）")
+# 🔴 L243-续8（D 线 R5）：原来条数对不上只打一行 ⚠️ 就继续写 all.json ⟹ **少了几条臂的表照样生成**，
+#   而下游没有任何一处会再核一遍。这次"只有一次机会"，宁可停下来看日志。
 if len(merged) != n_expect:
-    print(f"  ⚠️ 条数对不上，缺的臂：看各组 g*.log 里的 ❌")
+    if not os.environ.get("REEVAL_ALLOW_MISSING"):
+        raise SystemExit(f"🔒 合并只得到 {len(merged)} 条臂、期望 {n_expect} ⟹ 有组跑挂了。"
+                         f"**先看 {out_dir}/g*.log 里的 ❌ 再说**，别拿缺臂的表出数。"
+                         "（确认就是要缺着出：加 REEVAL_ALLOW_MISSING=1 重跑本闸）")
+    print(f"  ⚠️ REEVAL_ALLOW_MISSING=1：明知缺 {n_expect - len(merged)} 条臂仍继续合并。")
 json.dump(merged, open(os.path.join(out_dir, "all.json"), "w", encoding="utf-8"), ensure_ascii=False)
 print(f"  → {os.path.join(out_dir, 'all.json')}")
 PYEOF

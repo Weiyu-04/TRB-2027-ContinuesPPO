@@ -35,7 +35,12 @@ def _load():
     src = open(os.path.join(_CODE, "run_step4e.py"), encoding="utf-8").read()
     a = src.index("class _RolloutStats:")
     b = src.index("def _accumulate_ep_returns(cb):")
-    ns = {}
+    # 🆕 L243-续8：`_RolloutStats` 现在要用到 usv_env 的动作常量（离散臂靠格点下标还原动作、
+    #   加速度轴的箱半宽）。这里照真源逐字喂进去 —— 不 import trb_env（会拉 numpy/shapely）。
+    ns = {"A_NORMAL_ACCEL_MAX": 0.048, "IDX_EMERGENCY": 49,
+          "DISCRETE_ACTIONS": tuple((a_, w_)
+                                    for a_ in (-0.048, -0.032, -0.016, 0.0, 0.016, 0.032, 0.048)
+                                    for w_ in (-0.018, -0.012, -0.006, 0.0, 0.006, 0.012, 0.018))}
     exec(compile(src[a:b], "<rollout_stats>", "exec"), ns)
     return ns["_RolloutStats"], ns["_feed_rollout_stats"]
 
@@ -77,8 +82,18 @@ def main():
     st = RS()
     st.feed([mk(0.001, ua=[0.05, 0.011])], [False], W)     # 盾把动作改写了 0.05 + 0.010
     s = st.snapshot()
-    check(f"盾改写量 = 0.05+0.010 = 0.060（得 {s['roll_shield_corr_mean']:.4f}）",
-          abs(s["roll_shield_corr_mean"] - 0.06) < 1e-9)
+    # 🔴 L243-续8 R4：盾改写量原来是 `|Δa| + |Δω|` —— 把 m/s² 和 rad/s **直接相加**（量纲混算），
+    #   而加速度轴可动范围是转艏轴的 2.67 倍 ⟹ 这条曲线实际被加速度轴支配，
+    #   而 COLREGs 让路主要是**转向**。现在拆两轴 + 一个按箱半宽归一化的合量（同 r_alias 口径）。
+    check(f"盾改写量·加速度轴 = 0.050 m/s²（得 {s['roll_shield_corr_a_mean']:.4f}）",
+          abs(s["roll_shield_corr_a_mean"] - 0.05) < 1e-9)
+    check(f"盾改写量·转艏轴 = 0.010 rad/s（得 {s['roll_shield_corr_w_mean']:.4f}）",
+          abs(s["roll_shield_corr_w_mean"] - 0.01) < 1e-9)
+    _want = 0.5 * (0.05 / 0.048 + 0.010 / 0.018)          # = 0.7986
+    check(f"盾改写量·归一化合量 = {_want:.4f}（得 {s['roll_shield_corr_norm_mean']:.4f}）",
+          abs(s["roll_shield_corr_norm_mean"] - _want) < 1e-9)
+    check("兼容列 roll_shield_corr_mean 走的是归一化口径（老的量纲混算值不再产出）",
+          abs(s["roll_shield_corr_mean"] - _want) < 1e-9)
     check("小舵角不计入打满舵", s["roll_yaw_sat_frac"] == 0.0)
 
     print("\n【③ 终止旗只在 done 那一步计，且各档分开】")

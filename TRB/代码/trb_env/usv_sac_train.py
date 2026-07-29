@@ -36,6 +36,7 @@ colregs_weight=1.0 复活 r_colregs（堵 D40 train_multiscene 连续臂 footgun
 from __future__ import annotations
 
 import math
+import os
 
 import numpy as np
 import stable_baselines3 as _sb3
@@ -765,7 +766,14 @@ def make_continuous_safe_ppo_model(scenario_pool=None, *, paths=None, seed: int 
     if _ad == "gauss":
         _pk["log_std_init"] = log_std_init                       # Beta 无此参数（见上）
     cfg = dict(policy_kwargs=_pk, seed=seed, gamma=gamma,
-               ent_coef=ent_coef, verbose=0)
+               ent_coef=ent_coef, verbose=0,
+               # 🔴 L243-续8（E 线复审 F1·**起跑前最后一刻抓出**）：这里原先**没传 device** ⟹ 吃 SB3 默认
+               #   `device="auto"` = 有 CUDA 就上 CUDA。而离散臂（`run_step4e.py:1148`）和 SAC 臂（`:1409`）
+               #   都显式锁了 cpu ⟹ 9 条臂里**6 条连续 PPO 臂**会偷偷跑到 GPU 上：
+               #   ① 显存不够 → 进程被 CUDA OOM 打死 → `run_one` 只打一行 [⚠️失败] → 两天后才发现少臂；
+               #   ② 本项目实测 2×64 的小 MLP 放 GPU **反而更慢** ⟹ 排期算错；
+               #   ③ 闸门 2.5 只量内存不看显存 ⟹ 这道风险在起跑前完全不可见。
+               device=os.environ.get("STEP4E_DEVICE", "cpu"))
     cfg.update(ppo_kwargs)
     model = PPO(policy_for(_ad), venv, **cfg)
     # 🆕⑤ 热启动（`03` L190·默认 None=整块不调=bit-identical）：灌源 policy + 复制源 vecnorm stats（须先有 venv=VecNormalize）

@@ -75,9 +75,13 @@ def outcome_note():
 
 #: 臂定义 = (显示名, checkpoint 名里的特征串, 是否进头条表)
 ARM_SPECS = [
-    ("Base（离散·无盾）",            lambda ck: ck.startswith("Base_"),            True),
-    ("Rule-reward（离散·软奖励）",    lambda ck: ck.startswith("Rule-reward_"),     True),
-    ("Discrete-safe（对标论文）",     lambda ck: ck.startswith("Discrete-safe_") and "dsSeg" not in ck, True),
+    # 🔴 L243-续8（D 线 R3·实跑 arm_of() 坐实）：`arm_of` 是**第一个命中就返回**，而正式臂的存档名
+    #   恰好也是 `Base_s3_F240basePpoS3` / `Rule-reward_s0_F240rrPpoS0` / `Discrete-safe_s0_F240discPpoS0`
+    #   ⟹ 下面三条**历史**判据会先命中，把正式臂贴上探索期的标签，两代实验混进同一行。
+    #   ⟹ 三条都加 `"F240" not in ck` 把正式臂排除掉（正式臂由下面 F240* 那组认领）。
+    ("Base（离散·无盾）",            lambda ck: ck.startswith("Base_") and "F240" not in ck,        True),
+    ("Rule-reward（离散·软奖励）",    lambda ck: ck.startswith("Rule-reward_") and "F240" not in ck, True),
+    ("Discrete-safe（对标论文）",     lambda ck: ck.startswith("Discrete-safe_") and "dsSeg" not in ck and "F240" not in ck, True),
     ("Discrete-safe（重训·带分段）",  lambda ck: "dsSeg" in ck,                     False),
     ("金标（连续·从零·旧配方）",       lambda ck: "_L1rateON_ppo_" in ck,            True),
     ("主线（连续·热启动·旧配方）",     lambda ck: "wsHOCRppo" in ck,                 True),
@@ -107,7 +111,7 @@ def arm_of(ck):
     return None
 
 
-def load_pass(d, prefix="g", expect_strict=None):
+def load_pass(d, prefix="g", expect_strict=None, expect_rows=None):
     """读一趟同趟重评 → {checkpoint: 结果}。**只吃 `<前缀><数字>.json`**（`g*_traj.json` 混进来会污染统计）。"""
     files = sorted(f for f in glob.glob(os.path.join(d, prefix + "*.json"))
                    if re.fullmatch(prefix + r"\d+\.json", os.path.basename(f)))
@@ -133,9 +137,19 @@ def load_pass(d, prefix="g", expect_strict=None):
             if ck in rows:
                 raise SystemExit(f"🔒 checkpoint 重名：{ck} ⟹ 组间重复计数，这张表不能出。")
             rows[ck] = v
-    bad = [ck for ck, v in rows.items() if v.get("anchor", {}).get("通过") is not True]
+    # 🔴 L243-续8（D 线 R5）：`v.get("anchor", {})` 在 `anchor` 显式为 **None** 时返回的是 None、
+    #   不是 {}，`.get` 会 AttributeError 把整张表打掉；而 `anchor` 缺失/为 None 恰恰是
+    #   "锚点检查被跳过"（sidecar 与 ckpt 不同步时 reeval 会打印一行就跳过）的正常表现。
+    #   ⟹ 用 `(v.get("anchor") or {})`，并且**把"跳过"也算未通过** —— 跳过 = 没验过 = 不能进表。
+    bad = [ck for ck, v in rows.items() if (v.get("anchor") or {}).get("通过") is not True]
     if bad:
-        raise SystemExit(f"🔒 锚点自检未通过 {len(bad)} 条：{bad[:5]} ⟹ 评估可能配错，这张表不能出。")
+        raise SystemExit(f"🔒 锚点自检未通过/被跳过 {len(bad)} 条：{bad[:5]} ⟹ 评估可能配错，这张表不能出。"
+                         "（被跳过 = 那条 run 的 sidecar 与存档不同步，等于没验，同样不能出表。）")
+    # 🔴 L243-续8：再核一遍"这趟是不是完整的" —— 组文件在、键也一致，但某一组里的臂**跑挂了几条**时，
+    #   上面每一道闸都过得去。调用方给了 expect_rows 就硬核。
+    if expect_rows is not None and len(rows) != expect_rows:
+        raise SystemExit(f"🔒 这趟只有 {len(rows)} 条 checkpoint、期望 {expect_rows} ⟹ 有臂跑挂了，"
+                         "先看重评日志里的 ❌，别拿缺臂的表出数。")
     return rows, len(ref), len(files)
 
 
