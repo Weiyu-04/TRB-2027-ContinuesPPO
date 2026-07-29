@@ -76,7 +76,12 @@ cd "$CODE_DIR"
 T=_smkDsSeg
 SMK="$RES_DIR/step4e_partial${T}.jsonl"
 SEGDIR="$RES_DIR/checkpoints/segments"
-rm -f "$SMK"; rm -rf "$SEGDIR"
+# 🔴🔴 2026-07-29 修一个我自己埋的雷（起跑前代码审计抓出）：
+#   `segments/` 是**全部 run 共享的一个目录**（`run_step4e.py:_CKPT_DIR` 不带 TAG）。
+#   原来这里写的是 `rm -rf "$SEGDIR"` —— 正式实验期间跑一次本脚本，就会把**全部 run 攒下来的分段副本
+#   一次性删光**，而那些副本正是「验证集挑最佳存档」的唯一依据，删了只能重训。
+#   ⟹ 一律**只删本次冒烟自己那个 TAG 的文件**，绝不整目录删。
+rm -f "$SMK"; rm -f "$SEGDIR"/*"${T}"@s*
 STEP4E_SMOKE=1 STEP4E_STEPS=8000 STEP4E_NSEG=2 STEP4E_SEEDS=0 STEP4E_TAG="$T" \
   "$PY" -B run_step4e.py > "$RES_DIR/_${T}.log" 2>&1 \
   || { echo "❌ 冒烟跑崩（看 $RES_DIR/_${T}.log）"; tail -20 "$RES_DIR/_${T}.log"; exit 1; }
@@ -84,11 +89,11 @@ grep -q '"keep_segments": true' "$SMK" || { echo "❌ 冒烟里 keep_segments �
 grep -q '"party": "Discrete-safe"' "$SMK" || { echo "❌ 冒烟臂不是 Discrete-safe·别烧全量"; exit 1; }
 grep -q 'manifest_hocr_200' "$SMK"       || { echo "❌ 冒烟训练集不是 manifest_hocr_200 ⟹ 配方漂了·别烧全量"; exit 1; }
 # 🔴 最关键：分段副本必须真的躺在 segments/ 里，而且【段数 == NSEG】
-NSEG_FILES=$(ls "$SEGDIR"/*.zip 2>/dev/null | wc -l)
+NSEG_FILES=$(ls "$SEGDIR"/*"${T}"@s*.zip 2>/dev/null | wc -l)   # 只数本冒烟 TAG 的，别把别的 run 的副本算进来
 [ "$NSEG_FILES" -eq 2 ] || { echo "❌ segments/ 里 .zip 有 $NSEG_FILES 份（应为 2 = NSEG）⟹ 分段存档没真落地·别烧全量"; ls -la "$SEGDIR" 2>&1 | head; exit 1; }
-ls "$SEGDIR" | head -8
+ls "$SEGDIR"/*"${T}"@s* 2>/dev/null | head -8
 echo "  ✅ 冒烟全过：keep_segments=true + 臂对 + 训练集对 + segments/ 里 2 份副本"
-rm -rf "$SEGDIR"                                  # 清掉冒烟的副本，免得和全量的混在一起
+rm -f "$SEGDIR"/*"${T}"@s*                        # 只清本冒烟 TAG 的副本（**绝不整目录删**·见上面那段）
 
 echo "===== [闸门 3] 起 $(echo $SEEDS|wc -w) 个 run（从零 5M · 并发≤$KMAX）====="
 run_one () {
