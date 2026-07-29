@@ -159,8 +159,22 @@ echo "===== [闸门 1] 预下载场景（官方 1400·缓存则秒过）====="
 STEP4E_DOWNLOAD_ONLY=1 STEP4E_SEEDS=0 STEP4E_TAG=_predl_f240 "$PY" -B "$CODE_DIR/run_step4e.py" \
   || { echo "❌ 预下载失败（查网络）"; exit 1; }
 
-echo "===== [闸门 2] 逐臂冒烟（每条臂 1 次·验配方真落地 + 分段存档真写出来）====="
+echo "===== [闸门 2] 逐臂冒烟（每条臂 1 次·验配方真落地 + 分段存档真写出来 + **实测内存**）====="
 cd "$CODE_DIR"
+# 🆕 `03` L243-续2（user 2026-07-29 说一台机能跑 10 路 ⟹ 内存成了新的头号风险）：
+#   `make_vec_env(subproc=True)` 让**每个 worker 各自加载整份场景池**（`usv_scenarios.py:159-166`）
+#   ⟹ 单 run 内存 ≈ n_envs × 场景数 × 单场景内存。项目自己实测过 **0.20 MB/场景**
+#   （`03` L233：0.20 × 1300 × 8 worker × 3 种子 ≈ 6.2 GB ⟹ **单 run ≈ 2.1 GB 只算场景池**，
+#   加上每进程的 torch/numpy 基线，真实占用要大得多）。K=10 时是 10 倍。
+#   OOM 的后果特别恶劣：worker 被杀 → 那条 run 静默失败 → `run_one` 只打一行 [⚠️失败] 就继续
+#   ⟹ 两天后才发现少了几条臂。**所以这里不估、直接量**：冒烟跑的就是真数据集 + 真 NENVS，
+#   它的峰值常驻内存 ≈ 正式 run 的峰值（场景池在启动时就全载进来了）。
+RSSLOG="$RES_DIR/_formal_rss.txt"; : > "$RSSLOG"
+( while :; do
+    ps -eo rss=,args= 2>/dev/null | awk '/run_step4e\.py/ && !/awk/ {s+=$1} END{print s+0}' >> "$RSSLOG"
+    sleep 2
+  done ) & RSS_SAMPLER=$!
+trap 'kill "$RSS_SAMPLER" 2>/dev/null' EXIT
 for A in $ARMS; do
   T="_smkF240$A"; SMK="$RES_DIR/step4e_partial${T}.jsonl"; SEGDIR="$RES_DIR/checkpoints/segments"
   rm -f "$SMK"; rm -f "$SEGDIR"/*"${T}"@s* 2>/dev/null
@@ -194,6 +208,33 @@ sys.exit(0 if n>0 else 1)" "$SMK" \
   rm -f "$SEGDIR"/*"${T}"@s*                    # 只清本冒烟 TAG 的（**绝不整目录删**）
   echo "  ✅ 臂 $A：配方对 + 分段存档真落地 + rollout 采集在"
 done
+kill "$RSS_SAMPLER" 2>/dev/null; trap - EXIT
+
+echo "===== [闸门 2.5] 内存够不够跑 $KMAX 路（**实测·不是估的**）====="
+PEAK_KB=$(sort -n "$RSSLOG" | tail -1)
+[ -n "$PEAK_KB" ] && [ "$PEAK_KB" -gt 0 ] || { echo "  ⚠️ 没采到内存样本（ps 输出为空？）→ 跳过本闸，**起飞后自己盯 free -g**"; PEAK_KB=0; }
+if [ "$PEAK_KB" -gt 0 ]; then
+  AVAIL_KB=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+  TOTAL_KB=$(awk '/^MemTotal:/{print $2}' /proc/meminfo)
+  NEED_KB=$(( PEAK_KB * KMAX ))
+  # 留 15% 余量：page cache + 分段存档写盘 + 段末评估的临时峰值
+  SAFE_KB=$(( AVAIL_KB * 85 / 100 ))
+  KFIT=$(( SAFE_KB / PEAK_KB ))
+  printf "  单 run 峰值常驻 %.1f GB（冒烟实测·真数据集真 NENVS=%s）\n" "$(echo "$PEAK_KB" | awk '{print $1/1048576}')" "${STEP4E_NENVS:-8}"
+  printf "  本机 MemTotal %.0f GB · MemAvailable %.0f GB ⟹ 留 15%% 余量后可跑 **%s 路**\n" \
+    "$(echo "$TOTAL_KB" | awk '{print $1/1048576}')" "$(echo "$AVAIL_KB" | awk '{print $1/1048576}')" "$KFIT"
+  printf "  本次要 %s 路 ⟹ 需 %.0f GB\n" "$KMAX" "$(echo "$NEED_KB" | awk '{print $1/1048576}')"
+  if [ "$NEED_KB" -gt "$SAFE_KB" ]; then
+    echo "  ❌ **内存不够**：$KMAX 路会 OOM。OOM 的后果是 worker 被杀 → 那条 run 静默失败 →"
+    echo "     两天后才发现少了几条臂（`run_one` 只打一行 [⚠️失败] 就继续跑）。"
+    echo "     ⟹ 改用 KMAX=$KFIT 重跑本脚本；或降 STEP4E_NENVS（⚠️ 它进 config_sig，"
+    echo "        中途改会让已跑的 run 从 0 重来，**要改就在起跑前一次改到位**）。"
+    [ "${MEM_ACK:-0}" = "1" ] || exit 1
+    echo "  ⚠️ MEM_ACK=1 强行放行 —— 你自己盯 free -g 和 dmesg 里的 oom-kill。"
+  else
+    echo "  ✅ 内存够（$KMAX ≤ $KFIT 路）"
+  fi
+fi
 
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # 🆕 [闸门 2.5] 测速档（`03` L243-§7·复审抓出的最大排期风险）—— `SPEED=1` 才跑，跑完就退出，不起全量
@@ -251,11 +292,36 @@ run_one () {
   env $(arm_env "$A") STEP4E_SEEDS="$S" STEP4E_TAG="$T" "$PY" -B run_step4e.py > "$RES_DIR/${T}.log" 2>&1 \
     && echo "  [完] $T" || echo "  [⚠️失败] $T（看 $RES_DIR/${T}.log）"
 }
+# 🔴 `03` L243-续2（user 2026-07-29：两天硬期限 + 数据采集只有一次机会）：
+#   **一个实验被时间掐断，只有三种断法** ——
+#     少了【臂】     ⟹ 比较根本做不成
+#     各臂【步数不齐】⟹ 不是同预算比较，也做不成
+#     少了【种子】   ⟹ 只是统计力弱一点，**所有比较照样成立**
+#   ⟹ 必须让它断在**种子**这条轴上。做法 = **一颗种子的 9 条臂一起跑、跑完再开下一颗**
+#      （`COLUMN=1`，默认开）。时间到了直接 Ctrl+C，手里是 N 列**完整的**格子，不是一堆半成品。
+#   ⚠️ 关掉它（COLUMN=0）会让下一颗种子的臂提前顶上空闲槽位 ⟹ 掐断时出现半列 ⟹ 那半列全废。
+COLUMN="${COLUMN:-1}"
+COL_DONE=0
 for S in $SEEDS; do          # 外层种子、内层臂 ⟹ 同一颗种子的各臂时间上靠近，机器状态更接近
   for A in $ARMS; do
     run_one "$A" "$S" &
     while [ "$(jobs -rp | wc -l)" -ge "$KMAX" ]; do sleep 20; done
   done
+  if [ "$COLUMN" = "1" ]; then
+    wait                                          # 本列 9 条臂全部落地，才开下一列
+    COL_DONE=$((COL_DONE+1))
+    echo "  ───── 种子 $S 这一【列】跑完（第 $COL_DONE 列）─────"
+    # 🔴 第一列跑完立刻体检：**系统性问题一定在第一列就露头**。这时候停下来还剩一天多能补救；
+    #    等两天后再查，就只剩重跑一条路，而时间不够。第二列起只报告、不拦（宁可留下数据）。
+    if "$PY" -B "$CODE_DIR/tests/check_formal_integrity.py" "$RES_DIR" 2>&1 | tail -40; then :; else
+      if [ "$COL_DONE" -eq 1 ]; then
+        echo "  ❌❌ **第一列体检没过 —— 停在这里，别让它继续跑满两天。**"
+        echo "     修完之后：RESUME=1 <同一条命令> 接着跑（已完成的自动跳过）。"
+        exit 1
+      fi
+      echo "  ⚠️ 体检有问题（第 $COL_DONE 列）——已记录，继续跑；跑完务必按上面的清单处理。"
+    fi
+  fi
 done
 wait
 echo "===== 全部结束 ====="

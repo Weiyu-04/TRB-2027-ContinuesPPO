@@ -220,9 +220,12 @@ def budget_note(n_strict, steps=None, ckpt_policy=None, rows=None):
 #  🔴 `budget_seg` = **报数用的段数**，跑的时候是 30 段；T1 判据说 20 段就够 ⟹ 把它改成 20 并重出全部表。
 #     同一张表里所有臂必须用同一个 budget_seg（`03` L242-A）。报数写**实际步数**，别写名义的 "10M"。
 SEG_STEPS = 507904                                  # 每段实际步数（SB3 按 rollout 2048×8=16384 取整后的值）
-FORMAL = {"n_seg_run": 30,                          # 起跑段数（15,237,120 步）
-          "budget_seg": 30,                         # 报数段数（改成 20 = 按 10,158,080 步报）
+#  🔴 `03` L243-续2：两天硬期限把 NSEG=30 那个决定推翻了 —— 30 段在 48 小时里只跑得出 3~6 颗种子，
+#     20 段能跑 6~12 颗。**丢种子是致命的（n=3 时符号检验最小 p=0.25，到不了 0.05）；
+#     丢步数只是论文里一句「该预算下尚未收敛」**（写法 `03` L241-B 已定死）⟹ 回到 20 段。
+FORMAL = {"n_seg_run": 20,                          # 起跑段数（10,158,080 步）
+          "budget_seg": 20,                         # 报数段数（体检脚本给出实际可用的最小段数）
           "ckpt": "验证集最佳存档", "ckpt_alt": "末段存档",
-          "n_strict": 600, "n_seeds": 12, "n_machines": 3}
+          "n_strict": 600, "n_seeds": 12, "n_machines": 3, "lanes_per_machine": 10}
 FORMAL["steps"] = (f"{FORMAL['budget_seg'] * SEG_STEPS:,} 步预算"
                    f"（{FORMAL['budget_seg']} 段 × {SEG_STEPS:,}）")
