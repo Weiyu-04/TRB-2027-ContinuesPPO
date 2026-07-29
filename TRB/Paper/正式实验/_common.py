@@ -16,8 +16,62 @@ import os
 import re
 import statistics as st
 
-CRASH_ARR = 50.0     # 崩塌线：到达 < 此 = 崩。取自 `代码/bgate_judge.py:16`，全项目统一，**禁止逐臂另定**（`03` L234-B）
 SEC = "strict"       # 报数一律 strict（官方测试 600 剔泄漏）；训练期里程碑数永不进表（`03` L232 铁律）
+
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# 种子结局三分类（`03` L243-改③ · user 2026-07-29 拍板）
+#
+# 🔴 **为什么必须三分、不能沿用单一 `到达 <50 = 崩`**：
+#   L235 / L238 / L241 **三次**证明"到达低 ≠ 崩" —— B 臂 s2（26.82%）与 D 臂 s3（9.77%）都不是掉进坏盆地，
+#   而是**起飞晚、预算到期时还在爬**。而主表有「练成的种子数」这一列，论文要拿它讲**训练可靠性**；
+#   把"掉进打转吸引子"和"预算不够"混成同一个数，那条 finding 就站不住（审稿人看曲线就会指出来）。
+#
+# 判据（**不带旋钮·从机制推出来的，不是调出来的**）：
+#   打转 ≡ 跑满回合上限却从没到过目标 ⟹ 每局时长顶到天花板。
+#   天花板 = k_max × dt = 170 步 × 10 秒 = 1700 秒（`代码/trb_env/usv_env.py:143` g0.time_step.end）。
+#   取 0.8 × 天花板 = **1360 秒** 为界。
+#
+# 实证（本窗口在 `结果0729-59臂同趟重评` 上重算 · 用的就是报数表自己的量 `strict.控制质量.ep_len_s`）：
+#   练成（到达 ≥50，n=52）  每局秒 [ 466,  642]
+#   欠训（到达 <50，n=2）   每局秒 [ 675,  814]   ← B 臂 s2 / D 臂 s3，与 L235/L241 的诊断一致 ✅
+#   崩  （到达 <50，n=5）   每局秒 [1609, 1691]   ← 金标 s5/s6、A 臂 s6、对标 s0/s1
+#   ⟹ 814 与 1609 之间**空了近 800 秒**，1360 这条线落在正中间，不敏感。
+#
+# 🔴 **诚实边界（论文这一列必须一起写）**：全库更早那批 run 里约 12% 的低到达 run 落在
+#   1100~1600 秒的**过渡带**，那一带的标签本身就是灰的 ⟹ 报表时必须**同时报过渡带条数**，
+#   不能只甩一个"练成 N/12"。`classify_counts()` 会把它一并算出来。
+# ══════════════════════════════════════════════════════════════════════════════════════════
+CRASH_ARR = 50.0        # 到达率门：< 此 = 没练成（`代码/bgate_judge.py:16`，全项目统一，**禁止逐臂另定**·`03` L234-B）
+EP_CAP_S = 170 * 10.0   # 回合时长天花板 = k_max × dt（单一真相源：`trb_env/usv_env.py:143` + 每步 10 秒）
+SPIN_LINE_S = 0.8 * EP_CAP_S            # = 1360 秒：到达 <50 且每局时长 ≥ 此 ⟹ 崩（打转吸引子）
+GREY_BAND_S = (1100.0, 1600.0)          # 过渡带：标签本身是灰的 ⟹ 必须报条数，别装作没有
+
+OUTCOME_TRAINED, OUTCOME_SPIN, OUTCOME_UNDER = "练成", "崩", "欠训"
+
+
+def outcome_of(v):
+    """一颗种子的结局：练成 / 崩（打转吸引子）/ 欠训（还在爬·没起飞）。参数 v = 该 checkpoint 的重评结果。"""
+    s = v[SEC]
+    if s["到达率%"] >= CRASH_ARR:
+        return OUTCOME_TRAINED
+    return OUTCOME_SPIN if s["控制质量"]["ep_len_s"] >= SPIN_LINE_S else OUTCOME_UNDER
+
+
+def classify_counts(entries):
+    """一条臂的结局计数 + 过渡带条数（论文那一列要连过渡带一起报）。"""
+    out = {OUTCOME_TRAINED: 0, OUTCOME_SPIN: 0, OUTCOME_UNDER: 0, "过渡带": 0, "n": len(entries)}
+    for _, v in entries:
+        out[outcome_of(v)] += 1
+        if GREY_BAND_S[0] <= v[SEC]["控制质量"]["ep_len_s"] <= GREY_BAND_S[1]:
+            out["过渡带"] += 1
+    return out
+
+
+def outcome_note():
+    """给表/图脚注用的判据说明（**判据必须与数字同处出现**，不许只甩一个 N/12）。"""
+    return (f"种子结局判据：练成 = 到达率 ≥ {CRASH_ARR:.0f}%；崩（打转吸引子）= 到达率 < {CRASH_ARR:.0f}% "
+            f"且每局时长 ≥ {SPIN_LINE_S:.0f} 秒（= 0.8 × 回合上限 {EP_CAP_S:.0f} 秒）；欠训 = 其余。"
+            f"过渡带（{GREY_BAND_S[0]:.0f}~{GREY_BAND_S[1]:.0f} 秒）内标签存在歧义，条数一并列出。")
 
 #: 臂定义 = (显示名, checkpoint 名里的特征串, 是否进头条表)
 ARM_SPECS = [
@@ -112,8 +166,10 @@ def metrics(entries, healthy_only=False):
     arr = [v[SEC]["到达率%"] for _, v in lst]
     n_ep = sum(v[SEC]["n"] for _, v in lst)
     n_col = sum(round(v[SEC]["碰撞率%"] * v[SEC]["n"] / 100.0) for _, v in lst)
+    cls = classify_counts(lst)          # 🆕 `03` L243-改③：三分类 + 过渡带，与「健康」一起带出
     return dict(
         n=len(lst), 健康=sum(1 for x in arr if x >= CRASH_ARR), 种子=[v["seed"] for _, v in lst],
+        练成=cls[OUTCOME_TRAINED], 崩=cls[OUTCOME_SPIN], 欠训=cls[OUTCOME_UNDER], 过渡带=cls["过渡带"],
         到达=m("到达率%"), 到达SD=(st.stdev(arr) if len(arr) > 1 else 0.0), 逐种子到达=arr,
         碰撞局=n_col, 总局=n_ep, 碰撞率=100.0 * n_col / n_ep,
         违规=m("违规次数/局"), 让路=cq("giveway_violations"), 直航=cq("standon_violations"),
@@ -130,19 +186,43 @@ def per_seed(entries, key):
     return out
 
 
-def budget_note(n_strict, steps=None, ckpt_policy=None):
-    """口径脚注**按实测拼**，不许写死（`03` L240）。
+def steps_from_rows(rows):
+    """从**这趟数据自己**读训练预算（每条臂的 `num_timesteps`），不靠任何常量。
 
-    🔴 教训：原来这里是一句字面量 "5.08M 步 … strict 563"。它**不会报错**，
-    换了口径之后会一声不响地把**错的预算和错的分母**印进论文的表和图。
-    三处同款字面量（本文件 + 出图脚本两处）在起跑前审计里被一起抓出来。
+    🔴 `03` L243 复审又抓到同一族坑的下一层：`budget_note` 虽然不写死数字了，
+       但调用方一律传 `FORMAL['steps']` 常量 ⟹ 拿它去印**历史那趟 5.08M 的表**，
+       表头会一声不响写成"15.24M 步预算 · 验证集最佳存档"。**数字不是手抄的，但口径是抄错的**，
+       后果一样（L240 那条教训的原话：不报错，会把错数字印进论文）。
+       ⟹ 预算改成从数据推；步数不一致时**明写"混合"**，绝不挑一个印上去。
     """
-    lead = f"{steps}" if steps else "训练预算见正文"
+    ts = sorted({int(v.get("num_timesteps") or 0) for v in rows.values() if v.get("num_timesteps")})
+    if not ts:
+        return "训练预算未记录（存档 sidecar 缺 num_timesteps）"
+    if len(ts) == 1:
+        n = ts[0]
+        return f"{n:,} 步预算" + (f"（{n // SEG_STEPS} 段 × {SEG_STEPS:,}）" if n % SEG_STEPS == 0 else "")
+    return (f"🔴 **步数不一致**：{ts[0]:,} ~ {ts[-1]:,}（{len(ts)} 种）"
+            " ⟹ 这不是同预算比较，别当一张表报")
+
+
+def budget_note(n_strict, steps=None, ckpt_policy=None, rows=None):
+    """口径脚注**按实测拼**，不许写死（`03` L240 + L243）。
+
+    `rows` 给了就从数据推预算（优先），否则退回调用方给的 `steps`。
+    """
+    lead = steps_from_rows(rows) if rows else (f"{steps}" if steps else "训练预算见正文")
     pol = ckpt_policy or "存档口径见正文"
     return (f"口径：**{lead} · {pol} · 官方测试集 strict {n_strict} · 同机同趟评**。"
             "『步数上限是预算点、不是收敛点』见 `03` L236-A。")
 
 
-#: 正式实验的口径常量（定稿后写死在这里，各脚本一律从这里取，别各处再抄一遍）
-FORMAL = {"steps": "10.16M 步预算（10,158,080 = 20 段 × 507,904）",
-          "ckpt": "验证集最佳存档", "ckpt_alt": "末段存档", "n_strict": 600, "n_seeds": 10}
+#: 正式实验的口径常量（user 2026-07-29 拍板：3 台机 · 12 颗种子 · NSEG=30 起跑 · 报数时往回截）
+#  🔴 `budget_seg` = **报数用的段数**，跑的时候是 30 段；T1 判据说 20 段就够 ⟹ 把它改成 20 并重出全部表。
+#     同一张表里所有臂必须用同一个 budget_seg（`03` L242-A）。报数写**实际步数**，别写名义的 "10M"。
+SEG_STEPS = 507904                                  # 每段实际步数（SB3 按 rollout 2048×8=16384 取整后的值）
+FORMAL = {"n_seg_run": 30,                          # 起跑段数（15,237,120 步）
+          "budget_seg": 30,                         # 报数段数（改成 20 = 按 10,158,080 步报）
+          "ckpt": "验证集最佳存档", "ckpt_alt": "末段存档",
+          "n_strict": 600, "n_seeds": 12, "n_machines": 3}
+FORMAL["steps"] = (f"{FORMAL['budget_seg'] * SEG_STEPS:,} 步预算"
+                   f"（{FORMAL['budget_seg']} 段 × {SEG_STEPS:,}）")

@@ -14,7 +14,12 @@
 #
 # 用法：
 #   bash 代码/tests/run_reeval_all.sh [并行组数] [输出目录]
-#   例：bash 代码/tests/run_reeval_all.sh 8 /root/trb/结果/结果-全臂重评
+#   例：bash 代码/tests/run_reeval_all.sh 8 /root/trb/结果/结果-全臂重评          # legacy 59 条(563)
+#   正式实验两趟（`03` L243-§7·**必须同一台机器背靠背跑**）：
+#     PASS=formal_last bash 代码/tests/run_reeval_all.sh 8 /root/trb/结果/正式-末段
+#     BUDGET_SEG=30 python3 -B 代码/tests/select_best_ckpt.py 结果 结果/_best_seg30.json
+#     PASS=formal_best SELJSON=/root/trb/结果/_best_seg30.json \
+#       bash 代码/tests/run_reeval_all.sh 8 /root/trb/结果/正式-最佳
 #
 # 耗时估算：单条臂约 8 分钟（单线程）。56 条臂 ÷ 8 组并行 ≈ 1 小时。
 # ══════════════════════════════════════════════════════════════════════════════════════════
@@ -26,6 +31,36 @@ PY="${PY:-/root/miniconda3/bin/python}"
 NGROUP="${1:-8}"
 OUT_DIR="${2:-$ROOT/结果/结果-全臂重评}"
 mkdir -p "$OUT_DIR"
+
+# ══════════════════════════════════════════════════════════════════════════════════════════
+# 🆕 `03` L243-§7：**正式实验的两趟重评**（默认仍是 legacy = 原来那 59 条历史臂，一字未动）
+#
+#   PASS=legacy       （默认）59 条探索期臂 · 小集训练 ⟹ strict **563**
+#   PASS=formal_last  正式 9 条臂 × N 颗种子 · **末段存档** ⟹ strict **600**
+#   PASS=formal_best  正式 9 条臂 × N 颗种子 · **验证集最佳存档**（吃 select_best_ckpt.py 的产物）⟹ **600**
+#
+# 🔴 三条为什么必须这么切（复审抓出来的，别自己简化）：
+#   ① **分母不同**：正式臂全部在官方 1300 上训、与测试 600 零交集 ⟹ 谁都不贡献泄漏 ⟹ 600。
+#      而历史 59 条是 563。**两边的数绝对不能进同一张表**，所以做成两个 PASS，不是一个。
+#   ② **最佳存档那趟扫不到分段副本**：本脚本靠 `find "*/checkpoints/$a.zip"`，而副本在
+#      `checkpoints/segments/` 子目录里 ⟹ 必须由 `select_best_ckpt.py` 给出**显式全路径**
+#      （`reeval_official.py:292` 支持直接给路径）。⟹ formal_best 从它的产物 JSON 里读。
+#   ③ 🔴 **无盾臂必须单独一个进程组**：`run_step4e.py:955` 的 `shield=` 取的是**进程级模块变量**、
+#      **不从存档 sidecar 回读**（对比 `gw_entry` 是回读的）⟹ 混在同组里会把**整组的盾都关掉**。
+#      ⟹ 下面把 `F240unsPpo` 摘出来，用 `STEP4E_CONTINUOUS_SHIELD=0` 单跑；其余组走默认（有盾）。
+#      同机同趟仍然守得住（同机重跑逐位可复现已坐实），只是多起一个进程组。
+# ══════════════════════════════════════════════════════════════════════════════════════════
+PASS="${PASS:-legacy}"
+FORMAL_SEEDS="${FORMAL_SEEDS:-0 1 2 3 4 5 6 7 8 9 10 11}"
+#: 正式 9 条臂的 (party, TAG) —— 与 `代码/run_formal_2027.sh` 的 arm_cfg 一一对应，改那边这边要同步
+FORMAL_SPEC=(
+  "Continuous-safe:_F240oursPpoS"   "Discrete-safe:_F240discPpoS"
+  "Base:_F240basePpoS"              "Rule-reward:_F240rrPpoS"
+  "Continuous-safe:_F240unsPpoS"    "Continuous-safe:_F240ushPpoS"
+  "Continuous-safe:_F240ab0PpoS"    "Continuous-safe:_F240abBPpoS"
+  "Continuous-safe:_F240abGPpoS"
+)
+NOSHIELD_TAG="_F240unsPpoS"          # 唯一需要 shield=0 的臂
 
 # ─────────────────────────── 要评的臂（59 条·显式点名）───────────────────────────
 ARMS=()
@@ -44,7 +79,42 @@ for s in 1 3 4;                   do ARMS+=("Continuous-safe_s${s}_wsBIGppo_s${s
 for s in 0 1 2 3 4;               do ARMS+=("Discrete-safe_s${s}_discStdW0_s${s}"); done         # 5  对标论文
 for s in 0 1 2 3 4;               do ARMS+=("Base_s${s}_baseW0_s${s}"); done                     # 5  无盾
 for s in 0 1 2 3 4;               do ARMS+=("Rule-reward_s${s}_rrW0_s${s}"); done                # 5  软奖励
+# ── 正式实验两趟：把 ARMS 整个换掉（legacy 时上面那份原样保留）─────────────────────
+EXPECT_STRICT="${REEVAL_EXPECT_STRICT:-563}"
+ARMS_NOSHIELD=()
+case "$PASS" in
+  legacy) ;;
+  formal_last)
+    ARMS=(); EXPECT_STRICT="${REEVAL_EXPECT_STRICT:-600}"
+    for spec in "${FORMAL_SPEC[@]}"; do
+      P="${spec%%:*}"; T="${spec##*:}"
+      for s in $FORMAL_SEEDS; do
+        if [ "$T" = "$NOSHIELD_TAG" ]; then ARMS_NOSHIELD+=("${P}_s${s}${T}${s}")
+        else                                ARMS+=("${P}_s${s}${T}${s}"); fi
+      done
+    done ;;
+  formal_best)
+    ARMS=(); EXPECT_STRICT="${REEVAL_EXPECT_STRICT:-600}"
+    SELJSON="${SELJSON:-$ROOT/结果/_best_seg30.json}"
+    [ -f "$SELJSON" ] || { echo "❌ PASS=formal_best 需要 select_best_ckpt.py 的产物：$SELJSON"; \
+                           echo "   先跑：BUDGET_SEG=<段数> python3 -B 代码/tests/select_best_ckpt.py 结果 $SELJSON"; exit 1; }
+    # 从产物里读【最佳存档】的显式全路径（副本缺失的它自己就不会列进来）
+    mapfile -t _SEL < <("$PY" -c "
+import json,sys
+d=json.load(open(sys.argv[1],encoding='utf-8'))
+s=d.get('REEVAL_CKPTS_最佳存档') or ''
+print('\n'.join(x for x in s.split(',') if x.strip()))" "$SELJSON")
+    [ "${#_SEL[@]}" -gt 0 ] || { echo "❌ $SELJSON 里没有可用的最佳存档路径（分段副本没落地？）"; exit 1; }
+    for p in "${_SEL[@]}"; do
+      case "$p" in *"$NOSHIELD_TAG"*) ARMS_NOSHIELD+=("$p") ;; *) ARMS+=("$p") ;; esac
+    done ;;
+  *) echo "❌ PASS 只接受 legacy / formal_last / formal_best，得 '$PASS'"; exit 1 ;;
+esac
+export REEVAL_EXPECT_STRICT="$EXPECT_STRICT"
 N=${#ARMS[@]}
+N_UNS=${#ARMS_NOSHIELD[@]}
+N_ALL=$(( N + N_UNS ))
+echo "═══ 重评 PASS=$PASS ═══ 有盾/离散 $N 条 + 无盾单独组 $N_UNS 条 = $N_ALL 条 · 期望 strict=$EXPECT_STRICT"
 
 echo "===== [闸门 0] 环境与存档 ====="
 [ -d "$CODE_DIR" ] || { echo "❌ CODE_DIR 不存在：$CODE_DIR"; exit 1; }
@@ -56,12 +126,17 @@ echo "===== [闸门 0] 环境与存档 ====="
 # ⟹ 找存档一律用 find（不写死层数），REEVAL_CKDIRS 也同时给两种通配。
 CKDIRS="$ROOT/*/checkpoints:$ROOT/*/*/checkpoints"
 MISS=0
-for a in "${ARMS[@]}"; do
-  f=$(find "$ROOT" -path "*/checkpoints/$a.zip" -print -quit 2>/dev/null)
-  [ -n "$f" ] || { echo "  ❌ 找不到存档：$a"; MISS=$((MISS+1)); }
+# 🆕 formal_best 传进来的是**全路径**（分段副本在 checkpoints/segments/ 子目录，find 那条扫不到）
+#    ⟹ 含 "/" 的按路径直接查文件，其余照旧按名字 find。
+for a in "${ARMS[@]}" ${ARMS_NOSHIELD[@]+"${ARMS_NOSHIELD[@]}"}; do
+  case "$a" in
+    */*) [ -f "$a.zip" ] || { echo "  ❌ 找不到存档（路径）：$a.zip"; MISS=$((MISS+1)); } ;;
+    *)   f=$(find "$ROOT" -path "*/checkpoints/$a.zip" -print -quit 2>/dev/null)
+         [ -n "$f" ] || { echo "  ❌ 找不到存档：$a"; MISS=$((MISS+1)); } ;;
+  esac
 done
 [ "$MISS" -eq 0 ] || { echo "❌ 缺 $MISS 条臂的存档 → 补齐再跑（少一条头条表就画不全）"; exit 1; }
-echo "  ✅ $N 条臂的存档全在"
+echo "  ✅ $N_ALL 条臂的存档全在"
 
 echo "===== [闸门 0.5] 还原存档时间戳（锚点自检的前提）====="
 # 存档若经过 git/打包传输，文件 mtime 会被重写 ⟹ reeval 的【锚点自检】会因"sidecar 与 ckpt 不同步"
@@ -72,8 +147,12 @@ echo "===== [闸门 0.5] 还原存档时间戳（锚点自检的前提）====="
 import json, os, sys, glob
 root = sys.argv[1]
 ok = bad = miss = 0
+# 🆕 `03` L243：**分段副本目录也要收**。最佳存档那一趟评的就是 segments/ 里的副本，
+#    它们的 mtime 一样会被传输重写 ⟹ 不还原则锚点自检整条跳过 = 丢掉防"评估配错"的关键防线。
 cands = (glob.glob(os.path.join(root, "*", "checkpoints", "*.progress.json"))
-         + glob.glob(os.path.join(root, "*", "*", "checkpoints", "*.progress.json")))
+         + glob.glob(os.path.join(root, "*", "*", "checkpoints", "*.progress.json"))
+         + glob.glob(os.path.join(root, "*", "checkpoints", "segments", "*.progress.json"))
+         + glob.glob(os.path.join(root, "*", "*", "checkpoints", "segments", "*.progress.json")))
 for p in cands:
     try:
         fp = (json.load(open(p, encoding="utf-8")) or {}).get("ckpt_fingerprint") or {}
@@ -104,11 +183,26 @@ for ((g=0; g<NGROUP; g++)); do
   REEVAL_OUT="$OUT_DIR/g$g.json" REEVAL_TRAJ_OUT="$OUT_DIR/g${g}_traj.json" \
     "$PY" -B "$CODE_DIR/tests/reeval_official.py" > "$OUT_DIR/g$g.log" 2>&1 &
 done
+# 🔴 `03` L243-§7③：**无盾臂必须单独一个进程组**（`run_step4e.py:955` 的 shield 取进程级模块变量、
+#    不从存档回读 ⟹ 混进上面任一组会把**整组的盾都关掉**，而且不会报错）。
+#    组号接着上面往下排 ⟹ 产物仍是 g*.json ⟹ 闸门 2 的同分母核对会把它一起核进去。
+if [ "$N_UNS" -gt 0 ]; then
+  UG=$NGROUP
+  ULIST=$(printf "%s," "${ARMS_NOSHIELD[@]}"); ULIST="${ULIST%,}"
+  echo "  组 $UG【无盾·单独进程·STEP4E_CONTINUOUS_SHIELD=0】: $N_UNS 条"
+  OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+  STEP4E_CONTINUOUS_SHIELD=0 \
+  STEP4E_SDIR="$ROOT/scenarios" STEP4E_CODE_DIR="$CODE_DIR" \
+  REEVAL_MANIFEST_DIRS="$ROOT/balanced_pool" REEVAL_CKDIRS="$CKDIRS" \
+  REEVAL_POOL=official REEVAL_CKPTS="$ULIST" REEVAL_TRAJ_KEYS="1,100,1006,1016" \
+  REEVAL_OUT="$OUT_DIR/g$UG.json" REEVAL_TRAJ_OUT="$OUT_DIR/g${UG}_traj.json" \
+    "$PY" -B "$CODE_DIR/tests/reeval_official.py" > "$OUT_DIR/g$UG.log" 2>&1 &
+fi
 wait
 echo "  全部组结束"
 
 echo "===== [闸门 2] 同分母核对 + 合并 ====="
-"$PY" - "$OUT_DIR" "$N" <<'PYEOF'
+"$PY" - "$OUT_DIR" "$N_ALL" <<'PYEOF'
 import json, os, sys, glob
 out_dir, n_expect = sys.argv[1], int(sys.argv[2])
 files = sorted(glob.glob(os.path.join(out_dir, "g*.json")))

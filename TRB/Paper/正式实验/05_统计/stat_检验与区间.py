@@ -59,20 +59,26 @@ def main():
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
     d = os.path.abspath(sys.argv[1])
-    rows, n_strict, n_grp = C.load_pass(d, expect_strict=C.FORMAL['n_strict'] if '正式' in os.path.basename(d) else None)
+    _exp = os.environ.get("EXPECT_STRICT")
+    _exp = int(_exp) if _exp else (C.FORMAL["n_strict"] if "正式" in os.path.basename(d) else None)
+    rows, n_strict, n_grp = C.load_pass(d, expect_strict=_exp)
     ba = C.by_arm(rows)
-    print(f"# 统计 · {os.path.basename(d)}\n\n> {C.budget_note(n_strict, C.FORMAL['steps'], C.FORMAL['ckpt'])}")
+    # 🔴 预算从这趟数据自己读（`03` L243）；无条件套 FORMAL 常量会把错口径印进论文
+    print(f"# 统计 · {os.path.basename(d)}\n\n> "
+          + C.budget_note(n_strict, ckpt_policy=os.environ.get("CKPT_POLICY", "存档口径见正文"), rows=rows))
     print(f"> 自助法 B={B_BOOT}、按**种子**重采样（种子才是独立单位）、固定随机种子 ⟹ 区间可复现。\n")
 
     print("## ① 到达率：均值 + 95% 自助法区间（按种子重采样）\n")
-    print("| 臂 | n | 到达均值% | 95% 区间 | 逐种子 SD | 练成/总 |")
+    print("| 臂 | n | 到达均值% | 95% 区间 | 逐种子 SD | 练成/崩/欠训 |")
     print("|---|---|---|---|---|---|")
     for name, _, in_head in C.ARM_SPECS:
         if name not in ba:
             continue
         m = C.metrics(ba[name])
         lo, hi = boot_ci(m["逐种子到达"])
-        print(f"| {name} | {m['n']} | {m['到达']:.2f} | [{lo:.2f}, {hi:.2f}] | {m['到达SD']:.2f} | {m['健康']}/{m['n']} |")
+        # 🆕 `03` L243-改③：结局三分（练成/崩/欠训），别再用单一 <50 混成一个数
+        _c = f"{m['练成']}/{m['崩']}/{m['欠训']}" + (f" ⚠️{m['过渡带']}" if m['过渡带'] else "")
+        print(f"| {name} | {m['n']} | {m['到达']:.2f} | [{lo:.2f}, {hi:.2f}] | {m['到达SD']:.2f} | {_c} |")
 
     print("\n## ② 同种子配对符号检验（**只在两条臂有共同种子时做**）\n")
     PAIRS = [("金标（连续·从零·旧配方）", "C（从零·两个都上·主线候选）"),
