@@ -49,6 +49,10 @@
   REEVAL_MANIFEST_DIRS  找 manifest / OT 文件的目录（冒号分隔）
   REEVAL_N          池上限（默认 0=全部）；调试用    REEVAL_SMOKE 1 → N=30 且只评第一个 ckpt
   REEVAL_OUT        结果 json（默认 reeval_official.json·写 cwd）
+  REEVAL_KEEP_PER   1 = **逐局明细**另存 `<OUT>_per.json`（默认关）。每个测试场景一条、约 45 个数值键、
+                    已剔 traj。用于逐场景配对比较 / 难易分布 / 按场景重采样 / 失败×几何热图等事后可视化
+                    —— 不存的话这些事只能重跑一趟评估。约 1 KB/局 ⟹ 108 臂 × 600 局 ≈ 70 MB。
+  REEVAL_PER_OUT    逐局明细的输出路径（默认 `<OUT 去掉 .json>_per.json`）
   REEVAL_ENVCFG_ACK 1 = 承认「连续臂 eval env knob 非金标默认」（默认非默认即中止）
   REEVAL_ALLOW_UNKNOWN_DATASET 1 = 允许评「训练集无法从 sidecar 还原」的 ckpt（默认中止）
   REEVAL_FORCE_KIND / REEVAL_FORCE_DATASET  老 ckpt 无 .progress.json 时的显式降级（此时【做不了锚点检查】）
@@ -94,6 +98,16 @@ FORCE_DATASET = os.environ.get("REEVAL_FORCE_DATASET", "").strip()
 #    不设 = 一行记录块都不执行 = 与 r6/r7 逐位相同。轨迹另落一个文件，**不塞进主 json**（免把它撑大）。
 TRAJ_KEYS = [s.strip() for s in os.environ.get("REEVAL_TRAJ_KEYS", "").replace(",", " ").split() if s.strip()]
 TRAJ_OUT = os.environ.get("REEVAL_TRAJ_OUT", "").strip()
+# 🆕 `03` L243-续4（user 2026-07-29 反复强调"尽可能把需要的数据都采集下来"）：
+#   **逐局明细落盘**。`per`（每个测试场景一条、约 45 个数值键）本来就**算出来了**，
+#   但此前只把它的**聚合值**写进 json、明细直接丢掉 ⟹ 事后想做
+#   「逐场景配对比较」「哪些场景难 / 谁在哪类场景上翻车」「按场景重采样的自助法」
+#   「失败原因 × 场景几何 的热图」这类可视化，**只能重跑一趟评估（1~2 小时）**。
+#   成本：约 1 KB/局 × 600 局 × N 条臂 ⟹ 108 条臂约 **70 MB**，写**单独一个文件**
+#   （不塞主 json，免得把 `_common.load_pass` 撑爆）。
+#   默认 **关**（一个字节都不多写 = 现状逐字不变）；`run_reeval_all.sh` 里默认开。
+KEEP_PER = os.environ.get("REEVAL_KEEP_PER", "").strip().lower() in ("1", "true", "yes", "on")
+PER_OUT = os.environ.get("REEVAL_PER_OUT", "").strip()
 # 🆕 r9（`03` L218）：转向低通滤波【权衡曲线】。给一串 α（逗号/空格分隔），每个 α 在同一池上评一遍
 #    ⟹ 一趟就出"转艏平顺度 vs 到达率"的曲线。**α=1.0 = 不滤波 = 对照组**（建议总把 1.0 写进去，同趟拿对照）。
 #    不设 = 完全不进这条路 = 与 r6/r7/r8 逐位相同。**纯评估期·零训练算力·安全关键文件一行不改。**
@@ -767,7 +781,7 @@ def main():
         print(f"[分型] {dict(Counter(types.values()))}", flush=True)
 
     # ---- 🆕 r8：要采轨迹的场景（多算法轨迹对比图·`03` L215-G）。不设 REEVAL_TRAJ_KEYS ⟹ traj_idxs=None ⟹ 逐位不变 ----
-    traj_idxs, trajs = None, {}
+    traj_idxs, trajs, pers = None, {}, {}
     if TRAJ_KEYS:
         kmap = {str(k): i for i, k in enumerate(keys)}
         miss = [k for k in TRAJ_KEYS if k not in kmap]
@@ -808,6 +822,15 @@ def main():
             with open(tp + ".tmp", "w", encoding="utf-8") as fh:
                 json.dump(trajs, fh, ensure_ascii=False)
             os.replace(tp + ".tmp", tp)
+        if pers:                                              # 🆕 逐局明细：同样单独一个文件、同样原子写
+            pp = PER_OUT or ((OUT[:-5] if OUT.endswith(".json") else OUT) + "_per.json")
+            with open(pp + ".tmp", "w", encoding="utf-8") as fh:
+                json.dump({"池键": keys, "clean键": sorted((keys[i] for i in clean_idx), key=str),
+                           "strict键": sorted((keys[i] for i in strict_idx), key=str),
+                           "说明": "逐局明细：每条臂 → 每个测试场景一条。`场景键` 可直接与上面三组键对照取子集。"
+                                   "`traj` 已剔除（在 *_traj.json 里）。",
+                           "逐局": pers}, fh, ensure_ascii=False)
+            os.replace(pp + ".tmp", pp)
 
     def _run_one(base, kind, weight, algo, out_name, sc, anchor, wrap):
         """评一个（checkpoint × 转向滤波档）→ 落进 results[out_name] 并刷盘。
@@ -844,6 +867,10 @@ def main():
         if traj_idxs:
             trajs[out_name] = {str(keys[p["scenario_idx"]]): p.get("traj")
                                for p in per if p.get("scenario_idx") in traj_idxs and p.get("traj")}
+        if KEEP_PER:                                          # 🆕 逐局明细（**剔掉 traj**：它已在 *_traj.json 里、留着会把文件撑大几十倍）
+            pers[out_name] = [dict({k: v for k, v in p.items() if k != "traj"},
+                                   场景键=str(keys[p["scenario_idx"]]))
+                              for p in per if p.get("scenario_idx") is not None]
         by_type, by_type_clean, by_type_strict = {}, {}, {}
         if types:
             g = defaultdict(set)

@@ -20,6 +20,7 @@
 #     BUDGET_SEG=30 python3 -B 代码/tests/select_best_ckpt.py 结果 结果/_best_seg30.json
 #     PASS=formal_best SELJSON=/root/trb/结果/_best_seg30.json \
 #       bash 代码/tests/run_reeval_all.sh 8 /root/trb/结果/正式-最佳
+#     PASS=traj bash 代码/tests/run_reeval_all.sh 3 /root/trb/结果/正式-轨迹全集    # 约 72 分钟 · 约 176 MB
 #
 # 耗时估算：单条臂约 8 分钟（单线程）。56 条臂 ÷ 8 组并行 ≈ 1 小时。
 # ══════════════════════════════════════════════════════════════════════════════════════════
@@ -38,6 +39,8 @@ mkdir -p "$OUT_DIR"
 #   PASS=legacy       （默认）59 条探索期臂 · 小集训练 ⟹ strict **563**
 #   PASS=formal_last  正式 9 条臂 × N 颗种子 · **末段存档** ⟹ strict **600**
 #   PASS=formal_best  正式 9 条臂 × N 颗种子 · **验证集最佳存档**（吃 select_best_ckpt.py 的产物）⟹ **600**
+#   PASS=traj         🆕 **轨迹专趟**：9 条臂 × TRAJ_SEEDS（默认 s0/s1/s2）· **全部 600 个场景都采轨迹**
+#                     ⟹ 出 Fig.4 时**你想画哪个场景就画哪个**，不必回头重跑评估
 #
 # 🔴 三条为什么必须这么切（复审抓出来的，别自己简化）：
 #   ① **分母不同**：正式臂全部在官方 1300 上训、与测试 600 零交集 ⟹ 谁都不贡献泄漏 ⟹ 600。
@@ -118,7 +121,30 @@ print('\n'.join(x for x in s.split(',') if x.strip()))" "$SELJSON")
     for p in "${_SEL[@]}"; do
       case "$p" in *"$NOSHIELD_TAG"*) ARMS_NOSHIELD+=("$p") ;; *) ARMS+=("$p") ;; esac
     done ;;
-  *) echo "❌ PASS 只接受 legacy / formal_last / formal_best，得 '$PASS'"; exit 1 ;;
+  traj)
+    # 🆕 `03` L243-续4（user 2026-07-29：「场景可视化我还得手动去挑，你别提前替我选死了」）：
+    #   **全部 600 个测试场景都采轨迹** ⟹ 出 Fig.4 时想画哪个画哪个，不必回头重跑评估。
+    #   成本实测：单条轨迹 ≈ 11.1 KB ⟹ 9 臂 × 3 种子 × 600 场景 ≈ **176 MB**、约 72 分钟（纯评估）。
+    #   🔴 只取少数几颗种子（默认 s0/s1/s2）——轨迹图是**定性插图**，不承担任何定量声明；
+    #      种子多了只是把 176 MB 变成 705 MB，换不来更多信息。
+    #   🔴 **种子必须事先声明**（默认 0 1 2），别跑完了再挑一颗好看的种子说"就用这颗"。
+    #      挑场景是你的自由（图是插图）；但**图注必须写明用的是哪颗种子、哪个场景号**（README §8-16）。
+    ARMS=(); EXPECT_STRICT="${REEVAL_EXPECT_STRICT:-600}"
+    TRAJ_SEEDS="${TRAJ_SEEDS:-0 1 2}"
+    for spec in "${FORMAL_SPEC[@]}"; do
+      P="${spec%%:*}"; T="${spec##*:}"
+      for s in $TRAJ_SEEDS; do
+        if [ "$T" = "$NOSHIELD_TAG" ]; then ARMS_NOSHIELD+=("${P}_s${s}${T}${s}")
+        else                                ARMS+=("${P}_s${s}${T}${s}"); fi
+      done
+    done
+    # 全池 600 个键：与 `run_step4e.make_split(2000, 0.30, 0)` **同一套逻辑**（已独立核过·`03` L243-§1）
+    TRAJ_KEYS=$("$PY" -c "
+import random
+ids=list(range(2000)); random.Random(0).shuffle(ids)
+print(','.join(str(k) for k in sorted(ids[:600])))")
+    echo "  轨迹专趟：全部 $(echo "$TRAJ_KEYS" | tr ',' '\n' | wc -l) 个测试场景 × 9 臂 × 种子[$TRAJ_SEEDS]" ;;
+  *) echo "❌ PASS 只接受 legacy / formal_last / formal_best / traj，得 '$PASS'"; exit 1 ;;
 esac
 export REEVAL_EXPECT_STRICT="$EXPECT_STRICT"
 N=${#ARMS[@]}
@@ -190,6 +216,7 @@ for ((g=0; g<NGROUP; g++)); do
   STEP4E_SDIR="$ROOT/scenarios" STEP4E_CODE_DIR="$CODE_DIR" \
   REEVAL_MANIFEST_DIRS="$ROOT/balanced_pool" REEVAL_CKDIRS="$CKDIRS" \
   REEVAL_POOL=official REEVAL_CKPTS="$LIST" REEVAL_TRAJ_KEYS="$TRAJ_KEYS" \
+  REEVAL_KEEP_PER="${REEVAL_KEEP_PER:-1}" \
   REEVAL_OUT="$OUT_DIR/g$g.json" REEVAL_TRAJ_OUT="$OUT_DIR/g${g}_traj.json" \
     "$PY" -B "$CODE_DIR/tests/reeval_official.py" > "$OUT_DIR/g$g.log" 2>&1 &
 done
@@ -205,6 +232,7 @@ if [ "$N_UNS" -gt 0 ]; then
   STEP4E_SDIR="$ROOT/scenarios" STEP4E_CODE_DIR="$CODE_DIR" \
   REEVAL_MANIFEST_DIRS="$ROOT/balanced_pool" REEVAL_CKDIRS="$CKDIRS" \
   REEVAL_POOL=official REEVAL_CKPTS="$ULIST" REEVAL_TRAJ_KEYS="$TRAJ_KEYS" \
+  REEVAL_KEEP_PER="${REEVAL_KEEP_PER:-1}" \
   REEVAL_OUT="$OUT_DIR/g$UG.json" REEVAL_TRAJ_OUT="$OUT_DIR/g${UG}_traj.json" \
     "$PY" -B "$CODE_DIR/tests/reeval_official.py" > "$OUT_DIR/g$UG.log" 2>&1 &
 fi
