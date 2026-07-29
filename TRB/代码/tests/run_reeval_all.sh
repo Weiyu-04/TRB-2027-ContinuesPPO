@@ -62,6 +62,16 @@ FORMAL_SPEC=(
 )
 NOSHIELD_TAG="_F240unsPpoS"          # 唯一需要 shield=0 的臂
 
+# 🆕 `03` L243-续3（user 2026-07-29：论文要「多算法轨迹放一张图」）：轨迹场景从 **4 个扩到 23 个**。
+#   原来只采 4 个 ⟹ 事先不知道哪几个画出来有代表性，挑不出来就得**重跑一趟评估**。
+#   一条轨迹约 11 KB ⟹ 23 个场景 × 108 条臂 ≈ 27 MB，**基本免费** ⟹ 多采、事后再选。
+# 🔴 **按【几何】分层挑，绝不按【结果】挑**（看了成绩再决定画哪个场景 = 变相 cherry-pick）：
+#   只用会遇类型（场景自身属性、与算法无关）分层，每类用 `stride_pick` **确定性等距**取 10 个，
+#   外加强制保留旧口径那 4 个（新老两趟的轨迹图可直接对照）。
+#   推导与复核：`python3 -B 代码/tests/pick_traj_keys.py --verify "<下面这串>"`
+#   （该脚本自带与 `03` L111 全库分类的硬比对：head-on 709 / crossing 1291，对不上直接中止）
+TRAJ_KEYS="${TRAJ_KEYS:-1,5,100,190,217,371,410,540,608,714,852,920,992,1006,1016,1142,1181,1326,1382,1546,1602,1764,1802}"
+
 # ─────────────────────────── 要评的臂（59 条·显式点名）───────────────────────────
 ARMS=()
 # 【已跑完 2026-07-28·`03` L238】L232 大集探针·新配方（C 配方 + 官方 1300 · 从零 5M · 脚本 代码/run_l231_bigset.sh）
@@ -179,7 +189,7 @@ for ((g=0; g<NGROUP; g++)); do
   OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 \
   STEP4E_SDIR="$ROOT/scenarios" STEP4E_CODE_DIR="$CODE_DIR" \
   REEVAL_MANIFEST_DIRS="$ROOT/balanced_pool" REEVAL_CKDIRS="$CKDIRS" \
-  REEVAL_POOL=official REEVAL_CKPTS="$LIST" REEVAL_TRAJ_KEYS="1,100,1006,1016" \
+  REEVAL_POOL=official REEVAL_CKPTS="$LIST" REEVAL_TRAJ_KEYS="$TRAJ_KEYS" \
   REEVAL_OUT="$OUT_DIR/g$g.json" REEVAL_TRAJ_OUT="$OUT_DIR/g${g}_traj.json" \
     "$PY" -B "$CODE_DIR/tests/reeval_official.py" > "$OUT_DIR/g$g.log" 2>&1 &
 done
@@ -194,7 +204,7 @@ if [ "$N_UNS" -gt 0 ]; then
   STEP4E_CONTINUOUS_SHIELD=0 \
   STEP4E_SDIR="$ROOT/scenarios" STEP4E_CODE_DIR="$CODE_DIR" \
   REEVAL_MANIFEST_DIRS="$ROOT/balanced_pool" REEVAL_CKDIRS="$CKDIRS" \
-  REEVAL_POOL=official REEVAL_CKPTS="$ULIST" REEVAL_TRAJ_KEYS="1,100,1006,1016" \
+  REEVAL_POOL=official REEVAL_CKPTS="$ULIST" REEVAL_TRAJ_KEYS="$TRAJ_KEYS" \
   REEVAL_OUT="$OUT_DIR/g$UG.json" REEVAL_TRAJ_OUT="$OUT_DIR/g${UG}_traj.json" \
     "$PY" -B "$CODE_DIR/tests/reeval_official.py" > "$OUT_DIR/g$UG.log" 2>&1 &
 fi

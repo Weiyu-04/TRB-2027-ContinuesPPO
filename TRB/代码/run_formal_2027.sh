@@ -50,7 +50,13 @@ export STEP4E_MANIFEST="$MANIFEST" STEP4E_BALANCED_DIR="$BALANCED" STEP4E_SDIR="
 export STEP4E_NENVS=8 STEP4E_ENT_START=0.01 STEP4E_ENT_END=0.01 STEP4E_ENT_FRAC=0.6
 export STEP4E_LOG_CURVES=1                         # 🔴 默认是关的！离散臂漏了就永远没有内部曲线（A 类量）
 export STEP4E_KEEP_SEGMENTS=1                      # 🔴 分段存档 —— "验证集挑最佳存档"这个定稿口径的唯一依据
-export STEP4E_RECORD_EVERY=25000                   # 与既有 5M 臂同网格（默认会变成每 5 万步）
+# 🆕 `03` L243-续3：设成 **16384 = 2048 × 8**（PPO 一个 rollout 的步数）。
+#   原因：**两条臂的 A 类量采集窗口本来不一样** —— 离散臂的 `_CurveLogger` 是每个 rollout 结束时
+#   快照一次（16,384 步），连续臂的 `_SACCurveLogger` 是按 `record_every` 快照（原来 25,000 步）
+#   ⟹ 两臂的 `roll_*` 曲线不在同一个横轴网格上，**要叠进同一张学习曲线图就得先重采样**。
+#   设成 16384 之后两臂同网格、可直接叠图。**只影响记录密度，不碰训练**（PPO 不吃这个键，
+#   它只喂连续臂的曲线记录器；`record_every` 也不在 `config_sig` 里 ⟹ 不影响续训匹配）。
+export STEP4E_RECORD_EVERY=16384
 export PY RES_DIR
 
 # ── 逐臂配方（**只列与共用项不同的**；空 = 全用默认）──────────────────────────
