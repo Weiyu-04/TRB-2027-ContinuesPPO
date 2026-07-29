@@ -255,11 +255,23 @@ trap 'kill "$RSS_SAMPLER" 2>/dev/null' EXIT
 for A in $ARMS; do
   T="_smkF240$A"; SMK="$RES_DIR/step4e_partial${T}.jsonl"; SEGDIR="$RES_DIR/checkpoints/segments"
   MET="$RES_DIR/run_metadata${T}.json"                     # 🆕 静态元数据（keep_segments / 各开关真落地的值都在这里）
-  rm -f "$SMK" "$MET"; rm -f "$SEGDIR"/*"${T}"@s* 2>/dev/null
-  # shellcheck disable=SC2046
-  env $(arm_env "$A") STEP4E_SMOKE=1 STEP4E_STEPS=8000 STEP4E_NSEG=2 STEP4E_SEEDS=0 STEP4E_TAG="$T" \
-    "$PY" -B run_step4e.py > "$RES_DIR/_${T}.log" 2>&1 \
-    || { echo "  ❌ 臂 $A 冒烟跑崩（看 $RES_DIR/_${T}.log）"; tail -15 "$RES_DIR/_${T}.log"; exit 1; }
+  # 🆕 L243-续9：`SKIP_SMOKE=1` = **复用上一次冒烟留在盘上的证据**，只省掉那 1~1.5 小时的计算。
+  #   这不是"少查了"—— 冒烟的两个产物（jsonl + run_metadata）跑完**没被删**（只删了分段副本和主存档），
+  #   所以下面每一条检查照样在真实证据上重跑一遍。**唯一没法重验的**是"分段副本真躺在磁盘上"那条
+  #   （副本上次验完就清了），会显式告诉你。
+  #   ⟹ 只在【同一台机器上、配方一个字没改、刚刚跑过一次完整闸门 2】的重启场景用它。
+  if [ "${SKIP_SMOKE:-0}" = "1" ]; then
+    { [ -s "$SMK" ] && [ -s "$MET" ]; } || {
+      echo "  ❌ SKIP_SMOKE=1 但臂 $A 没有上一次冒烟的产物（缺 $SMK 或 $MET）"
+      echo "     ⟹ 这台机器没跑过完整的闸门 2，**不能跳**。去掉 SKIP_SMOKE 重来。"; exit 1; }
+    echo "  ⏭ 臂 $A：复用上次冒烟的产物，下面的检查照跑"
+  else
+    rm -f "$SMK" "$MET"; rm -f "$SEGDIR"/*"${T}"@s* 2>/dev/null
+    # shellcheck disable=SC2046
+    env $(arm_env "$A") STEP4E_SMOKE=1 STEP4E_STEPS=8000 STEP4E_NSEG=2 STEP4E_SEEDS=0 STEP4E_TAG="$T" \
+      "$PY" -B run_step4e.py > "$RES_DIR/_${T}.log" 2>&1 \
+      || { echo "  ❌ 臂 $A 冒烟跑崩（看 $RES_DIR/_${T}.log）"; tail -15 "$RES_DIR/_${T}.log"; exit 1; }
+  fi
   # 🔴 L243-续8 A1（**今天这个脚本起不来的元凶**）：`keep_segments` 只写进
   #   `结果/run_metadata<TAG>.json`（`run_step4e.py:1938` 的 write_run_metadata），
   #   **逐 run 的 jsonl 记录里没有这个键**（我解包现存 jsonl 核过：55 个顶层键，没有它）。
@@ -313,9 +325,13 @@ sys.exit(0 if n>0 else 1)" "$SMK" \
       || { echo "  ❌ 臂 $A：roll_n_act 全程 0 ⟹ 打满舵率/盾改写量这些 A 类量【采不到】（采集被 try/except 静默吞了）"; exit 1; }
   fi
   # 🔴 最关键：分段副本必须**真的躺在磁盘上**，且份数 == NSEG。这条至今从没在真实 run 里验证过。
-  NZ=$(ls "$SEGDIR"/*"${T}"@s*.zip 2>/dev/null | wc -l)
-  [ "$NZ" -eq 2 ] || { echo "  ❌ 臂 $A：segments/ 里 .zip 有 $NZ 份（应 2 = NSEG）⟹ 分段存档没落地，别烧全量"; exit 1; }
-  rm -f "$SEGDIR"/*"${T}"@s*                    # 只清本冒烟 TAG 的（**绝不整目录删**）
+  if [ "${SKIP_SMOKE:-0}" = "1" ]; then
+    echo "     ⚠️ 「分段副本真落地」这条**没重验**（上次验完就把副本清了）—— 上次是过了的，本次沿用该结论"
+  else
+    NZ=$(ls "$SEGDIR"/*"${T}"@s*.zip 2>/dev/null | wc -l)
+    [ "$NZ" -eq 2 ] || { echo "  ❌ 臂 $A：segments/ 里 .zip 有 $NZ 份（应 2 = NSEG）⟹ 分段存档没落地，别烧全量"; exit 1; }
+    rm -f "$SEGDIR"/*"${T}"@s*                  # 只清本冒烟 TAG 的（**绝不整目录删**）
+  fi
   # 🔴 L243-续8 A6：冒烟的**主存档**原来留在 `checkpoints/` 同层没人清。
   #   `reeval_official.py:discover_ckpts()` 是 `glob(<dir>/*.zip)` + 有同名 _vecnorm.pkl 就收 ⟹
   #   将来不带 REEVAL_CKPTS 做全量重评时，表里会多出 9 条**只训了 3 万步**的"臂"，
@@ -328,16 +344,61 @@ kill "$RSS_SAMPLER" 2>/dev/null; trap - EXIT
 
 echo "===== [闸门 2.6] 内存够不够跑 $KMAX 路（**实测·不是估的**）====="
 PEAK_KB=$(sort -n "$RSSLOG" | tail -1)
-[ -n "$PEAK_KB" ] && [ "$PEAK_KB" -gt 0 ] || { echo "  ⚠️ 没采到内存样本（ps 输出为空？）→ 跳过本闸，**起飞后自己盯 free -g**"; PEAK_KB=0; }
+# 🆕 L243-续9：`PEAK_MB=<每 run 峰值 MB>` 可覆盖实测值。**用真跑量到的数**，别拍脑袋：
+#   拿 `memory.usage_in_bytes ÷ 当时在跑的 run 数` 就是最准的（user 实测 ≈ 6.3 GiB/run ⟹ PEAK_MB=6500）。
+#   `SKIP_SMOKE=1` 时没有冒烟可采样 ⟹ **必须给 PEAK_MB**，否则内存闸会空转，而这次被 OOM 杀就是它空转害的。
+if [ -n "${PEAK_MB:-}" ]; then
+  PEAK_KB=$(( PEAK_MB * 1024 ))
+  echo "  ⓘ 用 PEAK_MB=$PEAK_MB 覆盖实测峰值（$(echo "$PEAK_KB" | awk '{printf "%.2f", $1/1048576}') GiB/run）"
+elif [ "${SKIP_SMOKE:-0}" = "1" ]; then
+  echo "  ❌ SKIP_SMOKE=1 跳过了冒烟 ⟹ 采不到内存峰值 ⟹ **内存闸会空转**，而这正是上次被 OOM 杀的原因。"
+  echo "     ⟹ 必须显式给 PEAK_MB=<每 run 峰值 MB>。怎么量（在还在跑的机器上）："
+  echo "        U=\$(cat /sys/fs/cgroup/memory/memory.usage_in_bytes); N=\$(ps -eo args= | grep -c '[r]un_step4e.py')"
+  echo "        echo \$(( U / 1048576 / N ))    # 这个数就是 PEAK_MB"
+  exit 1
+fi
+[ -n "$PEAK_KB" ] && [ "$PEAK_KB" -gt 0 ] || { echo "  ⚠️ 没采到内存样本（ps 输出为空？）→ 跳过本闸，**起飞后自己盯内存**"; PEAK_KB=0; }
 if [ "$PEAK_KB" -gt 0 ]; then
-  AVAIL_KB=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
+  # 🔴🔴 L243-续9（**起飞当天真被 OOM 杀了才发现**·实测坐实）：
+  #   原来这里读 `/proc/meminfo`。**在容器里（AutoDL/Docker 这类），`/proc/meminfo` 报的是
+  #   宿主机的内存，不是这个容器实际能用的额度**。user 那两台实测：
+  #     /proc/meminfo MemTotal 377.5 GB · MemAvailable 279.0 GB
+  #     真实限额 memory.limit_in_bytes = 64,424,509,440 = **60.0 GiB**   ⟹ 高估 4.7 倍
+  #   后果：闸门放行 10 路 → 9 条臂同时起、每条约 6.3 GiB → 56.7 GiB = 限额的 95% → 被 OOM 杀掉一条。
+  #   ⟹ 上限一律取 **min(容器 cgroup 限额, /proc/meminfo 可用)**，两个都拿不到才回落。
+  cg_limit_kb () {
+    local v=""
+    [ -r /sys/fs/cgroup/memory.max ] && v=$(cat /sys/fs/cgroup/memory.max 2>/dev/null)            # cgroup v2
+    case "$v" in ''|max|*[!0-9]*) v="" ;; esac
+    if [ -z "$v" ] && [ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then                     # cgroup v1
+      v=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null)
+      case "$v" in ''|*[!0-9]*) v="" ;; esac
+    fi
+    # v1 "无限制" 是个天文数字哨兵（≈2^63）⟹ 视为没设限额
+    if [ -n "$v" ] && [ "$v" -gt 0 ] 2>/dev/null && [ "$v" -lt 1000000000000000 ] 2>/dev/null; then
+      echo $(( v / 1024 )); else echo 0; fi
+  }
+  HOST_AVAIL_KB=$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)
   TOTAL_KB=$(awk '/^MemTotal:/{print $2}' /proc/meminfo)
+  CG_KB=$(cg_limit_kb)
+  if [ "$CG_KB" -gt 0 ] && [ "$CG_KB" -lt "$HOST_AVAIL_KB" ]; then
+    AVAIL_KB="$CG_KB"; TOTAL_KB="$CG_KB"
+    printf "  📦 **容器限额 %.1f GiB**（/proc/meminfo 报的 %.0f GB 是宿主机的，不作数）\n" \
+      "$(echo "$CG_KB" | awk '{print $1/1048576}')" "$(echo "$HOST_AVAIL_KB" | awk '{print $1/1048576}')"
+  else
+    AVAIL_KB="$HOST_AVAIL_KB"
+    echo "  ⓘ 没读到 cgroup 内存限额（非容器 / 无限制）⟹ 用 /proc/meminfo 的可用值"
+  fi
   NEED_KB=$(( PEAK_KB * KMAX ))
-  # 留 15% 余量：page cache + 分段存档写盘 + 段末评估的临时峰值
-  SAFE_KB=$(( AVAIL_KB * 85 / 100 ))
+  # 🔴 余量从 15% 提到 **30%**（L243-续9 实测定的，不是拍脑袋）：
+  #   ① **启动峰值 > 稳态** —— 9 条臂同时加载各自的 8 份场景池，被杀的那条正是死在第 0 段（还没跑完第一段）；
+  #   ② **段末评估是同步的** —— 同批起的 run 会在差不多同一时刻各自评 600 个场景，尖峰叠加；
+  #   ③ **progress.json 越写越大** —— curves 跨段累积，第 20 段序列化时有瞬时峰值。
+  #   按 60 GiB 限额 + 实测 6.3 GiB/run：85% 余量会算出 8 路（实测 84% 占用，太紧）；70% 算出 **6 路**（63%，稳）。
+  SAFE_KB=$(( AVAIL_KB * 70 / 100 ))
   KFIT=$(( SAFE_KB / PEAK_KB ))
   printf "  单 run 峰值常驻 %.1f GB（冒烟实测·真数据集真 NENVS=%s）\n" "$(echo "$PEAK_KB" | awk '{print $1/1048576}')" "${STEP4E_NENVS:-8}"
-  printf "  本机 MemTotal %.0f GB · MemAvailable %.0f GB ⟹ 留 15%% 余量后可跑 **%s 路**\n" \
+  printf "  可用上限 %.1f GiB（总 %.1f GiB）⟹ 留 30%% 余量后可跑 **%s 路**\n" \
     "$(echo "$TOTAL_KB" | awk '{print $1/1048576}')" "$(echo "$AVAIL_KB" | awk '{print $1/1048576}')" "$KFIT"
   printf "  本次要 %s 路 ⟹ 需 %.0f GB\n" "$KMAX" "$(echo "$NEED_KB" | awk '{print $1/1048576}')"
   if [ "$NEED_KB" -gt "$SAFE_KB" ]; then

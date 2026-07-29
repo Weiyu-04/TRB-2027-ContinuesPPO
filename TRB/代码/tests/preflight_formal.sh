@@ -24,7 +24,7 @@ echo "═══ 起飞前预检 · $(hostname) · $(pwd) ═══"
 
 echo "── ① 代码是不是最新版（**整棵树**逐字对·不靠“我同步过了”）──"
 # 基准 = 主窗口 main 分支的树指纹。**本文件自身被排除在外**（否则改基准值会改掉树指纹 = 自指死循环）。
-BASE_CODE=6c3f08d943356b1d          # 代码/ 下全部 *.py + *.sh（不含本文件）
+BASE_CODE=0274d2f0744383a6          # 代码/ 下全部 *.py + *.sh（不含本文件）
 BASE_PAPER=ed3f8c3c97f88226        # Paper/正式实验/ 下全部 *.py（出表/出图/统计）
 tree_fp () {   # $1=目录  $2=排除的相对路径（可空）
   ( cd "$1" 2>/dev/null || exit 0
@@ -106,8 +106,23 @@ fi
   && ok "清单六项自洽（训练 1300 + 验证 100 · 与测试 600 零交集）" || no "清单校验没过 → 别烧卡"
 
 echo "── ④ 机器资源 ──"
-CORE=$(nproc); MEM=$(awk '/MemTotal/{printf "%.0f",$2/1048576}' /proc/meminfo)
+CORE=$(nproc)
+# 🔴 L243-续9（起飞当天被 OOM 杀了才发现）：容器里 `/proc/meminfo` 报的是**宿主机**内存。
+#   user 实测：/proc/meminfo 说 377G 可用 279G，而容器真实限额只有 **60 GiB** ⟹ 高估 4.7 倍，
+#   预检和起跑闸门都被骗过去，放行 10 路 → 被 OOM 杀。⟹ 一律取 min(cgroup 限额, /proc/meminfo)。
+_cg=0
+for _f in /sys/fs/cgroup/memory.max /sys/fs/cgroup/memory/memory.limit_in_bytes; do
+  [ -r "$_f" ] || continue
+  _v=$(cat "$_f" 2>/dev/null)
+  case "$_v" in ''|max|*[!0-9]*) continue ;; esac
+  [ "$_v" -gt 0 ] 2>/dev/null && [ "$_v" -lt 1000000000000000 ] 2>/dev/null && { _cg=$(( _v / 1048576 )); break; }
+done
+MEM=$(awk '/MemTotal/{printf "%.0f",$2/1048576}' /proc/meminfo)
 AV=$(awk '/MemAvailable/{printf "%.0f",$2/1048576}' /proc/meminfo)
+if [ "$_cg" -gt 0 ] && [ "$_cg" -lt "$AV" ]; then
+  echo "     📦 **容器内存限额 ${_cg}G**（/proc/meminfo 报的 ${MEM}G/${AV}G 是宿主机的，不作数）"
+  MEM=$_cg; AV=$_cg
+fi
 DF=$(df -BG --output=avail . 2>/dev/null | tail -1 | tr -dc 0-9)
 echo "     核数 $CORE · 内存 ${MEM}G（可用 ${AV}G）· 磁盘可用 ${DF}G"
 # 🔴 磁盘门槛按【实测】定，不拍脑袋（`03` L243-续6）：
@@ -126,7 +141,8 @@ else NEED=8; WHY="依赖还没装 ⟹ 要留 torch 等约 4~5G 的安装空间";
 # 粗判：单 run 光场景池 ≈ 8 worker × 1300 × 0.20MB ≈ 2.1G，加 torch 基线保守按 3.5G/run 估
 # 🆕 L243-续8：并发数不再写死 10 —— 用 `KMAX=<你起飞时要用的并发数> bash ...` 让预检和起飞命令同一个数。
 K="${KMAX:-10}"
-NEED=$(( K * 35 / 10 ))
+# 🔴 L243-续9：单 run 按**真跑实测** 6.3 GiB 算（原来拍的 3.5 GiB 低了近一倍），并留 30% 余量
+NEED=$(( K * 63 / 10 * 10 / 7 ))
 [ "${AV:-0}" -ge "$NEED" ] && ok "内存粗判够跑 $K 路（需约 ${NEED}G）" \
   || no "可用 ${AV}G < 粗估 ${NEED}G ⟹ $K 路很可能 OOM（精确判定见起跑脚本闸门 2.6 的实测值）"
 [ "$CORE" -ge $(( K * 2 )) ] && ok "核数 $CORE 够跑 $K 路（每 run 8 个采样进程，超订也能跑但会变慢）" \
