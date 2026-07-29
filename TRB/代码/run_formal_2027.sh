@@ -164,9 +164,18 @@ done
 TREE_FP=$(cd "$CODE_DIR" && find . -name '*.py' -o -name '*.sh' | LC_ALL=C sort \
           | xargs sha256sum 2>/dev/null | sha256sum | cut -c1-16)
 echo "TREE $TREE_FP  (整棵 代码/ 树·*.py + *.sh)" >> "$RES_DIR/_formal_code_fingerprint.txt"
+# 🔴 L243-续9：**再单独记一个「只含训练路径」的指纹**（`run_step4e.py` + `trb_env/**`）。
+#   为什么必须分开：起跑之后如果只改了**启动脚本**（比如 L243-续9 修内存闸），整棵树的指纹会变，
+#   但**训练出来的模型逐位不变**。论文方法节要证明"这张表的全部 run 出自同一套训练代码"，
+#   该引的是 TRAIN 这个数，不是 TREE。分开记 = 中途修编排脚本不会污染这条证据链。
+TRAIN_FP=$(cd "$CODE_DIR" && find run_step4e.py trb_env -name '*.py' 2>/dev/null | LC_ALL=C sort \
+           | xargs sha256sum 2>/dev/null | sha256sum | cut -c1-16)
+echo "TRAIN $TRAIN_FP  (**只含训练路径**：run_step4e.py + trb_env/**.py ⟹ 论文方法节引这个)" \
+  >> "$RES_DIR/_formal_code_fingerprint.txt"
 cat "$RES_DIR/_formal_code_fingerprint.txt"
 echo "  ✅ 指纹已落盘（论文方法节要写）"
-echo "  🔴 **三台机器的 TREE 值必须逐字相同** —— 不同 = 有机器漏同步了文件，现在停下来同步，别烧。"
+echo "  🔴 **各机的 TRAIN 值必须逐字相同** —— 它变了 = 训练代码变了 = 前后的 run 不可比，必须停。"
+echo "     （TREE 只是编排脚本也算进去的版本号；只改启动脚本时 TREE 会变而 TRAIN 不变，那是允许的。）"
 
 echo "===== [闸门 0.3] 清单自洽（六项必须全 ✅）====="
 "$PY" -B "$CODE_DIR/make_official_manifest.py" --check "$MANIFEST" || { echo "❌ 清单校验没过 → 别烧卡"; exit 1; }
