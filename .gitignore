@@ -14,3 +14,5 @@ __pycache__/
 *.synctex.gz
 *.fdb_latexmk
 *.fls
+# 论文工作稿的编译 PDF（参考资料/ 与 Paper/03_参考文献/ 里的引用 PDF 已跟踪、不受影响）
+TRB/Paper/01_论文稿/*.pdf
