@@ -14,5 +14,5 @@ __pycache__/
 *.synctex.gz
 *.fdb_latexmk
 *.fls
-# 论文工作稿的编译 PDF（参考资料/ 与 Paper/03_参考文献/ 里的引用 PDF 已跟踪、不受影响）
-TRB/Paper/01_论文稿/*.pdf
+# xelatex 的原始编译输出（临时）；跟踪的是 *_预览.pdf（人工更新的仓库预览版）
+TRB/Paper/01_论文稿/729-paper-中文版.pdf
