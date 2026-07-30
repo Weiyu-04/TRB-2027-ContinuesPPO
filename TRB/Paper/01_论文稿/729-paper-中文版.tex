@@ -64,7 +64,7 @@
 \usepackage{fancyhdr}
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\itshape 作者姓氏串（Running head·定稿补）}   % ▶ M3：改成本文作者姓氏串
+\fancyhead[L]{\itshape Tang, Xue, Yang, and Li}
 \fancyfoot[C]{\thepage}
 \renewcommand{\headrulewidth}{0pt}
 \renewcommand{\footrulewidth}{0pt}
@@ -139,40 +139,67 @@
 %------------------------------------------------------------------------------
 \begin{flushleft}
 {\bfseries 连续动作空间下基于投影式安全盾的可证明 COLREGs 方向合规无人船避碰}\par
-{\itshape（中文工作稿·英文定名待定；标题只敢说“方向合规”，不得出现 collision-free）}\par
 \vspace{12pt}
 
-{\bfseries 作者姓名\textsuperscript{*}}\par
-所属院系\par
-单位名称，城市，国家／地区，邮编\par
-ORCID: https://XXX\par
-Email: author@university.edu\par
+% ── 作者块（逐段量过官方模板 TAD_Publications_AMSamplePaper.docx 的封面）──
+%  模板约定：姓名一行**加粗**；**通讯作者**在姓名后加 `*`，文末以「*Corresponding Author」注明。
+%  🔴 星号只标通讯作者，与"第一作者"是两回事 —— **排在第一位即第一作者**，模板不另设标记。
+%  每位作者：姓名（粗）→ 职务（有则写）→ 实验室 → 院系 → 单位, 城市, 邮编, 国家 → Email；块间空一行。
+{\bfseries Weiyu Tang}\par
+Graduate Research Assistant\par
+Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
+School of Naval Architecture, Ocean \& Civil Engineering\par
+Shanghai Jiao Tong University, Shanghai, 200240, China\par
+Email: weiyutang@sjtu.edu.cn\par
 \vspace{12pt}
 
-总页数：\TBD\par                                  % M4：定稿填真数
+{\bfseries Jie Xue, Ph.D.\textsuperscript{*}}\par
+Assistant Research Professor\par
+State Key Laboratory of Ocean Engineering\par
+School of Naval Architecture, Ocean and Civil Engineering\par
+Shanghai Jiao Tong University, Shanghai, 200240, China\par
+Email: j.xue@sjtu.edu.cn\par
 \vspace{12pt}
 
-\textit{投稿日期：[待定]}\par
-\textsuperscript{*}通讯作者\par
+{\bfseries Peijie Yang}\par
+Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
+School of Naval Architecture, Ocean \& Civil Engineering\par
+Shanghai Jiao Tong University, Shanghai, 200240, China\par
+Email: yangpeijie21@sjtu.edu.cn\par
+\vspace{12pt}
+
+{\bfseries Qianbing Li}\par
+Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
+School of Naval Architecture, Ocean \& Civil Engineering\par
+Shanghai Jiao Tong University, Shanghai, 200240, China\par
+Email: \TBD\par
+\vspace{12pt}
+
+Total Number of Pages: \TBD\par
+\vspace{24pt}
+
+Submitted [Submission Date]\par
+\textsuperscript{*}Corresponding Author\par
 \end{flushleft}
 
 \newpage   % 封面信息独占一页（user 指定）
 
 %------------------------------------------------------------------------------
 \section{Abstract}
-\noindent\textit{（结构化摘要·须 < 300 词。“发现”段为占位骨架，数据到手后据真实结果重写，不填未定数字。）}
+% 官方规范：≤300 词 · 独占一页且**不含其他内容** · 五个必需标题（粗体、按序）· 每节一段 ·
+%   **不得含图表、公式或未定义缩写** · 须能独立成文。数字待结果回填，以【待填】标出。
 
 \justifying
 
-\abshead{研究目标（Objectives）：}可证明 COLREGs（国际海上避碰规则）方向合规的无人船避碰，此前只能二选一：要么把动作空间离散化、屏蔽掉不合规动作，从而放弃连续控制；要么保住连续动作、把 COLREGs 退回成软性奖励惩罚，从而放弃硬保证。本文的目标是把投影式安全盾首次落到海事 COLREGs 的连续动作空间，并精确刻画这一层能证什么、不能证什么。
+\abshead{Objectives：}自主水面航行器的避碰须遵守《国际海上避碰规则》，而该规则的让路条款具有方向性：让路船须向规定一侧转向且幅度足以被察觉，故未发生碰撞但从错误一侧通过的航迹仍属违规。既有方法须在二者间取舍：量化舵与推进并屏蔽不合规动作可得逐步保证但放弃连续控制，将规则写入奖励可保留连续控制但无硬性保证。本文旨在连续控制下取得逐步的方向合规保证，并界定其适用范围。
 
-\abshead{方法（Methods）：}在以安全盾为环境一部分的强化学习框架（SE-RL）下，连续策略（PPO）给出的指令经三步处理：(i) 规则状态机判定相遇态势并给出合规让路方向；(ii) 合规方向半平面、单步无碰条件与动作箱求交，构成安全动作集；(iii) 二次规划把指令投影到该集合上最近的点。我们给出四条命题：远场单步无碰（严格可证）、每让路步方向合规（构造式成立）、紧急迫近不可避的 可靠充分条件证书，以及可清障集的控制不变性（据此设计后备机动终端约束，\emph{结论仍为暂定}）。在 CommonOcean 官方场景库上，以 9 种配置构成的八级单变量递进序列逐级拆开“离散换连续”“无盾换有盾”“两把连续专属改进项”三组机制。
+\abshead{Methods：}我们把让路条款表述为控制量平面上的半平面约束，与控制上下界及单步无碰条件求交，得到凸的安全控制集；策略输出经一个二维二次规划投影到该集合内最近的可行点后施加于环境，且该投影并入环境转移，使策略在训练中即适应此修正。数据取自公开的双船相遇仿真场景库，含 2000 个程序化生成算例，按官方划分为 1300 例训练、100 例验证与 600 例测试。共设 9 种对照配置，构成相邻两级只改一个变量的递进序列，每种以 8 个固定随机种子各训练约 1016 万步，并以同种子配对符号检验、自助法区间与稀有事件精确检验判定显著性。
 
-\abshead{发现（Findings）：}\textit{[待数据]} 合规方向作为硬约束进入二次规划，因此 让路步的方向合规不受随机种子方差影响；COLREGs 违规 \TBD；碰撞率 \TBD；油门增量相对离散基线的结构性优势 \TBD；在消融对照中有界动作分布把转艏增量降到 \TBD。所有效率指标报多种子配对检验 + 自助法置信区间 + 达标种子数，绝不挑种子。到达率不列为卖点。
+\abshead{Findings：}方向合规由硬约束承担，其成立与训练结果和随机种子无关；测试集上违规次数为【待填】、碰撞率为【待填】，相对量化动作基线的油门增量优势为【待填】，而仅改动作分布的对照显示有界分布将转艏增量降至【待填】。到达率与该基线相当，未见统计上可辨的优势，故不作为效能主张。
 
-\abshead{创新（Novelty）：}据我们所知，这是首个把投影式安全盾落到海事 COLREGs 连续控制的工作；并给出一套分级的可证明安全层。每条命题都附完整假设与作用域限制，同时明确写出哪些没有被证。
+\abshead{Novelty：}据我们所知，这是首个在连续控制下实现该规则方向合规的投影式安全机制，并给出分级的保证陈述，每条均附完整假设与适用边界且明确列出未被证明的部分。
 
-\abshead{实际应用（Practical Applications）：}为无人水面航行器提供规则合规可验证、且保留连续控制平顺性的避碰方案，其保证不依赖训练结果。
+\abshead{Practical Applications：}该机制不依赖训练结果即可作出逐步的合规判定，可作为既有航行控制系统之上的合规校验层，用于自主航行的功能验证与责任界定；其在线计算量为每步一个二维二次规划，可在无加速硬件的船载平台上实时运行。
 
 \RaggedRight
 
@@ -597,6 +624,10 @@ L_{\mathrm{lat}}(t)=
 种子 $=$ 0--7，共 8 颗，分布在 4 台机器上（每台 2 颗、每台 6 路并发）。\emph{按种子分机器，绝不按配置分机器}，同种子配对比较是本文的主统计工具，必须落在同一台机器内；按配置分机器等于把“机器”变成混淆变量。评估另说：一张报数表里每种配置必须同一台机器、同一轮内评完。
 
 报数预算取所有 run 都达到的最小段数，同一张表全部配置同一个值，并报实际步数而非名义值。
+
+\textbf{运行环境。}\ 全部训练与评估在服务器 CPU 上完成，\emph{未使用 GPU}：单机 32 个 vCPU（AMD EPYC 7T83，64 核处理器），内存 60~GB。不使用 GPU 是因为本文策略网络仅两层各 64 个神经元，其前向与反向的算术量远小于数据在主机与显存间往返的开销；真正占用算力的是环境仿真与每步的二次规划求解，二者均在 CPU 上执行。据此，每台机器的并发路数按内存上界而非核数确定：单条训练的常驻内存约 6~GB，故每台并发 6 路（约占内存的 $60\%$），余量用于覆盖启动期与段末评估的瞬时峰值。这一配置同时说明本方法的算力门槛不高，便于在不具备加速硬件的条件下复现。
+
+\textbf{单步求解耗时的口径。}\ 我们上报的单步求解耗时是\emph{单线程 CPU 墙钟}，随机器而变，须连同上述处理器型号与线程设置一并阅读；比较时看尾部分位（p95 与 p99）而非均值。他船不在感知窗内的决策步会短路、不进入二次规划，这些步不计入耗时分布，否则大量零值会稀释尾部。
 
 \subsection{指标}
 主指标对齐对标工作：到达率、碰撞率、每局 COLREGs 违规数、紧急控制步占比、每局时长；违规数进一步拆成让路违规与直航违规。控制质量：转艏增量（分总计 / 让路步 / 其他步）、油门增量、jerk、控制努力、次网格细调率、速度反转次数。安全裕度：最近点中心距 / 净空 / 发生时刻、最近点处航向误差与速度。盾的行为：介入步数、兜底触发率、投影修正量（均值 / p95 / 最大 / 零修正比例）。分型：按会遇类型拆全部指标、失败原因分型。实时性：单步求解耗时，分盾 / 策略 / 整步三层。
