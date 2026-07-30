@@ -28,6 +28,9 @@
 %   渲染成斜体正文、读者分不清哪里是命题陈述哪里是讨论。改用标准定理环境。
 \usepackage{amsthm}
 \renewcommand{\proofname}{证明}
+% 性质环境：独立编号（与节号无关，本稿 secnumdepth=0）。正文引用一律写"性质 N"。
+\newtheorem{prop}{性质}
+\newenvironment{propscope}{\par\noindent\itshape}{\par}
 \ifPDFTeX
   \usepackage[T1]{fontenc}
   \usepackage[utf8]{inputenc}
@@ -449,26 +452,34 @@ $r_{\mathrm{colregs}}$ 是一项随距离衰减的软性合规惩罚。它的启
 
 \textbf{远场：一步之内一定不碰。}
 
-\noindent\textbf{性质 1（远场单步无碰）。}\ 设本船与单个他船的中心距为 $d=\lVert p_e-p_m\rVert$。若
+\begin{prop}[远场单步无碰]\label{prop:farfield}
+设本船与单个他船的中心距为 $d=\lVert p_e-p_m\rVert$。若
 \begin{equation}
   d \;\ge\; d_{\mathrm{safe}} + v_{\mathrm{obs,max}}\Delta t + \rho_{\mathrm{ego}},
   \label{eq:farfield}
 \end{equation}
 则一个决策步之后，两船（以外接圆保守占据）必不相交。其中 $d_{\mathrm{safe}}=R_{\mathrm{circ,ego}}+R_{\mathrm{circ,obs}}$，$\rho_{\mathrm{ego}}=v_{\max}\Delta t+\tfrac12 a_{\max}\Delta t^2$ 为本船单步最大位移。
+\end{prop}
 
 代入常数：$R_{\mathrm{circ,ego}}=88.4$~m；他船宽度不在状态里，故取方形保守上界并叠加安全裕度 $d_{\mathrm{obs,safety}}=2\ell$，得 $R_{\mathrm{circ,obs}}=\tfrac12\sqrt2\,\ell+2\ell=123.74+350=473.74$~m；于是 $d_{\mathrm{safe}}=562.16$~m，$\rho_{\mathrm{ego}}=107.0$~m，$v_{\mathrm{obs,max}}\Delta t=95$~m，阈值 $=764.16$~m（工程取 $\sim780$~m 留裕度）。
 
 \textit{假设。}\ (A1) 单他船（多他船须对每个 $i$ 分别满足）；(A2) 他船速度 $\le 9.5$~m/s，式~\eqref{eq:dyn} 只约束受控船的航速，故他船的速度上界必须作为独立假设显式给出。我们在全库上实测：2000 个基准场景、342{,}000 个障碍状态，最大值 $7.10$~m/s，零个超过 $9.5$（裕度约 $2.4$~m/s）；若换成航速更高的真实 AIS 数据，阈值须相应抬高。(A3) 本船步末 $v\le v_{\max}$（环境裁剪保证）；(A4) 他船步内近似恒速；(A5) 外接圆保守占据。
 
-\textit{证明。}\ 由三角不等式，$d_{\mathrm{next}}\ge d-\lVert\Delta p_e\rVert-\lVert\Delta p_m\rVert\ge d-\rho_{\mathrm{ego}}-v_{\mathrm{obs,max}}\Delta t\ge d_{\mathrm{safe}}$，两外接圆不交，故两船体不交。$\square$
+\begin{proof}
+由三角不等式，$d_{\mathrm{next}}\ge d-\lVert\Delta p_e\rVert-\lVert\Delta p_m\rVert\ge d-\rho_{\mathrm{ego}}-v_{\mathrm{obs,max}}\Delta t\ge d_{\mathrm{safe}}$，两外接圆不交，故两船体不交。
+\end{proof}
 
 \textit{作用域。}\ 三角不等式与方向无关，故对遇已是真正的最坏情形，几何上没有缺口。这是整个可证明层最稳的一块。它是单步充分条件，不是不变性，也不是近场保证；目前尚未实现为提前退出的快路径。
 
 \textbf{让路：每一步的方向都合规。}
 
-\noindent\textbf{性质 2（每一让路步的方向合规）。}\ 在被状态机判为让路态势（$\rho\in\{\rho_2,\rho_3,\rho_4\}$）、且投影二次规划可行（未进入兜底）的每一个决策步上，实际执行的 $u_{\mathrm{safe}}$ 必落在式~\eqref{eq:ucolregs} 所定义的合规方向半平面内。
+\begin{prop}[每一让路步的方向合规]\label{prop:comply}
+在被状态机判为让路态势（$\rho\in\{\rho_2,\rho_3,\rho_4\}$）、且投影二次规划可行（未进入兜底）的每一个决策步上，实际执行的 $u_{\mathrm{safe}}$ 必落在式~\eqref{eq:ucolregs} 所定义的合规方向半平面内。
+\end{prop}
 
-\textit{证明。}\ 合规半平面以硬区间约束进入二次规划，投影解必然满足它。$\square$（构造式，不需要独立定理。）
+\begin{proof}
+合规半平面以硬区间约束进入二次规划，故投影解必然满足它。该结论是构造式的，不依赖任何额外引理。
+\end{proof}
 
 \textit{假设与作用域。}\ (B1) 单他船；(B2) 状态机分类正确（继承约 $12.6\%$ 的分类差与并列判定的已知缺口）；(B3) 二次规划可行；(B4) 作用域 $=$ 让路态势的相遇。让路触发率约 $13\text{--}16\%$（探索期 933 场景池实测，非本文正式报数池的 600），且这是相遇（回合）级而非逐步级的比率；直航违规才按步计。
 
@@ -479,7 +490,8 @@ $r_{\mathrm{colregs}}$ 是一项随距离衰减的软性合规惩罚。它的启
 
 紧急控制器是经验性的最后手段。我们不主张它能避碰；相反，我们给出一个\emph{可靠}（sound）的充分条件（所谓可靠，指该判据只会漏报、\emph{不会}误报），用以判定“碰撞在物理上已不可避”，从而把这个黑箱变成一条可判定的边界。它替换掉此前一版只检查转向逃逸、因而会漏掉加减速逃逸的不可靠的判据。
 
-\noindent\textbf{性质 3（碰撞不可避的保守判据）。}\ 设单个恒速他船。定义本船\emph{可达中心过近似集} $R_{\mathrm{box}}(t)$（艏向系矩形，中心取恒速外推），纵向半轴 $B_{\mathrm{lon}}(t)=\tfrac12 a_{\mathrm{eff}}t^2$，横向半轴 $L_{\mathrm{lat}}(t)$，其中 $a_{\mathrm{eff}}=\sqrt{a_{\max}^2+(v_{\mathrm{bnd}}\omega_{\max})^2}$、$v_{\mathrm{bnd}}=11.9$~m/s，且
+\begin{prop}[碰撞不可避的保守判据]\label{prop:imminent}
+设单个恒速他船。定义本船\emph{可达中心过近似集} $R_{\mathrm{box}}(t)$（艏向系矩形，中心取恒速外推），纵向半轴 $B_{\mathrm{lon}}(t)=\tfrac12 a_{\mathrm{eff}}t^2$，横向半轴 $L_{\mathrm{lat}}(t)$，其中 $a_{\mathrm{eff}}=\sqrt{a_{\max}^2+(v_{\mathrm{bnd}}\omega_{\max})^2}$、$v_{\mathrm{bnd}}=11.9$~m/s，且
 \begin{equation}
 L_{\mathrm{lat}}(t)=
 \begin{cases}
@@ -493,8 +505,11 @@ L_{\mathrm{lat}}(t)=
   \label{eq:imminent}
 \end{equation}
 则碰撞不可避：任何可行控制序列都会在 $t^\ast$ 与该他船相撞。
+\end{prop}
 
-\textit{证明（三步）。}\ (i) $R_{\mathrm{box}}$ 过近似真可达中心。速度矢量变化率 $\lVert d\bm v/dt\rVert=\sqrt{a^2+(v\omega)^2}\le a_{\mathrm{eff}}$，二重积分给出纵向界，横向偏移由 $\int_0^t v_{\mathrm{bnd}}\sin(\omega_{\max}s)\,ds=L_{\mathrm{lat}}(t)$ 界住；(ii) 内切盘欠近似船体；(iii) 若可达中心全部落在 $O(t^\ast)$ 的 $12.7$~m 膨胀内，则本船内切盘（$\subseteq$ 船体）与他船体相交 $=$ 碰撞，且这对所有可达位置成立。$\square$
+\begin{proof}[证明要点（三步）]
+(i) $R_{\mathrm{box}}$ 过近似真可达中心。速度矢量变化率 $\lVert d\bm v/dt\rVert=\sqrt{a^2+(v\omega)^2}\le a_{\mathrm{eff}}$，二重积分给出纵向界，横向偏移由 $\int_0^t v_{\mathrm{bnd}}\sin(\omega_{\max}s)\,ds=L_{\mathrm{lat}}(t)$ 界住；(ii) 内切盘欠近似船体；(iii) 若可达中心全部落在 $O(t^\ast)$ 的 $12.7$~m 膨胀内，则本船内切盘（$\subseteq$ 船体）与他船体相交 $=$ 碰撞，且这对所有可达位置成立。
+\end{proof}
 
 \textit{假设。}\ (C1) 单个恒速他船；(C2) 他船船体尺寸\emph{不得高估}——判据以他船船体矩形作欠近似，若调用方传入大于真实值的船宽，判据将不再可靠（会出现假阳）；(C3) 判据在有限时域 $T=120$~s 上以 $241$ 个等距时刻离散检查，故它是对连续时间条件的一个采样近似，其保守性由包络的单侧硬化保证；(C4) 内切圆欠近似本船船体，可达中心过近似集覆盖真可达集。
 
@@ -524,7 +539,9 @@ L_{\mathrm{lat}}(t)=
 
 \noindent\textbf{可靠性要点。}\ 凸性要求尾段恒\emph{速}，仅 $\omega=0$ 不够。加速的直行尾段路径对 $t$ 非仿射，$g$ 未必凸；故证书同时要求 $a=0$。该证书是充分条件：可靠，但保守，会拒绝一些其实安全的逃逸。
 
-\noindent\textbf{性质 4（可清障集的控制不变性，暂定）。}\ 对每个 $s\in A$ 及其已认证逃逸 $m=(u_0,u_1,\dots)$，施加 $u_0$ 一个决策步后得到 $s'$，其尾 $m'=(u_1,u_2,\dots)$ 仍是 $s'$ 的已认证直尾逃逸。因为它就是同一条已通过可靠性证书的物理轨迹的后半段。故 $s'\in A$，即 $A$ 是控制不变的。据此，“后继仍在 $A$ 内”这一终端约束（实现为对一条具体后备机动的 $O(1)$ 重认证）在设计上可使带盾闭环在 $A$ 上递归可行。
+\begin{prop}[可清障集的控制不变性，\emph{暂定}]\label{prop:inv}
+对每个 $s\in A$ 及其已认证逃逸 $m=(u_0,u_1,\dots)$，施加 $u_0$ 一个决策步后得到 $s'$，其尾 $m'=(u_1,u_2,\dots)$ 仍是 $s'$ 的已认证直尾逃逸。因为它就是同一条已通过可靠性证书的物理轨迹的后半段。故 $s'\in A$，即 $A$ 是控制不变的。据此，“后继仍在 $A$ 内”这一终端约束（实现为对一条具体后备机动的 $O(1)$ 重认证）在设计上可使带盾闭环在 $A$ 上递归可行。
+\end{prop}
 
 \textbf{合规版本 $A\cap U_{\mathrm{colregs}}$。}\ 盾必须选一个合规的第一步。设合规后备为“向规定一侧转 $t_1$ 秒、然后直行”。情形 1（$t_1>\Delta t$）：尾段仍以合规转向开头、仍已认证，故 $s'\in A\cap U_{\mathrm{colregs}}$。这一情形已证。情形 2（$t_1\le\Delta t$）：尾段第一步是直行，需从 $s'$ 重新找合规逃逸，一般性证明尚缺。在盾的真实让路状态分布上，情形 2 未曾出现（$175$~m 级船体、转艏率约 $1.7^\circ$/s，任何合规的清障转向都必然长于一个决策步）。
 
@@ -752,7 +769,7 @@ L_{\mathrm{lat}}(t)=
 \begin{figure}[t]
   \centering
   \figplaceholder{图 5（2$\times$2：盾介入率 / 动作饱和率两轴 / 盾改写量 / 态势占比）}
-  \caption{盾的行为随训练演化（连续动作特有的证据）。（a）盾介入率随训练步数下降，说明策略在 SE-RL 下逐步学会自己产生合规动作。（b）动作饱和率随训练的变化，转艏轴与加速度轴分开画，并把有界分布配置、无界高斯配置与离散动作配置叠在同一张图上。离散网格的 $|\omega|$ 与 $|a|$ 上界恰好等于连续动作箱的半宽，因此两种动作空间共用同一条打满判据、可直接叠图；这是“有界连续动作 vs.\ 离散 $7\times7$ 网格”这一主张的直接证据。（c）投影修正量（按箱半宽归一化）的中位数与 p95 随训练收敛。（d）相遇态势占比随训练的变化，其中紧急态占比是性质 2 作用域的关键数字。}
+  \caption{盾的行为随训练演化（连续动作特有的证据）。（a）盾介入率随训练步数的变化（\TBD）。若该曲线下降，则表明策略在带盾训练下逐步学会自行产生落在安全动作集内的动作；本图只呈现曲线，该解读须由曲线本身支持。（b）动作饱和率随训练的变化，转艏轴与加速度轴分开画，并把有界分布配置、无界高斯配置与离散动作配置叠在同一张图上。离散网格的 $|\omega|$ 与 $|a|$ 上界恰好等于连续动作箱的半宽，因此两种动作空间共用同一条打满判据、可直接叠图；这是“有界连续动作 vs.\ 离散 $7\times7$ 网格”这一主张的直接证据。（c）投影修正量（按箱半宽归一化）的中位数与 p95 随训练收敛。（d）相遇态势占比随训练的变化，其中紧急态占比是性质 2 作用域的关键数字。}
   \label{fig:shield}
 \end{figure}
 %  ▶ 🔴 本图需在 Paper/正式实验/04_图/ 新写脚本（现有 make_figures.py 没有这一张）
@@ -763,7 +780,7 @@ L_{\mathrm{lat}}(t)=
 \begin{figure}[t]
   \centering
   \figplaceholder{图 6（同一场景 $\times$ 四种方法的轨迹）}
-  \caption{同一场景下四种方法的轨迹对比（场景 T-\TBD，种子 s\TBD）。本船轨迹按相遇态势着色（无冲突 / 直航 / 让路 / 紧急），他船轨迹为灰色，圆点间隔 10~s（一个决策步）；虚线圆为性质 1 的远场阈值（约 780~m）。本文方法在让路段做出向右的、幅度超过 $20^\circ$ 的明显转向，而无盾基线从左侧穿过（无碰撞但违规）。本图是定性插图，不承担任何定量声明；场景为人工挑选，种子集合（s0/s1/s2）在跑之前已声明。}
+  \caption{同一场景下四种方法的轨迹对比（场景 T-\TBD，种子 s\TBD）。本船轨迹按相遇态势着色（无冲突 / 直航 / 让路 / 紧急），他船轨迹为灰色，圆点间隔 10~s（一个决策步）；虚线圆为性质 1 的远场阈值（约 780~m）。按各方法的实际轨迹标注其在让路段的转向方向与幅度（\TBD）；选图时以能同时呈现"合规让路"与"无碰撞但方向违规"两类结果为准，具体场景与轨迹形态待数据到手后确定。本图是定性插图，不承担任何定量声明；场景为人工挑选，种子集合（s0/s1/s2）在跑之前已声明。}
   \label{fig:traj}
 \end{figure}
 %  ▶ 来源：同上 → Fig4_trajectories.*；轨迹原始数据来自全 600 场景 × 9 臂 × 3 种子的 *_traj.json
