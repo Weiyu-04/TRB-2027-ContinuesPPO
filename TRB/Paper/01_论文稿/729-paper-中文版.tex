@@ -109,7 +109,7 @@
 %--- 参考文献：官方规范要求 **Chicago 作者-年份**、按第一作者姓氏字母序、悬挂缩进、
 %    正文引用写 (Author, Year)，**不许用上标或编号**。
 %    〔2026-07-29 订正：此前我照参考论文改成了数字顺序引用，与官方规范相反，已改回。〕
-\newcommand{\refitem}[1]{\par\noindent\hangindent=0.5in\hangafter=1 #1\par\vspace{6pt}}
+\newcommand{\refitem}[1]{\par\begingroup\emergencystretch=3em\sloppy\noindent\hangindent=0.5in\hangafter=1 #1\par\endgroup\vspace{6pt}}
 %    正文引用宏：\cit{Smith 2020} → (Smith 2020)；\citp{Smith 2020}{25--27} → (Smith 2020, 25--27)
 \newcommand{\cit}[1]{(#1)}
 \newcommand{\citp}[2]{(#1, #2)}
@@ -238,13 +238,15 @@ Submitted [Submission Date]\par
 %==============================================================================
 \section{Literature Review}
 
-\textbf{海事 COLREGs 避碰：从几何方法到学习方法。}\ 传统海事避碰多建立在解析与优化框架上：速度障碍、模型预测控制与控制障碍函数在船舶操纵动力学 \citp{Fossen}{2011} 之上给出可核验的安全性。近期工作把 COLREGs 结构直接编码进这类控制器——\citp{Lee et al.}{2025} 以转向圆控制障碍函数表达让路几何，\citp{Patil et al.}{2026} 用凸优化同时处理规则合规与防搁浅，\citp{Paine et al.}{2026} 为异构无人船编队设计分布式控制障碍函数滤波。这些方法保证性强，却都不含可学习的策略，行为完全由手工控制律决定。与之相对，学习类方法把 COLREGs 写入回报函数：\citp{Meyer et al.}{2020} 与 \citp{Heiberg et al.}{2022} 用基于碰撞风险的软性惩罚在连续控制上诱导合规，\citp{Zhao and Roh}{2019} 与 \citp{Sawada et al.}{2021} 分别在多船与连续动作设置下用深度强化学习学习避让，\citp{Vaidheeswaran et al.}{2025} 在离散动作上做目标条件强化学习。此类方法通常以近端策略优化 \citp{Schulman et al.}{2017} 为策略主干，并可用有界的 Beta 分布 \citp{Chou et al.}{2017} 参数化动作，以避免高斯策略在动作箱边界处的截断偏差；但主干与分布选择本身都不提供任何合规保证——合规是训练涌现的统计倾向，而非落在单个动作上的硬性质，且随种子与训练进程波动。
+避碰规则合规的研究最早集中在模型驱动的方法上。速度障碍法用相对速度锥判断碰撞危险并选出规避速度，后被纳入 COLREGs 的让路语义 \citp{Kuwata et al.}{2014}，并推广到更一般的船舶会遇 \citp{Huang et al.}{2019}。模型预测控制是另一条主线：在有限预测时域上评估各候选机动的碰撞危险与 COLREGs 合规度并择优执行 \citp{Johansen et al.}{2016}，其分支航向变体经过了海上实测 \citp{Eriksen et al.}{2019}，并在具挑战性的会遇场景中完成了全尺度验证 \citp{Kufoalor et al.}{2020}；更早的协议式方法把规则写成船间可协商的行为约定 \citp{Benjamin et al.}{2006}。近期这条线转向控制障碍函数与凸优化，用转向圆控制障碍函数表达让路机动 \citp{Lee et al.}{2025}，或用凸优化同时处理规则合规与防搁浅 \citp{Patil et al.}{2026}。这些方法多建立在标准船舶操纵模型之上 \citp{Fossen}{2011}，其保证来自显式约束或规则编码，但控制律由手工设计，不含从数据中学到的策略。
 
-\textbf{安全强化学习：屏蔽、动作投影与安全滤波。}\ 安全强化学习 \citp{García and Fernández}{2015} 汇集了在学习策略之外附加硬保证的一整套方法。动作屏蔽 \citp{Alshiekh et al.}{2018} 在离散动作上按时序逻辑规范剔除不安全动作；\citp{Kim et al.}{2024} 把可实现的屏蔽推广到连续动作空间，但面向通用任务、不涉及海事规则。控制障碍函数的二次规划 \citp{Ames et al.}{2019} 与预测式安全滤波 \citp{Wabersich and Zeilinger}{2021} 在连续控制上以最小干预修正动作；\citp{Vaaler et al.}{2024} 把预测式安全滤波接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向性条款。动作投影则借助可达性分析构造安全动作集：\citp{Kochdumper et al.}{2023} 用多项式 zonotope 实现可证明安全的动作投影，\citp{Markgraf et al.}{2026} 系统比较了把投影盾并入环境转移（盾在环）与嵌入可微策略两种集成方式，并证明在策略梯度族（如以广义优势估计 \citp{Schulman et al.}{2016} 训练的算法）下两者的学习目标一致——这正是本文采用盾在环、而非训练后附加滤波器的依据。上述工作都在连续动作上给出了对状态或碰撞约束的硬保证，却没有一个把 COLREGs 让路条款的方向性纳入安全集。
+随着深度强化学习的发展，避碰策略开始从数据中学习。一种常见做法是把 COLREGs 写成随方位与距离衰减的软性惩罚，在连续控制上训练出合规倾向 \citp{Meyer et al.}{2020}，或用碰撞风险度量把惩罚做成可调的风险门控 \citp{Heiberg et al.}{2022}；也有工作面向多船或单船生成合规的规避时机与路径 \cit{Zhao and Roh, 2019; Chun et al., 2021}，以及在欠驱动无人艇上验证简洁的强化学习避障 \citp{Cheng and Zhang}{2018}。这类工作多以近端策略优化 \citp{Schulman et al.}{2017} 为策略主干，可用有界的 Beta 分布 \citp{Chou et al.}{2017} 参数化连续动作，以避开高斯策略在动作边界处的截断偏差。它们保住了连续控制的精细度，但合规只由奖励诱导：奖励改变的是策略的期望行为，无法排除任何一个具体的违规动作，合规率因而随种子和训练进程波动。
 
-\textbf{可证明规则合规与离散/连续的张力。}\ 与本文最近的是 \citp{Krasowski and Althoff}{2024}：它把 COLREGs 形式化为时序逻辑谓词与状态机，在 49 个离散动作上用动作屏蔽实现可证明的规则合规。该工作是本文复现的离散基线，也是本文场景库与状态机阈值的来源；它明确把连续动作空间下的动作投影列为未来方向，并具体指向合规状态集 \citp{Irani Liu and Althoff}{2023} 与基于可达性的投影 \citp{Kochdumper et al.}{2023}。其后同组的 \citp{Müller et al.}{2026} 转向连续动作，但以软性奖励结合证伪式训练实现合规，未提供硬保证。本文正是沿 \citp{Krasowski and Althoff}{2024} 指出的方向推进：保留连续控制并给出方向合规的构造式保证，同时以更轻的 zonotope 加二次规划路线 \citp{Markgraf et al.}{2026} 替代较重的多项式 zonotope。
+在软奖励之外，安全强化学习 \citp{García and Fernández}{2015} 研究如何为学习策略附加硬性保证。动作屏蔽在离散动作上按时序逻辑规范剔除不安全动作 \citp{Alshiekh et al.}{2018}，其可实现的形式已被推广到连续动作空间，但针对通用任务、未涉及海事规则 \citp{Kim et al.}{2024}。在连续控制上，控制障碍函数的二次规划 \citp{Ames et al.}{2019} 与预测式安全滤波 \citp{Wabersich and Zeilinger}{2021} 以最小干预修正动作；后者也被接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向条款 \citp{Vaaler et al.}{2024}。动作投影则借助可达性分析构造安全动作集：一种实现以多项式 zonotope 保证投影的安全性 \citp{Kochdumper et al.}{2023}，另一项工作比较了把投影盾并入环境转移与嵌入可微策略两种做法，并证明在策略梯度族（以广义优势估计一类算法为前提，\citp{Schulman et al.}{2016}）下两者的学习目标相同 \citp{Markgraf et al.}{2026}。这条线在连续动作上给出了对碰撞或状态约束的硬保证，但没有一项把 COLREGs 让路条款的方向性写进安全集。
 
-\textbf{奖励塑形与安全盾的副作用。}\ 方向约束会在紧急与近域收紧可行动作集、可能牺牲终端效率，故本文以势函数型塑形辅助策略追回效率。势函数型塑形不改变最优策略集 \citp{Ng et al.}{1999}，但朴素的距离型塑形易停在目标附近的局部最优 \citp{Trott et al.}{2019}，且单一连续势往往难以根治此问题 \citp{Müller and Kudenko}{2025}，故本文改用线性核并把“真正到达”做成终端条件，这与把控制指标编入塑形并给出保证的思路一致 \citp{De Lellis et al.}{2024}。安全盾对性能与终端行为的副作用亦有专门研究：训练中纳入滤波并惩罚修正量可提升样本效率 \citp{Pizarro Bejarano et al.}{2024}，足够宽松的滤波不损渐近最优 \citp{Oh et al.}{2025}，而安全项与目标项对冲会造成目标前停滞 \citp{Grover et al.}{2023}。据此本文设定与投影修正量成正比的动作混叠惩罚，并如实引用反向证据——预测式安全滤波在某些海事设置下并不损失性能 \citp{Vaaler et al.}{2024}——以避免把“盾必然损性能”当作前提。
+最接近本文的是 \citp{Krasowski and Althoff}{2024}。该工作把 COLREGs 形式化为时序逻辑谓词与状态机，在 49 个离散动作上以动作屏蔽实现可证明的规则合规；它既是本文复现的离散基线，也提供了本文使用的场景库与状态机阈值。作者在文中把连续动作空间下的动作投影列为未来方向，并指向基于可达性的投影 \citp{Kochdumper et al.}{2023}。沿这一方向，同组的后续工作转入连续动作，却以软性奖励结合证伪式训练来逼近合规，没有给出硬保证 \citp{Müller et al.}{2026}。本文承接 \citp{Krasowski and Althoff}{2024} 提出的方向，在连续控制上给出方向合规的构造式保证，并以更轻的 zonotope 加二次规划投影 \citp{Markgraf et al.}{2026} 替代较重的多项式 zonotope。
+
+方向约束会在紧急与近域收紧可行动作集、可能损失终端效率，本文因此用势函数型塑形帮助策略追回效率。势函数型塑形不改变最优策略集 \citp{Ng et al.}{1999}，但朴素的距离型塑形容易停在目标附近 \citp{Trott et al.}{2019}，单一连续势也难以根治这一问题 \citp{Müller and Kudenko}{2025}，故本文改用线性核并把“真正到达”设为终端条件，与把控制指标编入塑形并给出保证的做法一致 \citp{De Lellis et al.}{2024}。安全盾对性能与终端行为的影响另有专门研究：训练中纳入滤波并惩罚修正量可提升样本效率 \citp{Pizarro Bejarano et al.}{2025}，足够宽松的滤波不损渐近最优 \citp{Oh et al.}{2025}，而安全项与目标项对冲会造成目标前停滞 \citp{Grover et al.}{2023}。本文据此设置与投影修正量成正比的动作混叠惩罚，并保留反向证据：预测式安全滤波在某些海事设置下并不损失性能 \citp{Vaaler et al.}{2024}。
 
 %==============================================================================
 \section{Methodology}
@@ -914,9 +916,17 @@ L_{\mathrm{lat}}(t)=
 
 \refitem{Ames, Aaron D., Samuel Coogan, Magnus Egerstedt, Gennaro Notomista, Koushil Sreenath, and Paulo Tabuada. 2019. “Control Barrier Functions: Theory and Applications.” In \textit{European Control Conference (ECC)}, 3420--3431.}
 
+\refitem{Benjamin, Michael R., John J. Leonard, Joseph A. Curcio, and Paul M. Newman. 2006. “A Method for Protocol-Based Collision Avoidance Between Autonomous Marine Surface Craft.” \textit{Journal of Field Robotics} 23 (5): 333--346.}
+
+\refitem{Cheng, Yin, and Weidong Zhang. 2018. “Concise Deep Reinforcement Learning Obstacle Avoidance for Underactuated Unmanned Marine Vessels.” \textit{Neurocomputing} 272: 63--73.}
+
 \refitem{Chou, Po-Wei, Daniel Maturana, and Sebastian Scherer. 2017. “Improving Stochastic Policy Gradients in Continuous Control with Deep Reinforcement Learning Using the Beta Distribution.” In \textit{Proceedings of the International Conference on Machine Learning (ICML)}.}
 
+\refitem{Chun, D.-H., M.-I. Roh, H.-W. Lee, J. Ha, and D. Yu. 2021. “Deep Reinforcement Learning-Based Collision Avoidance for an Autonomous Ship.” \textit{Ocean Engineering} 234: 109216.}
+
 \refitem{De Lellis, Francesco, Marco Coraggio, Giovanni Russo, Mirco Musolesi, and Mario di Bernardo. 2024. “Guaranteeing Control Requirements via Reward Shaping in Reinforcement Learning.” \textit{IEEE Transactions on Control Systems Technology}. arXiv:2311.10026.}
+
+\refitem{Eriksen, Bjørn-Olav H., Morten Breivik, Erik F. Wilthil, Andreas L. Flåten, and Edmund F. Brekke. 2019. “The Branching-Course Model Predictive Control Algorithm for Maritime Collision Avoidance.” \textit{Journal of Field Robotics} 36.}
 
 \refitem{Fossen, Thor I. 2011. \textit{Handbook of Marine Craft Hydrodynamics and Motion Control}. Chichester: John Wiley \& Sons.}
 
@@ -926,15 +936,21 @@ L_{\mathrm{lat}}(t)=
 
 \refitem{Heiberg, Amalie, Thomas Nakken Larsen, Eivind Meyer, Adil Rasheed, Omer San, and Damiano Varagnolo. 2022. “Risk-Based Implementation of COLREGs for Autonomous Surface Vehicles Using Deep Reinforcement Learning.” \textit{Neural Networks} 152: 17--33. arXiv:2112.00115.}
 
+\refitem{Huang, Yamin, Linying Chen, and P. H. A. J. van Gelder. 2019. “Generalized Velocity Obstacle Algorithm for Preventing Ship Collisions at Sea.” \textit{Ocean Engineering} 173: 142--156.}
+
 \refitem{International Maritime Organization (IMO). 1972. \textit{Convention on the International Regulations for Preventing Collisions at Sea (COLREGs)}. London: IMO.}
 
-\refitem{Irani Liu, Edmond, and Matthias Althoff. 2023. “Specification-Compliant Driving Corridors for Motion Planning of Automated Vehicles.” \textit{IEEE Transactions on Intelligent Vehicles} 8 (9): 4180--4197.}
+\refitem{Johansen, Tor A., Tristan Perez, and Andrea Cristofaro. 2016. “Ship Collision Avoidance and COLREGS Compliance Using Simulation-Based Control Behavior Selection with Predictive Hazard Assessment.” \textit{IEEE Transactions on Intelligent Transportation Systems} 17 (12): 3407--3422.}
 
 \refitem{Kim, Kyungmin, Davide Corsi, Andoni Rodríguez, JB Lanier, Benjamí Parellada, Pierre Baldi, César Sánchez, and Roy Fox. 2024. “Realizable Continuous-Space Shields for Safe Reinforcement Learning.” arXiv:2410.02038.}
 
 \refitem{Kochdumper, Niklas, Hanna Krasowski, Xiao Wang, Stanley Bak, and Matthias Althoff. 2023. “Provably Safe Reinforcement Learning via Action Projection Using Reachability Analysis and Polynomial Zonotopes.” \textit{IEEE Open Journal of Control Systems} 2.}
 
 \refitem{Krasowski, Hanna, and Matthias Althoff. 2024. “Provable Traffic Rule Compliance in Safe Reinforcement Learning on the Open Sea.” \textit{IEEE Transactions on Intelligent Vehicles} 9 (12): 7617--7634. arXiv:2402.08502.}
+
+\refitem{Kufoalor, D. K. M., Tor A. Johansen, Edmund F. Brekke, A. Hepsø, and K. Trnka. 2020. “Autonomous Maritime Collision Avoidance: Field Verification of Autonomous Surface Vehicle Behavior in Challenging Scenarios.” \textit{Journal of Field Robotics} 37.}
+
+\refitem{Kuwata, Yoshiaki, Michael T. Wolf, Dimitri Zarzhitsky, and Terrance L. Huntsberger. 2014. “Safe Maritime Autonomous Navigation with COLREGS, Using Velocity Obstacles.” \textit{IEEE Journal of Oceanic Engineering} 39 (1): 110--119.}
 
 \refitem{Lee, Changyu, Jinwook Park, and Jinwhan Kim. 2025. “Efficient COLREGs-Compliant Collision Avoidance Using Turning Circle-Based Control Barrier Function.” arXiv:2504.19247.}
 
@@ -950,13 +966,9 @@ L_{\mathrm{lat}}(t)=
 
 \refitem{Oh, Donggeon David, Duy P. Nguyen, Haimin Hu, and Jaime F. Fisac. 2025. “Provably Optimal Reinforcement Learning under Safety Filtering.” arXiv:2510.18082.}
 
-\refitem{Paine, Tyler M., Brendan Long, Jeremy Wenger, Michael DeFilippo, James Usevitch, and Michael R. Benjamin. 2026. “Distributed Control Barrier Functions for Safe Multi-Vehicle Navigation in Heterogeneous USV Fleets.” arXiv:2601.11335.}
-
 \refitem{Patil, Mayur S., Nataraj Sudharsan, Veneela Ammula, Jude Tomdio, Jin Wang, Michael Kei, Sivakumar Rathinam, and Prabhakar R. Pagilla. 2026. “COLREGs Compliant Collision Avoidance and Grounding Prevention for Autonomous Marine Navigation.” arXiv:2603.02484.}
 
-\refitem{Pizarro Bejarano, Federico, Lukas Brunke, and Angela P. Schoellig. 2024. “Safety Filtering While Training: Improving the Performance and Sample Efficiency of Reinforcement Learning Agents.” \textit{IEEE Robotics and Automation Letters}. arXiv:2410.11671.}
-
-\refitem{Sawada, Ryohei, K. Sato, and T. Majima. 2021. “Automatic Ship Collision Avoidance Using Deep Reinforcement Learning with LSTM in Continuous Action Spaces.” \textit{Journal of Marine Science and Technology} 26: 509--524.}
+\refitem{Pizarro Bejarano, Federico, Lukas Brunke, and Angela P. Schoellig. 2025. “Safety Filtering While Training: Improving the Performance and Sample Efficiency of Reinforcement Learning Agents.” \textit{IEEE Robotics and Automation Letters}. arXiv:2410.11671.}
 
 \refitem{Schulman, John, Philipp Moritz, Sergey Levine, Michael I. Jordan, and Pieter Abbeel. 2016. “High-Dimensional Continuous Control Using Generalized Advantage Estimation.” In \textit{International Conference on Learning Representations (ICLR)}.}
 
@@ -965,8 +977,6 @@ L_{\mathrm{lat}}(t)=
 \refitem{Trott, Alexander, Stephan Zheng, Caiming Xiong, and Richard Socher. 2019. “Keeping Your Distance: Solving Sparse Reward Tasks Using Self-Balancing Shaped Rewards.” In \textit{Advances in Neural Information Processing Systems (NeurIPS)}.}
 
 \refitem{Vaaler, Aksel, Svein Jostein Husa, Daniel Menges, Thomas Nakken Larsen, and Adil Rasheed. 2024. “Modular Control Architecture for Safe Marine Navigation: Reinforcement Learning and Predictive Safety Filters.” arXiv:2312.01855.}
-
-\refitem{Vaidheeswaran, Vaishnav, Dilith Jayakody, Samruddhi Mulay, Anand Lo, Md Mahbub Alam, and Gabriel Spadon. 2025. “Goal-Conditioned Reinforcement Learning for Data-Driven Maritime Navigation.” arXiv:2509.01838.}
 
 \refitem{Wabersich, Kim P., and Melanie N. Zeilinger. 2021. “A Predictive Safety Filter for Learning-Based Control of Constrained Nonlinear Dynamical Systems.” \textit{Automatica} 129: 109597.}
 
