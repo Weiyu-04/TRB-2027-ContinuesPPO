@@ -248,17 +248,22 @@ Submitted [Submission Date]\par
 %==============================================================================
 \section{Related Work}
 
-避碰规则合规的研究最早集中在模型驱动的方法上。速度障碍法用相对速度锥判断碰撞危险并选出规避速度，后被纳入 COLREGs 的让路语义 \citp{Kuwata et al.}{2014}，并推广到更一般的船舶会遇 \citp{Huang et al.}{2019}。模型预测控制是另一条主线：在有限预测时域上评估各候选机动的碰撞危险与 COLREGs 合规度并择优执行 \citp{Johansen et al.}{2016}，其分支航向变体经过了海上实测 \citp{Eriksen et al.}{2019}，并在具挑战性的会遇场景中完成了全尺度验证 \citp{Kufoalor et al.}{2020}；更早的协议式方法把规则写成船间可协商的行为约定 \citp{Benjamin et al.}{2006}。近期这条线转向控制障碍函数与凸优化，用转向圆控制障碍函数表达让路机动 \citp{Lee et al.}{2025}，或用凸优化同时处理规则合规与防搁浅 \citp{Patil et al.}{2026}。这些方法多建立在标准船舶操纵模型之上 \citp{Fossen}{2011}，其保证来自显式约束或规则编码，但控制律由手工设计，不含从数据中学到的策略。
+\subsection{海事避碰与 COLREGs 合规}
 
-随着深度强化学习的发展，避碰策略开始从数据中学习。一种常见做法是把 COLREGs 写成随方位与距离衰减的软性惩罚，在连续控制上训练出合规倾向 \citp{Meyer et al.}{2020}，或用碰撞风险度量把惩罚做成可调的风险门控 \citp{Heiberg et al.}{2022}；也有工作面向多船或单船生成合规的规避时机与路径 \cit{Zhao and Roh, 2019; Chun et al., 2021}，以及在欠驱动无人艇上验证简洁的强化学习避障 \citp{Cheng and Zhang}{2018}。这类工作多以近端策略优化 \citp{Schulman et al.}{2017} 为策略主干，可用有界的 Beta 分布 \citp{Chou et al.}{2017} 参数化连续动作，以避开高斯策略在动作边界处的截断偏差。它们保住了连续控制的精细度，但合规只由奖励诱导：奖励改变的是策略的期望行为，无法排除任何一个具体的违规动作，合规率因而随种子和训练进程波动。
+避碰规则合规的研究最早集中在模型驱动的方法上。速度障碍法用相对速度锥判断碰撞危险并选出规避速度，后被纳入 COLREGs 的让路语义 \citp{Kuwata et al.}{2014}，并推广到更一般的船舶会遇 \citp{Huang et al.}{2019}。模型预测控制是另一条主线，它在有限预测时域上评估各候选机动的碰撞危险与 COLREGs 合规度并择优执行 \citp{Johansen et al.}{2016}，其分支航向变体经过了海上实测 \citp{Eriksen et al.}{2019}，并在具挑战性的会遇场景中完成了全尺度验证 \citp{Kufoalor et al.}{2020}；更早的协议式方法把规则写成船间可协商的行为约定 \citp{Benjamin et al.}{2006}。近期这条线转向控制障碍函数与凸优化，用转向圆控制障碍函数表达让路机动 \citp{Lee et al.}{2025}，或用凸优化同时处理规则合规与防搁浅 \citp{Patil et al.}{2026}。这些方法多建立在标准船舶操纵模型之上 \citp{Fossen}{2011}，其保证来自显式约束或规则编码，但控制律由手工设计，不含从数据中学到的策略。
 
-在软奖励之外，安全强化学习 \citp{García and Fernández}{2015} 研究如何为学习策略附加硬性保证。动作屏蔽在离散动作上按时序逻辑规范剔除不安全动作 \citp{Alshiekh et al.}{2018}，其可实现的形式已被推广到连续动作空间，但针对通用任务、未涉及海事规则 \citp{Kim et al.}{2024}。在连续控制上，控制障碍函数的二次规划 \citp{Ames et al.}{2019} 与预测式安全滤波 \citp{Wabersich and Zeilinger}{2021} 以最小干预修正动作；后者也被接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向条款 \citp{Vaaler et al.}{2024}。动作投影则借助可达性分析构造安全动作集：一种实现以多项式 zonotope 保证投影的安全性 \citp{Kochdumper et al.}{2023}，另一项工作比较了把投影盾并入环境转移与嵌入可微策略两种做法，并证明在策略梯度族（以广义优势估计一类算法为前提，\citp{Schulman et al.}{2016}）下两者的学习目标相同 \citp{Markgraf et al.}{2026}。这条线在连续动作上给出了对碰撞或状态约束的硬保证，但没有一项把 COLREGs 让路条款的方向性写进安全集。
+随着深度强化学习的发展，避碰策略开始从数据中学习 \citp{Sarhadi et al.}{2022}。这条线上的多数工作把操纵指令离散化，例如以有限档舵角为动作、用深度 Q 学习在受限水域完成多船避碰 \citp{Shen et al.}{2019}，或面向多船生成合规的规避时机与路径 \cit{Zhao and Roh, 2019; Chun et al., 2021}。离散化便于优化，也贴近值函数方法的适用范围，代价是控制精度受网格分辨率限制。另一类工作保留连续控制，把 COLREGs 写成随方位与距离衰减的软性惩罚 \citp{Meyer et al.}{2020}，或用碰撞风险度量把惩罚做成可调的风险门控 \citp{Heiberg et al.}{2022}，也有工作在欠驱动无人艇上验证简洁的强化学习避障 \citp{Cheng and Zhang}{2018}。这类工作多以近端策略优化 \citp{Schulman et al.}{2017} 为策略主干，可用有界的 Beta 分布 \citp{Chou et al.}{2017} 参数化连续动作，以避开高斯策略在动作边界处的截断偏差。它们保住了连续控制的精细度，但合规只由奖励诱导，奖励改变的是策略的期望行为，无法排除任何一个具体的违规动作，合规率因而随种子和训练进程波动。
 
-最接近本文的是 \citp{Krasowski and Althoff}{2024}。该工作把 COLREGs 形式化为时序逻辑谓词与状态机，在 49 个离散动作上以动作屏蔽实现可证明的规则合规；它既是本文复现的离散基线，也提供了本文使用的场景库与状态机阈值。作者在文中把连续动作空间下的动作投影列为未来方向，并指向基于可达性的投影 \citp{Kochdumper et al.}{2023}。沿这一方向，同组的后续工作转入连续动作，却以软性奖励结合证伪式训练来逼近合规，没有给出硬保证 \citp{Müller et al.}{2026}。本文承接 \citp{Krasowski and Althoff}{2024} 提出的方向，在连续控制上给出方向合规的构造式保证，并以更轻的 zonotope 加二次规划投影 \citp{Markgraf et al.}{2026} 替代较重的多项式 zonotope。
+\subsection{安全强化学习与可证明合规}
 
-方向约束会在紧急与近域收紧可行动作集、可能损失终端效率，本文因此用势函数型塑形帮助策略追回效率。势函数型塑形不改变最优策略集 \citp{Ng et al.}{1999}，但朴素的距离型塑形容易停在目标附近 \citp{Trott et al.}{2019}，单一连续势也难以根治这一问题 \citp{Müller and Kudenko}{2025}，故本文改用线性核并把“真正到达”设为终端条件，与把控制指标编入塑形并给出保证的做法一致 \citp{De Lellis et al.}{2024}。安全盾对性能与终端行为的影响另有专门研究：训练中纳入滤波并惩罚修正量可提升样本效率 \citp{Pizarro Bejarano et al.}{2025}，足够宽松的滤波不损渐近最优 \citp{Oh et al.}{2025}，而安全项与目标项对冲会造成目标前停滞 \citp{Grover et al.}{2023}。本文据此设置与投影修正量成正比的动作混叠惩罚，并保留反向证据：预测式安全滤波在某些海事设置下并不损失性能 \citp{Vaaler et al.}{2024}。
+在软奖励之外，安全强化学习 \citp{García and Fernández}{2015} 研究如何为学习策略附加硬性保证。动作屏蔽在离散动作上按时序逻辑规范剔除不安全动作 \citp{Alshiekh et al.}{2018}，其可实现的形式已被推广到连续动作空间，但针对通用任务、未涉及海事规则 \citp{Kim et al.}{2024}。在连续控制上，控制障碍函数的二次规划 \citp{Ames et al.}{2019} 与预测式安全滤波 \citp{Wabersich and Zeilinger}{2021} 以最小干预修正动作；后者也被接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向条款 \citp{Vaaler et al.}{2024}。动作投影则借助可达性分析构造安全动作集，一种实现以多项式 zonotope（带状凸集）保证投影的安全性 \citp{Kochdumper et al.}{2023}，另一项工作比较了把投影盾并入环境转移与嵌入可微策略两种做法，并证明在策略梯度族（以广义优势估计一类算法为前提，\citp{Schulman et al.}{2016}）下两者的学习目标相同 \citp{Markgraf et al.}{2026}。这条线在连续动作上给出了对碰撞或状态约束的硬保证，但据我们检索到的文献，没有一项把 COLREGs 让路条款的方向性写进安全集。
 
-%==============================================================================
+由此形成一处结构性的空缺。在海事场景中，规则合规的硬保证此前只在离散动作空间上实现过，其代表是把 COLREGs 形式化为时序逻辑谓词与状态机、并在 $49$ 个离散动作上施加动作屏蔽的工作 \citp{Krasowski and Althoff}{2024}；该工作同时提供了本文使用的场景库与状态机阈值，也是本文复现的离散基线。作者在文中把连续动作空间下的动作投影列为未来方向，并指向基于可达性的投影 \citp{Kochdumper et al.}{2023}。沿这一方向的后续工作转入连续动作，却以软性奖励结合证伪式训练来逼近合规，没有给出硬保证 \citp{Müller et al.}{2026}。本文在连续控制上给出方向合规的构造式保证，并以更轻的 zonotope 加二次规划投影 \citp{Markgraf et al.}{2026} 替代较重的多项式 zonotope。
+
+\subsection{奖励塑形与安全盾的副作用}
+
+方向约束会在紧急与近域收紧可行动作集、可能损失终端效率，本文因此用势函数型塑形帮助策略追回效率。势函数型塑形不改变最优策略集 \citp{Ng et al.}{1999}，但朴素的距离型塑形容易停在目标附近 \citp{Trott et al.}{2019}，单一连续势也难以根治这一问题 \citp{Müller and Kudenko}{2025}，故本文改用线性核并把“真正到达”设为终端条件，与把控制指标编入塑形并给出保证的做法一致 \citp{De Lellis et al.}{2024}。安全盾对性能与终端行为的影响另有专门研究，训练中纳入滤波并惩罚修正量可提升样本效率 \citp{Pizarro Bejarano et al.}{2025}，足够宽松的滤波不损渐近最优 \citp{Oh et al.}{2025}，而安全项与目标项对冲会造成目标前停滞 \citp{Grover et al.}{2023}。本文据此设置与投影修正量成正比的动作混叠惩罚，并保留反向证据，即预测式安全滤波在某些海事设置下并不损失性能 \citp{Vaaler et al.}{2024}。
+
 \section{Problem Formulation}
 \label{sec:problem-setup}
 
@@ -1154,9 +1159,13 @@ L_{\mathrm{lat}}(t)=
 
 \refitem{Pizarro Bejarano, Federico, Lukas Brunke, and Angela P. Schoellig. 2025. “Safety Filtering While Training: Improving the Performance and Sample Efficiency of Reinforcement Learning Agents.” \textit{IEEE Robotics and Automation Letters}. arXiv:2410.11671.}
 
+\refitem{Sarhadi, Pouria, Wasif Naeem, and Nikolaos Athanasopoulos. 2022. “A Survey of Recent Machine Learning Solutions for Ship Collision Avoidance and Mission Planning.” \textit{IFAC-PapersOnLine}. arXiv:2207.02767.}
+
 \refitem{Schulman, John, Philipp Moritz, Sergey Levine, Michael I. Jordan, and Pieter Abbeel. 2016. “High-Dimensional Continuous Control Using Generalized Advantage Estimation.” In \textit{International Conference on Learning Representations (ICLR)}.}
 
 \refitem{Schulman, John, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. 2017. “Proximal Policy Optimization Algorithms.” arXiv:1707.06347.}
+
+\refitem{Shen, Haiqing, Hirotada Hashimoto, Akihiko Matsuda, Yuuki Taniguchi, Daisuke Terada, and Chen Guo. 2019. “Automatic Collision Avoidance of Multiple Ships Based on Deep Q-Learning.” \textit{Applied Ocean Research} 86: 268--288.}
 
 \refitem{Trott, Alexander, Stephan Zheng, Caiming Xiong, and Richard Socher. 2019. “Keeping Your Distance: Solving Sparse Reward Tasks Using Self-Balancing Shaped Rewards.” In \textit{Advances in Neural Information Processing Systems (NeurIPS)}.}
 
