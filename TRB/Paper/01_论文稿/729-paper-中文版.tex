@@ -108,6 +108,13 @@
 \usepackage{caption}
 \usepackage{algorithm}
 \usepackage[noend]{algpseudocode}
+% 浮动体排版：默认参数偏保守，会把图表攒成整页一起排 ⟹ 放宽
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.7}
+\renewcommand{\textfraction}{0.08}
+\renewcommand{\floatpagefraction}{0.8}
+\setcounter{topnumber}{3}
+\setcounter{totalnumber}{4}
 \captionsetup[algorithm]{labelsep=space,labelfont=bf,font=small}
 \captionsetup{labelsep=space,font=bf,justification=raggedright,singlelinecheck=false}
 \captionsetup[table]{name=TABLE}
@@ -404,7 +411,7 @@ Submitted [Submission Date]\par
 \begin{figure}[t]
  \centering
  \includegraphics[width=\linewidth]{figs/fig1_overview.pdf}
- \caption{\textbf{方法总览。}$27$ 维观测经策略网络给出期望控制 $u_{\mathrm{policy}}=(a,\omega)$，其输出分布为支撑有界的 Beta 分布。规则状态机把当前会遇判入六类态势 $\rho_0$--$\rho_5$。安全动作集 $U_{\mathrm{safe}}=U_{\mathrm{box}}\cap U_{\mathrm{colregs}}(\rho)\cap U_{\mathrm{cf}}(s)$ 由执行器量程、合规方向半平面与单步无碰约束求交而成；二次规划把 $u_{\mathrm{policy}}$ 投影到 $U_{\mathrm{safe}}$ 内最近的可行点 $u_{\mathrm{safe}}$ 后送入环境。该投影并入环境转移，即安全盾位于训练回路之内，策略在训练过程中即适应投影的存在。两条旁路互斥：紧急态 $\rho_5$ 直接交紧急控制器（$u_{\mathrm{em}}$，该态不构造无碰约束、不求解二次规划）；$\rho_0$--$\rho_4$ 仅在 $U_{\mathrm{safe}}=\varnothing$ 时兜底（$u_{\mathrm{fb}}$）。右下角为动作平面 $(a,\omega)$ 上三个约束集的示意。}
+ \caption{\textbf{方法总览。}$27$ 维观测经策略网络给出期望控制 $u_{\mathrm{policy}}$，其输出分布为支撑有界的 Beta 分布。规则状态机把当前会遇判入六类态势，安全动作集 $U_{\mathrm{safe}}$ 由执行器量程、合规方向半平面与单步无碰约束求交而成，二次规划把 $u_{\mathrm{policy}}$ 投影为 $u_{\mathrm{safe}}$ 后送入环境。该投影并入环境转移，故安全盾位于训练回路之内。两条旁路互斥，紧急态直接交紧急控制器（$u_{\mathrm{em}}$），其余态势仅在 $U_{\mathrm{safe}}=\varnothing$ 时兜底（$u_{\mathrm{fb}}$）。右下角为动作平面上三个约束集的示意。}
  \label{fig:overview}
 \end{figure}
 % ▶ 来源：Paper/01_论文稿/figs/make_fig1_overview.py（手绘示意·遵 nature-figure 规范）
@@ -845,7 +852,7 @@ Submitted [Submission Date]\par
 \begin{figure}[t]
  \centering
  \figplaceholder{图 2（安全—效率权衡图。到达率 $\times$ 违规，内嵌到达率 $\times$ 碰撞率）}
- \caption{安全—效率权衡。横轴为到达率，纵轴为每局 COLREGs 违规数（对数轴），每个标记为一种配置，误差棒为按种子重采样的自助法 95\% 区间；左上角为理想区。内嵌小图纵轴换为碰撞率。形状编码：圆 $=$ 连续动作、三角 $=$ 离散动作、方块 $=$ 外部几何基线；实心为带盾（投影盾或动作屏蔽），空心为无盾。离散动作屏蔽为获得合规性付出的代价，与连续投影所付代价之比为 \TBD。外部基线的到达率须按第~\ref{sec:res-ext} 节的限定阅读。}
+ \caption{安全—效率权衡安全—效率权衡。横轴为到达率，纵轴为每局 COLREGs 违规数（对数轴），误差棒为按种子重采样的自助法 $95\%$ 区间，左上角为理想区；内嵌小图纵轴换为碰撞率。形状编码：圆为连续动作、三角为离散动作、方块为外部几何基线；实心为带盾、空心为无盾。外部基线的到达率须按第~\ref{sec:res-ext} 节的限定阅读。}
  \label{fig:tradeoff}
 \end{figure}
 % ▶ 来源：同上 → Fig3_tradeoff.*  ⚠️ 该格目前会抛 ValueError
@@ -868,7 +875,7 @@ Submitted [Submission Date]\par
 \begin{figure}[t]
  \centering
  \figplaceholder{图 3（1$\times$3。转艏增量 / 让路违规 / 到达率，同种子配对连线）}
- \caption{两项改进的贡献拆解（$2\times2$ 消融，同种子配对）。横轴为四条消融配置，纵轴分别为转艏增量、每局让路违规与到达率。每个点为一颗种子，细线为同种子配对连线，粗线为中位数，误差棒为按种子重采样的自助法 95\% 区间。转艏增量的改善应归因于有界动作分布，而非奖励塑形，四种配置开着同一个动作增量惩罚（不可分割的伴随见表~\ref{tab:arms} 表注 (3)）。}
+ \caption{两项改进的贡献拆解两项改进的贡献拆解（$2\times2$ 消融，同种子配对）。横轴为四条消融配置，纵轴分别为转艏增量、每局让路违规与到达率。每点一颗种子，细线为同种子配对连线，粗线为中位数，误差棒为按种子重采样的自助法 $95\%$ 区间。}
  \label{fig:ablation}
 \end{figure}
 % ▶ 来源：同上 → Fig2_ablation.*  ⚠️ 该格目前在缺臂时会静默跳过
@@ -877,7 +884,7 @@ Submitted [Submission Date]\par
 \begin{figure}[t]
  \centering
  \includegraphics[width=\linewidth]{figs/fig4_training_reliability.pdf}
- \caption{样本效率与训练可靠性。全部取自训练期记录，横轴为训练步数。（a）四种主对照配置在 $100$ 个验证场景上的到达率学习曲线（每 $507{,}904$ 步一个点），实线为跨种子中位数、阴影为四分位距；各条曲线止于该配置最短的那个 run。（b）同种子配对：消融·两项都不改 $\rightarrow$ 本文方法，每条折线一颗种子。（c）到达率达到收敛判据（第~\ref{sec:stats} 节）的种子数随训练步数的变化。（d）值函数可解释方差，用于区分“还在爬”与“已经崩”。曲线未做平滑，仅按训练步数分箱取中位数。\textbf{注意：本图的到达率为 $100$ 个验证场景上的数值，与表~\ref{tab:main} 的官方测试集口径不同，不可互相引用。}}
+ \caption{样本效率与训练可靠性样本效率与训练可靠性，横轴为训练步数。（a）四种主对照配置的验证集到达率，实线为跨种子中位数、阴影为四分位距；虚线段表示该配置尚有种子在训练，参与统计的种子数已在线端标出。（b）同种子配对，消融·两项都不改 $\rightarrow$ 本文方法。（c）到达率达到收敛判据的种子数。（d）值函数可解释方差。\textbf{纵轴为 $100$ 个验证场景上的数值，与表~\ref{tab:main} 的官方测试集口径不同。}}
  \label{fig:curves}
 \end{figure}
 % ▶ 来源：Paper/正式实验/04_图/make_figures.py → Fig1_sample_efficiency.*
@@ -890,7 +897,7 @@ Submitted [Submission Date]\par
 \begin{figure}[t]
  \centering
  \includegraphics[width=\linewidth]{figs/fig5_shield_behaviour.pdf}
- \caption{盾的行为随训练演化（连续动作特有的证据），全部取自训练期遥测。（a）本文方法中每一步控制由哪一支产生：常规投影、紧急控制器、以及 $U_{\mathrm{safe}}=\varnothing$ 时的兜底（纵轴为对数刻度）。（b）动作饱和率，转艏轴与加速度轴分开画，把有界分布配置、无界高斯配置与离散动作配置叠在同一张图上。离散网格的 $|\omega|$ 与 $|a|$ 上界恰好等于连续动作箱的半宽，因此两种动作空间共用同一条打满判据、可直接叠图。无界高斯配置的饱和率随训练升至接近全饱和，有界分布配置则始终维持在低位，这是“有界连续动作 vs.\ 离散 $7\times7$ 网格”这一主张的直接证据。（c）投影修正量（按动作箱半宽归一化）随训练的变化。（d）会遇态势占比随训练的变化（纵轴为对数刻度），其中紧急态 $\rho_5$ 的占比是性质 2 作用域的关键数字。\textbf{本图为训练期采集，与表~\ref{tab:main} 的评估口径不同。}}
+ \caption{盾的行为随训练演化安全盾的行为随训练演化，取自训练期遥测。（a）本文方法中每一步控制由哪一支产生（对数纵轴）。（b）动作饱和率，转艏轴与加速度轴分开，有界分布、无界高斯与离散网格叠于同图；离散网格的动作上界恰等于连续动作箱半宽，故两者共用同一条打满判据。（c）投影修正量，按动作箱半宽归一化。（d）会遇态势占比（对数纵轴）。\textbf{本图为训练期采集，与表~\ref{tab:main} 的评估口径不同。}}
  \label{fig:shield}
 \end{figure}
 % ▶ 🔴 本图需在 Paper/正式实验/04_图/ 新写脚本（现有 make_figures.py 没有这一张）
@@ -904,7 +911,7 @@ Submitted [Submission Date]\par
 \begin{figure}[t]
  \centering
  \figplaceholder{图 6（同一场景 $\times$ 四种方法的轨迹）}
- \caption{同一场景下四种方法的轨迹对比（场景 T-\TBD，种子 s\TBD）。本船轨迹按会遇态势着色（无冲突 / 直航 / 让路 / 紧急），他船轨迹为灰色，圆点间隔 10~s（一个决策步）；虚线圆为性质 1 的远场阈值（约 780~m）。按各方法的实际轨迹标注其在让路段的转向方向与幅度（\TBD）；选图时以能同时呈现“合规让路”与“无碰撞但方向违规”两类结果为准，具体场景与轨迹形态待数据到手后确定。本图是定性插图，不承担任何定量声明；场景为人工挑选，种子集合（s0/s1/s2）在跑之前已声明。}
+ \caption{同一场景下四种方法同一场景下四种方法的轨迹对比（场景 T-\TBD，种子 s\TBD）。本船轨迹按会遇态势着色，他船轨迹为灰色，圆点间隔一个决策步；虚线圆为性质~\ref{prop:farfield} 的远场阈值。\textbf{本图为定性插图，不承担任何定量声明；场景为人工挑选，种子集合（s0/s1/s2）在跑之前已声明。}}
  \label{fig:traj}
 \end{figure}
 % ▶ 来源：同上 → Fig4_trajectories.*；轨迹原始数据来自全 600 场景 × 9 臂 × 3 种子的 *_traj.json

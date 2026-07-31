@@ -115,13 +115,23 @@ def _src_share(runs, group, nbin=40):
 
 
 def _trend_band(runs):
-    """逐段验证集到达率：跨种子的中位数与 [25,75] 分位带。各 run 段数可能不同，按最短对齐。"""
+    """逐段验证集到达率：中位数、[25,75] 分位带，以及每段实际参与的种子数。
+
+    🔴 不按最短 run 截断（那会让未跑满的臂看起来「提前停止学习」）。改为每一段用
+    **当时有数据的全部种子**统计，并返回逐段的 n，调用方在 n 下降处改画虚线并标注。
+    """
     if not runs:
-        return np.array([]), np.array([]), np.array([]), np.array([])
-    L = min(len(r["trend"]) for r in runs)
-    step = np.array([runs[0]["trend"][i]["step"] for i in range(L)], dtype=float)
-    M = np.array([[r["trend"][i]["到达率%"] for i in range(L)] for r in runs], dtype=float)
-    return step, np.median(M, 0), np.percentile(M, 25, 0), np.percentile(M, 75, 0)
+        return (np.array([]),) * 5
+    L = max(len(r["trend"]) for r in runs)
+    step, med, lo, hi, ns = [], [], [], [], []
+    for i in range(L):
+        v = [r["trend"][i]["到达率%"] for r in runs if i < len(r["trend"])]
+        if not v:
+            continue
+        step.append(next(r["trend"][i]["step"] for r in runs if i < len(r["trend"])))
+        med.append(np.median(v)); lo.append(np.percentile(v, 25)); hi.append(np.percentile(v, 75))
+        ns.append(len(v))
+    return (np.array(step, float), np.array(med), np.array(lo), np.array(hi), np.array(ns))
 
 
 def save_pub(fig, name):
@@ -144,15 +154,20 @@ def fig4(D):
     # (a) 学习曲线 —— 四条主对照臂
     for tag in ("ours", "disc", "base", "rr"):
         runs = list(D[tag].values())
-        x, m, lo, hi = _trend_band(runs)
+        x, m, lo, hi, ns = _trend_band(runs)
         if not len(x):
             continue
         lab, col = ARMS[tag]
-        a.plot(x / 1e6, m, color=col, label=f"{lab} (n={len(runs)})")
+        k = int((ns == ns.max()).sum())            # 全部种子都在的最后一段
+        a.plot(x[:k] / 1e6, m[:k], color=col, label=f"{lab} (n={ns.max()})")
+        if k < len(x):                              # 后段样本变少 → 虚线并标 n
+            a.plot(x[k - 1:] / 1e6, m[k - 1:], color=col, linestyle="--", linewidth=0.9)
+            a.annotate(f"n={ns[-1]}", (x[-1] / 1e6, m[-1]), color=col, fontsize=5,
+                       xytext=(3, 0), textcoords="offset points", va="center")
         a.fill_between(x / 1e6, lo, hi, color=col, alpha=0.16, linewidth=0)
     a.set_xlabel("Training steps (millions)"); a.set_ylabel("Validation arrival rate (%)")
     a.legend(loc="lower right", fontsize=5.6); a.set_ylim(0, 100)
-    a.text(0.02, 0.97, "curves end at the shortest run of each arm", transform=a.transAxes,
+    a.text(0.02, 0.97, "dashed: fewer seeds still running (n shown)", transform=a.transAxes,
            fontsize=5.2, va="top", color=N.PALETTE["neutral_mid"], style="italic")
     N.panel_label(a, "a")
 
@@ -174,9 +189,11 @@ def fig4(D):
         runs = list(D[tag].values())
         if not runs:
             continue
-        L = min(len(r["trend"]) for r in runs)
-        x = np.array([runs[0]["trend"][i]["step"] for i in range(L)], dtype=float)
-        y = [sum(1 for r in runs if r["trend"][i]["到达率%"] >= CRASH_ARR) for i in range(L)]
+        L = max(len(r["trend"]) for r in runs)
+        x = np.array([next(r["trend"][i]["step"] for r in runs if i < len(r["trend"]))
+                      for i in range(L)], dtype=float)
+        y = [sum(1 for r in runs if i < len(r["trend"]) and r["trend"][i]["到达率%"] >= CRASH_ARR)
+             for i in range(L)]
         lab, col = ARMS[tag]
         c.plot(x / 1e6, y, color=col, label=lab, drawstyle="steps-post")
     c.set_xlabel("Training steps (millions)")
