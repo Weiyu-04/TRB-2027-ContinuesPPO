@@ -122,7 +122,7 @@
 \newcommand{\refitem}[1]{\par\begingroup\emergencystretch=3em\sloppy\noindent\hangindent=0.5in\hangafter=1 #1\par\endgroup\vspace{6pt}}
 %    正文引用宏：\cit{Smith 2020} → (Smith 2020)；\citp{Smith 2020}{25--27} → (Smith 2020, 25--27)
 \newcommand{\cit}[1]{(#1)}
-\newcommand{\citp}[2]{(#1, #2)}
+\newcommand{\citp}[2]{(#1 #2)}
 
 %--- 占位宏：图未出图前用白色方框占位（图注照最终版写全）----------------------
 \newcommand{\figplaceholder}[1]{\fbox{\parbox[c][6cm][c]{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\centering\textit{【#1 占位 —— 数据到手后替换】}}}}
@@ -226,6 +226,8 @@ Submitted [Submission Date]\par
 
 %==============================================================================
 \section{Introduction}
+
+水路运输承担了全球贸易的绝大部分运量，其安全水平直接影响港口通航能力与航道效率。近年来，自主水面航行器正从试验走向营运，国际海事组织已在推进面向自主船舶的规则框架，使自主船舶与有人船在同一航道内混合航行成为可预期的运行形态。这带来一个与陆上自动驾驶不同的监管问题：海事事故的责任认定并不只看是否发生碰撞，还要看船舶是否按规则行动。一次未发生碰撞、但从错误一侧通过的会遇，在事故调查与责任划分中仍会被认定为违规操作。因此，自主船舶要进入营运，其避碰决策必须是可被审查的规则合规行为，而不仅是统计意义上的安全行为。
 
 无人水面航行器正逐步进入与有人船共航的公共水域，其避碰行为必须遵守《国际海上避碰规则》（COLREGs）\citp{IMO}{1972}。与陆上交通规则相比，COLREGs 有一个决定性的不同：它的让路条款是有方向性的。对遇态势中两船各自向右转向（第 14 条），交叉态势中让路船向右避让、直航船保向保速（第 15、16、17 条），追越态势中追越船负责让清（第 13 条）\citp{IMO}{1972}。也就是说，一个动作即使在几何上避免了碰撞，若转向方向违反规则，仍然是违规的。一条从左侧绕过去、全程没有碰撞的轨迹，在海事上并不合格。
 
@@ -485,7 +487,7 @@ Submitted [Submission Date]\par
   \end{cases}
   \label{eq:ucolregs}
 \end{equation}
-其中 $\mathcal{U}_{\mathrm{box}}=\{|a|\le a_{\max}\}\cap\{|\omega|\le\omega_{\max}\}$ 是\emph{执行器物理量程}构成的动作箱。这里需要区分两个箱：策略的动作空间是较窄的常规操作箱 $\{|a|\le a_{\mathrm{op}}\}\cap\{|\omega|\le\omega_{\mathrm{op}}\}$（与量化网格的张成范围相同，见表~\ref{tab:params} 表注），而安全盾的投影与兜底一律在物理量程箱上求解。这样安排是必要的：安全盾必须能够在需要时动用超出策略权限的操纵能力，否则一旦策略的窄箱与无碰撞约束不相容，本来可解的局面会被误判为不可行。其代价是安全盾实际施加的控制可以落在策略动作箱之外——这一点在观测中如实回传（见 “\nameref{sec:rl}”一节），并在报数时按控制来源分类。三类约束的语义如下。直航态须保向保速（第 17 条），故容差取小量 $\varepsilon_a=0.016~\mathrm{m/s^2}$、$\varepsilon_\omega=0.004363~\mathrm{rad/s}$；对遇与交叉态须向右转且幅度足够明显（第 14、15 条）；追越态的让清一侧由相对几何确定、可左可右（第 13 条）。这些方向要求均出自《国际海上避碰规则》\citp{IMO}{1972}。紧急态 $\rho_5$ 不施加方向约束，其处置见 “\nameref{sec:proj}”一节末段。这是本方法保证覆盖不到的部分，我们在 “\nameref{sec:guarantee}”一节明确划出边界。
+其中 $\mathcal{U}_{\mathrm{box}}=\{|a|\le a_{\max}\}\cap\{|\omega|\le\omega_{\max}\}$ 是\emph{执行器物理量程}构成的动作箱。这里需要区分两个箱：策略的动作空间是较窄的常规操作箱 $\{|a|\le a_{\mathrm{op}}\}\cap\{|\omega|\le\omega_{\mathrm{op}}\}$（与量化网格的张成范围相同，见表~\ref{tab:params} 表注），而安全盾的投影与兜底一律在物理量程箱上求解。这样安排是必要的：安全盾必须能够在需要时动用超出策略权限的操纵能力，否则一旦策略的窄箱与无碰撞约束不相容，本来可解的局面会被误判为不可行。其代价是安全盾实际施加的控制可以落在策略动作箱之外——这一点在观测中如实回传（见 “\nameref{sec:rl}”一节），并在报数时按控制来源分类。三类约束的语义如下。直航态须保向保速（第 17 条），故容差取小量 $\varepsilon_a=0.016~\mathrm{m/s^2}$、$\varepsilon_\omega=0.004363~\mathrm{rad/s}$；对遇与交叉态须向右转且幅度足够明显（第 14、15 条）；追越态的让清一侧由相对几何确定，可左可右（第 13 条）。这一支需要说明其在实现中的形式：式~\eqref{eq:ucolregs} 中 $\rho_4$ 一行写作两个半平面之并，该集合非凸，不能直接作为二次规划的约束。实现上并不求解这个并集，而是先由相对几何唯一确定让清一侧（与状态机判定同一套方向逻辑），再据此选定\emph{单个}半平面进入式~\eqref{eq:Ab}。因此进入投影的合规约束始终是凸的，代价是让清一侧由几何在每个决策步重新判定，原则上可能在两侧边界附近逐步切换；本基准无追越场景，该行为未获实证检验。这些方向要求均出自《国际海上避碰规则》\citp{IMO}{1972}。紧急态 $\rho_5$ 不施加方向约束，其处置见 “\nameref{sec:proj}”一节末段。这是本方法保证覆盖不到的部分，我们在 “\nameref{sec:guarantee}”一节明确划出边界。
 
 \textbf{“足够明显”的量化及其下确界性质。}\ 公约要求让路动作幅度大到能被对方及时察觉。把“明显”量化为在机动时间 $T_M$ 内航向改变不少于 $\Delta_{\mathrm{lt}}$，即得阈值
 \begin{equation}
@@ -518,7 +520,7 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
   \qquad \mathcal{U}_{\mathrm{cf}}(s)=\{u: g^{\!\top}u\le h\}.
   \label{eq:ucf}
 \end{equation}
-保守性的方向是单侧的，$\mathcal{U}_{\mathrm{cf}}$ 内的控制一定满足原条件，反之不然。两种情形下该线性化不成立，须转入降级控制，其一是 $\delta\to0$（标称落点与他船占据圆心重合，分离方向无定义），其二是 $\lVert n^{\!\top}\!J\rVert\approx0$ 且该约束处于紧约束状态（本船在该分离方向上没有控制权限，例如近零速时落点对转艏率的雅可比降秩），此时式~\eqref{eq:ucf} 退化为 $0\le h<0$，对一切 $u$ 不可行。
+这里需要说明一阶展开与保守性的关系。线性化本身既非内近似也非外近似，其余项符号随曲率变化，故仅由式~\eqref{eq:ucf} 并不能直接断言保守。使该断言成立的是安全距离中预留的裕度：$d_{\mathrm{safe}}$ 在他船真实外接半径之上叠加了 $2L=350$~m 的安全裕度，而落点线性化的余项在整个执行器量程箱上有界，我们在全速域与全艏向上数值求其上确界，得 $\sup\lVert p_e(u)-p_{\mathrm{nom}}-J(u-u_{\mathrm{nom}})\rVert\le 10.4$~m，约为该裕度的 $3\%$。由于余项被裕度整体吸收，$\mathcal{U}_{\mathrm{cf}}$ 内的控制满足原始的无碰条件，反之不然。若取消该裕度，则须把余项界显式加入 $d_{\mathrm{safe}}$ 才能保持这一性质。两种情形下该线性化不成立，须转入降级控制，其一是 $\delta\to0$（标称落点与他船占据圆心重合，分离方向无定义），其二是 $\lVert n^{\!\top}\!J\rVert\approx0$ 且该约束处于紧约束状态（本船在该分离方向上没有控制权限，例如近零速时落点对转艏率的雅可比降秩），此时式~\eqref{eq:ucf} 退化为 $0\le h<0$，对一切 $u$ 不可行。
 
 \subsubsection{安全动作集与投影算子}
 
@@ -663,7 +665,7 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
   \end{tabular}
 
   \vspace{4pt}\footnotesize
-  \textbf{表注。}强化学习超参除熵正则系数（$0.01$）外均为 stable-baselines3~2.3.2 的默认取值、未作调整，
+  \textbf{表注。}强化学习超参除熵正则系数（$0.01$）外均为 stable-baselines3~2.3.2 \citp{Raffin et al.}{2021} 的默认取值、未作调整，
   离散（MaskablePPO）与连续（PPO）两类配置在这些值上逐项相同。塑形四项仅用于连续动作策略；
   终端保速势的目标航速取 $4$~m/s。
 \end{table}
@@ -816,7 +818,7 @@ L_{\mathrm{lat}}(t)=
 \subsection{场景库与对照配置}
 \label{sec:dataset}
 
-\textbf{场景来源与构成。}\ 实验在 CommonOcean 的双船相遇场景库上进行，共 $2000$ 个场景。每个场景规定受控船的初始位姿与航速、他船的初始状态与其既定航迹、以及受控船的目标区域（含位置门、朝向门与时限）。场景的相遇几何是程序化生成的，覆盖不同的相对方位、航向交角与接近速率；受控船为前述 $175$~m 级机动船，他船为场景库给定的机动船（船长 $200$--$300$~m）。回合上限为 $170$ 个决策步，折合 $1700$~s。
+\textbf{场景来源与构成。}\ 实验在 CommonOcean 基准 \citp{Krasowski and Althoff}{2022} 的双船相遇场景库上进行，共 $2000$ 个场景。每个场景规定受控船的初始位姿与航速、他船的初始状态与其既定航迹、以及受控船的目标区域（含位置门、朝向门与时限）。场景的相遇几何是程序化生成的，覆盖不同的相对方位、航向交角与接近速率；受控船为前述 $175$~m 级机动船，他船为场景库给定的机动船（船长 $200$--$300$~m）。回合上限为 $170$ 个决策步，折合 $1700$~s。
 
 \textbf{相遇类型分布。}\ 按状态机的\emph{几何}类型谓词（不含 $420$~s 碰撞可能性这道闸）对全库分类的结果是：\emph{交叉}与\emph{对遇}两类占满全库，\emph{追越场景数为零}。这一点对本文的作用域有直接影响：式~\eqref{eq:ucolregs} 中 $\rho_4$ 一支虽已实现并可被单元测试触发，但\emph{无法在本场景库上得到实证检验}，我们在局限一节如实列出。就官方测试集 $600$ 个场景而言，交叉 $395$ 个、对遇 $205$ 个。
 
@@ -883,7 +885,7 @@ L_{\mathrm{lat}}(t)=
 
 每条 run 从零端到端训练 \textbf{10{,}158{,}080 步}（20 段 $\times$ 507{,}904），不用热启动；分段存档全程开（每段留一份，因此 20 个存档候选）；训练期评估用那 100 个验证场景，曲线即验证曲线。每条 run 用 8 个并行环境。
 
-种子集合 $=\{0,1,2,3,4,5,8,9\}$，共 8 颗，分布在 4 台机器上（每台 2 颗、每台 6 路并发）。种子取值预先固定并原样报告，逐种子原始值随主表给出。分机器的依据是种子而非配置：同种子配对比较是本文的主统计工具，因此同一颗种子下的全部配置必须落在同一台机器内，否则“机器”会成为混淆变量。评估另说：一张报数表里每种配置必须同一台机器、同一轮内评完。
+种子集合 $=\{0,1,2,3,4,5,8,9\}$，共 8 颗互不相同的随机初始化。编号不连续是运行期机器重排造成的（每台机器沿用其已开工的种子号，以免留下无人接管的半截存档），种子号本身只是随机初始化的标签，不含大小或顺序含义；场景的训练与测试划分由另一个固定种子决定，与此处的 run 种子无关，故 8 颗种子看到的是同一批场景。种子取值预先固定并原样报告，逐种子原始值随主表给出。分机器的依据是种子而非配置：同种子配对比较是本文的主统计工具，因此同一颗种子下的全部配置必须落在同一台机器内，否则“机器”会成为混淆变量。评估另说：一张报数表里每种配置必须同一台机器、同一轮内评完。
 
 报数预算取所有 run 都达到的最小段数，同一张表全部配置同一个值，并报实际步数而非名义值。
 
@@ -1175,6 +1177,8 @@ L_{\mathrm{lat}}(t)=
 
 \refitem{Kochdumper, Niklas, Hanna Krasowski, Xiao Wang, Stanley Bak, and Matthias Althoff. 2023. “Provably Safe Reinforcement Learning via Action Projection Using Reachability Analysis and Polynomial Zonotopes.” \textit{IEEE Open Journal of Control Systems} 2.}
 
+\refitem{Krasowski, Hanna, and Matthias Althoff. 2022. “CommonOcean: Composable benchmarks for motion planning on oceans.” In \textit{Proceedings of the IEEE International Conference on Intelligent Transportation Systems (ITSC)}, 1676--1682. DOI: 10.1109/ITSC55140.2022.9921925.}
+
 \refitem{Krasowski, Hanna, and Matthias Althoff. 2024. “Provable Traffic Rule Compliance in Safe Reinforcement Learning on the Open Sea.” \textit{IEEE Transactions on Intelligent Vehicles} 9 (12): 7617--7634. arXiv:2402.08502.}
 
 \refitem{Kufoalor, D. K. M., Tor A. Johansen, Edmund F. Brekke, A. Hepsø, and K. Trnka. 2020. “Autonomous Maritime Collision Avoidance: Field Verification of Autonomous Surface Vehicle Behavior in Challenging Scenarios.” \textit{Journal of Field Robotics} 37.}
@@ -1189,13 +1193,15 @@ L_{\mathrm{lat}}(t)=
 
 \refitem{Müller, Henrik, and Daniel Kudenko. 2025. “Improving the Effectiveness of Potential-Based Reward Shaping in Reinforcement Learning.” In \textit{Proceedings of the International Conference on Autonomous Agents and Multiagent Systems (AAMAS)}. arXiv:2502.01307.}
 
-\refitem{Müller, Marlon, Florian Finkeldei, and Matthias Althoff. 2026. “Falsification-Driven Reinforcement Learning for Maritime Motion Planning.” \textit{Ocean Engineering} 361: 125579. arXiv:2510.06970.}
+\refitem{Müller, Marlon, Florian Finkeldei, Hanna Krasowski, Murat Arcak, and Matthias Althoff. 2026. “Falsification-Driven Reinforcement Learning for Maritime Motion Planning.” \textit{Ocean Engineering} 361: 125579. arXiv:2510.06970.}
 
 \refitem{Ng, Andrew Y., Daishi Harada, and Stuart Russell. 1999. “Policy Invariance Under Reward Transformations: Theory and Application to Reward Shaping.” In \textit{Proceedings of the International Conference on Machine Learning (ICML)}, 278--287.}
 
 \refitem{Oh, Donggeon David, Duy P. Nguyen, Haimin Hu, and Jaime F. Fisac. 2025. “Provably Optimal Reinforcement Learning under Safety Filtering.” arXiv:2510.18082.}
 
 \refitem{Patil, Mayur S., Nataraj Sudharsan, Veneela Ammula, Jude Tomdio, Jin Wang, Michael Kei, Sivakumar Rathinam, and Prabhakar R. Pagilla. 2026. “COLREGs Compliant Collision Avoidance and Grounding Prevention for Autonomous Marine Navigation.” arXiv:2603.02484.}
+
+\refitem{Raffin, Antonin, Ashley Hill, Adam Gleave, Anssi Kanervisto, Maximilian Ernestus, and Noah Dormann. 2021. “Stable-Baselines3: Reliable reinforcement learning implementations.” \textit{Journal of Machine Learning Research} 22 (268): 1--8.}
 
 \refitem{Pizarro Bejarano, Federico, Lukas Brunke, and Angela P. Schoellig. 2025. “Safety Filtering While Training: Improving the Performance and Sample Efficiency of Reinforcement Learning Agents.” \textit{IEEE Robotics and Automation Letters}. arXiv:2410.11671.}
 
