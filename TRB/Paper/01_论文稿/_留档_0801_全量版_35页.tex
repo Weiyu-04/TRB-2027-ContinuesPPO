@@ -119,7 +119,7 @@
 %--- 参考文献：官方规范要求 **Chicago 作者-年份**、按第一作者姓氏字母序、悬挂缩进、
 %  正文引用写 (Author, Year)，**不许用上标或编号**。
 %  〔2026-07-29 订正：此前我照参考论文改成了数字顺序引用，与官方规范相反，已改回。〕
-\newcommand{\refitem}[1]{\par\begingroup\emergencystretch=3em\sloppy\noindent\hangindent=0.5in\hangafter=1 #1\par\endgroup}
+\newcommand{\refitem}[1]{\par\begingroup\emergencystretch=3em\sloppy\noindent\hangindent=0.5in\hangafter=1 #1\par\endgroup\vspace{6pt}}
 %  正文引用宏：\cit{Smith 2020} → (Smith 2020)；\citp{Smith 2020}{25--27} → (Smith 2020, 25--27)
 \newcommand{\cit}[1]{(#1)}
 \newcommand{\citp}[2]{(#1 #2)}
