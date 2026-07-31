@@ -161,7 +161,7 @@
 {\bfseries Weiyu Tang}\par
 Graduate Research Assistant\par
 Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
-School of Naval Architecture, Ocean \& Civil Engineering\par
+School of Naval Architecture, Ocean and Civil Engineering\par
 Shanghai Jiao Tong University, Shanghai, 200240, China\par
 Email: weiyutang@sjtu.edu.cn\par
 \vspace{12pt}
@@ -176,14 +176,14 @@ Email: j.xue@sjtu.edu.cn\par
 
 {\bfseries Peijie Yang}\par
 Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
-School of Naval Architecture, Ocean \& Civil Engineering\par
+School of Naval Architecture, Ocean and Civil Engineering\par
 Shanghai Jiao Tong University, Shanghai, 200240, China\par
 Email: yangpeijie21@sjtu.edu.cn\par
 \vspace{12pt}
 
 {\bfseries Qianbing Li}\par
 Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
-School of Naval Architecture, Ocean \& Civil Engineering\par
+School of Naval Architecture, Ocean and Civil Engineering\par
 Shanghai Jiao Tong University, Shanghai, 200240, China\par
 Email: qianbing\_li@sjtu.edu.cn\par
 \vspace{12pt}
@@ -233,21 +233,21 @@ Submitted [Submission Date]\par
 
 无人水面航行器正逐步进入与有人船共航的公共水域，其避碰行为必须遵守《国际海上避碰规则》（COLREGs）\citp{IMO}{1972}。与陆上交通规则相比，COLREGs 有一个决定性的不同，即它的让路条款具有方向性。对遇态势中两船各自向右转向（第 14 条），交叉态势中让路船向右避让、直航船保向保速（第 15、16、17 条），追越态势中追越船负责让清（第 13 条）\citp{IMO}{1972}。也就是说，一个动作即使在几何上避免了碰撞，若转向方向违反规则，仍然是违规的。一条从左侧绕过去、全程没有碰撞的轨迹，在海事上并不合格。
 
-这一点使 COLREGs 合规无法用“最终有没有撞上”来验证，也使它成为安全强化学习中一个不太常见的问题类型，需要保证的不是一个状态量的界，而是每一步动作落在哪个方向的半平面里。现有工作沿两条路推进，各自让掉了一样关键的东西。
+这一点使 COLREGs 合规无法用“最终有没有撞上”来验证，也使它成为安全强化学习中一类并不常见的问题，需要保证的不是一个状态量的界，而是每一步动作落在哪个方向的半平面里。现有工作沿两条路径推进，各自放弃了一项关键属性。
 
-第一条路是离散动作加动作屏蔽。它把动作空间离散成有限网格，每一步先用规则状态机算出合规的动作子集，再屏蔽掉其余动作 \citp{Krasowski and Althoff}{2024}，合规性因此可以证明，被屏蔽的动作根本不可能被选中，而这个保证既不依赖训练结果，也不受随机种子影响。它的代价是放弃了连续控制。真实的舵机与推进器本是连续量，离散网格一方面引入量化抖动，一方面把控制精度锁死在网格分辨率上。对本文的任务还有一处更具体的损失。COLREGs 要求让路转向足够明显，这在数学上是一个下确界，而网格往往取不到它，只能退到最近的档位，于是每一次合规让路都要比规则所需多转一些。
+第一条路是离散动作加动作屏蔽。它把动作空间离散成有限网格，每一步先用规则状态机算出合规的动作子集，再屏蔽掉其余动作 \citp{Krasowski and Althoff}{2024}，合规性因此可以证明，被屏蔽的动作不可能被选中，而这个保证既不依赖训练结果，也不受随机种子影响。它的代价是放弃了连续控制。真实的舵机与推进器本是连续量，离散网格一方面引入量化抖动，一方面把控制精度锁死在网格分辨率上。对本文的任务还有一处更具体的损失。COLREGs 要求让路转向足够明显，这在数学上是一个下确界，而网格往往取不到它，只能退到最近的档位，于是每一次合规让路都要比规则所需多转一些。
 
 第二条路是连续动作加软性奖励。它保留连续控制，把 COLREGs 写成奖励函数里的一项惩罚 \cit{Meyer et al. 2020; Heiberg et al. 2022; Müller et al. 2026}。控制虽然连续了，保证却随之消失。奖励只能塑造策略的期望行为，并不能排除任何一个具体的违规动作，合规率因而随种子起伏，也随训练进程起伏。
 
 于是连续动作 $\cap$ 可证明方向合规 $\cap$ COLREGs 这个三重交集是空的。本文用投影式安全盾把它填上。规则状态机给出合规方向的半平面，与单步无碰约束、动作箱一起构成安全动作集，二次规划把策略的连续指令投影到该集合上最近的点。关键在于\emph{可枚举}这个前提可以被\emph{可投影}替代。合规方向恰好是一个半平面，投影到半平面与箱的交集上是一个小规模二次规划，而投影解满足硬约束这件事是构造式的，与训练无关。策略以安全盾在环的方式训练，因而会观察并适应投影带来的修正。
 
-我们同时认为，这类工作真正的难点不只是把机制搭起来，还在于诚实地说清这一层到底证明了什么。在安全强化学习的一些文献中，“provable”一词的实际作用域往往小于读者的预期。因此本文的第二项工作，是把可证明层逐条分档：有的是严格引理，有的构造式成立，有的只是保守的充分条件，还有的仍停留在设计、尚未经过闭环验证。每一档都附上完整的假设清单与作用域限制，并明确写出哪些部分没有被证明。
+这类工作的难点不只在于机制本身，还在于清晰界定所证明的内容。在安全强化学习文献中，“provable”一词覆盖的作用域并不总与读者的默认预期一致。因此本文的第二项工作，是把可证明层逐条分档：有的是严格引理，有的构造式成立，有的只是保守的充分条件，还有的仍停留在设计、尚未经过闭环验证。每一档都附上完整的假设清单与作用域限制，并明确写出哪些部分没有被证明。
 
 \noindent\textbf{贡献。}
 \begin{enumerate}\itemsep2pt
- \item 连续动作空间中的投影式 COLREGs 安全盾（“\nameref{sec:proj}”一节）。合规方向作为硬区间约束进入二次规划，因此每一个投影可行的让路步的方向合规是构造式成立的，不依赖训练结果、不受种子方差影响。
+ \item 连续动作空间中的投影式 COLREGs 安全盾（第~\ref{sec:proj} 节）。合规方向作为硬区间约束进入二次规划，因此每一个投影可行的让路步的方向合规是构造式成立的，不依赖训练结果、不受种子方差影响。
  \item 一个分级的安全性陈述（第~\ref{sec:guarantee} 节）。我们把该层能提供的保证按强度逐条给出并划定其作用域：远场单步无碰为严格结论，且对多他船可无损地按目标合取推广；每一让路步的方向合规由构造成立；紧急迫近不可避则给出一个只漏报、不误报的充分条件证书，它取代了此前只检查转向、会漏掉加减速逃逸的判据。在此基础上我们进一步给出一条通往递归可行性的路径，即证明由该证书定义的可清障集在理想模型下是控制不变的，并据此设计后备机动的终端约束；该路径的闭环验证尚未完成，第~\ref{sec:guarantee} 节标注其状态。
- \item 一个把机制逐级拆开的实验设计（“\nameref{sec:setup}”一节）：9 种配置构成一条连通的单变量递进序列，相邻两级之间只改动一个变量，从离散基线一路走到完整方法；其中两跳带有不可分割的伴随变量，这两处伴随变量在递进序列表的表注中列出。
+ \item 一个把机制逐级拆开的实验设计（第~\ref{sec:setup} 节）：9 种配置构成一条连通的单变量递进序列，相邻两级之间只改动一个变量，从离散基线一路走到完整方法；其中两跳带有不可分割的伴随变量，这两处伴随变量在递进序列表的表注中列出。
  \item 一组针对机制本身的检验（第~\ref{sec:setup} 节）。除公开基准外，我们另行构造真冲突算例，用以激活并检验降级链与终端约束，从而使这些只在极端态势下才会启用的分支获得实证刻画，而不只停留在设计描述。
 \end{enumerate}
 
@@ -265,7 +265,7 @@ Submitted [Submission Date]\par
 
 在软奖励之外，安全强化学习 \citp{García and Fernández}{2015} 研究如何为学习策略附加硬性保证，其中以形式化方法给出保证的一支已有系统的梳理与基准比较 \citp{Krasowski et al.}{2023}。另一条常见路线是把安全写成约束马尔可夫决策过程并以拉格朗日方法求解，但它保证的是期望意义下的约束满足，仍不能排除任何一个具体的违规动作，与本文所需的逐步硬约束不是同一类保证。动作屏蔽在离散动作上按时序逻辑规范剔除不安全动作 \citp{Alshiekh et al.}{2018}，其可实现的形式已被推广到连续动作空间，但针对通用任务、未涉及海事规则 \citp{Kim et al.}{2024}。在连续控制上，控制障碍函数的二次规划 \citp{Ames et al.}{2019} 与预测式安全滤波 \citp{Wabersich and Zeilinger}{2021} 以最小干预修正动作；后者也被接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向条款 \citp{Vaaler et al.}{2024}。与本文机制最接近的是安全层方法，它把约束在当前状态处线性化，再把策略动作解析地投影到由此得到的线性半空间上 \citp{Dalal et al.}{2018}；本文的投影与之同源，新增的部分是把 COLREGs 让路条款的方向性编码为动作平面上的半平面，使被强制的对象由状态约束变为规则合规。动作投影的另一条路线借助可达性分析构造安全动作集，一种实现以多项式 zonotope（带状凸集）保证投影的安全性 \citp{Kochdumper et al.}{2023}，另一项工作比较了把投影盾并入环境转移与嵌入可微策略两种做法，并证明在策略梯度族（以广义优势估计一类算法为前提，\citp{Schulman et al.}{2016}）下两者的学习目标相同 \citp{Markgraf et al.}{2026}。这条线在连续动作上给出了对碰撞或状态约束的硬保证，但据我们检索到的文献，没有一项把 COLREGs 让路条款的方向性写进安全集。
 
-由此形成一处结构性的空缺。在海事场景中，规则合规的硬保证此前只在离散动作空间上实现过，其代表是把 COLREGs 形式化为时序逻辑谓词与状态机、并在 $49$ 个离散动作上施加动作屏蔽的工作 \citp{Krasowski and Althoff}{2024}；该工作同时提供了本文使用的场景库与状态机阈值，也是本文复现的离散基线。作者在文中把连续动作空间下的动作投影列为未来方向，并指向基于可达性的投影 \citp{Kochdumper et al.}{2023}。沿这一方向的后续工作转入连续动作，却以软性奖励结合证伪式训练来逼近合规，没有给出硬保证 \citp{Müller et al.}{2026}。本文在连续控制上给出方向合规的构造式保证，并以更轻的 zonotope 加二次规划投影 \citp{Markgraf et al.}{2026} 替代较重的多项式 zonotope。
+由此形成一处结构性的空缺。在海事场景中，规则合规的硬保证此前只在离散动作空间上实现过，其代表是把 COLREGs 形式化为时序逻辑谓词与状态机、并在 $49$ 个离散动作上施加动作屏蔽的工作 \citp{Krasowski and Althoff}{2024}；该工作同时提供了本文使用的场景库与状态机阈值，也是本文复现的离散基线。作者在文中把连续动作空间下的动作投影列为未来方向，并指向基于可达性的投影 \citp{Kochdumper et al.}{2023}。沿这一方向的后续工作转入连续动作，却以软性奖励结合证伪式训练来逼近合规，没有给出硬保证 \citp{Müller et al.}{2026}。本文在连续控制上给出方向合规的构造式保证，并以 zonotope 加二次规划投影 \citp{Markgraf et al.}{2026} 替代多项式 zonotope 表示，以降低单步求解的计算量。
 
 \subsection{奖励塑形与安全盾的副作用}
 
@@ -377,7 +377,7 @@ Submitted [Submission Date]\par
 \end{table}
 %------------------------------------------------------------------------------
 
-\textbf{他船与感知。}\ 他船以其船体矩形占据表示。除特别声明外，在需要外推的场合我们对他船取恒速外推；这一假设的代价在 “\nameref{sec:guarantee}”一节逐条标注。他船的当前状态视为可观测。
+\textbf{他船与感知。}\ 他船以其船体矩形占据表示。除特别声明外，在需要外推的场合我们对他船取恒速外推；这一假设的代价在第~\ref{sec:guarantee} 节逐条标注。他船的当前状态视为可观测。
 
 \subsection{问题表述}
 \label{sec:problem}
@@ -392,9 +392,9 @@ Submitted [Submission Date]\par
  \item[(A5)] 会遇初始时刻不存在任何已生效的让路义务。
 \end{enumerate}
 
-假设 (A2) 不是为了简化而作的让步，而是 COLREGs 本身的适用边界：该规则集是\emph{成对}制定的，当三船以上同时相遇、且各自的义务互相冲突时（例如对一条船须保向保速、对另一条须避让），公约本身并未规定如何取舍。我们在 “\nameref{sec:guarantee}”一节给出多他船情形下各结论如何合成、以及在何处必然失效。
+假设 (A2) 不是为了简化而作的让步，而是 COLREGs 本身的适用边界：该规则集是\emph{成对}制定的，当三船以上同时相遇、且各自的义务互相冲突时（例如对一条船须保向保速、对另一条须避让），公约本身并未规定如何取舍。我们在第~\ref{sec:guarantee} 节给出多他船情形下各结论如何合成、以及在何处必然失效。
 
-在此设定下，令 $\rho_t$ 为 $t$ 时刻的会遇态势，$\mathcal{U}_{\mathrm{colregs}}(\rho_t)\subseteq\mathbb{R}^2$ 为该态势下规则允许的控制集合（“\nameref{sec:rulesets}”一节给出其显式形式）。我们要求的策略是
+在此设定下，令 $\rho_t$ 为 $t$ 时刻的会遇态势，$\mathcal{U}_{\mathrm{colregs}}(\rho_t)\subseteq\mathbb{R}^2$ 为该态势下规则允许的控制集合（第~\ref{sec:rulesets} 节给出其显式形式）。我们要求的策略是
 \begin{equation}
  \pi:\ \mathcal{S}\rightarrow\mathbb{R}^2
  \quad\text{使得}\quad
@@ -406,12 +406,12 @@ Submitted [Submission Date]\par
 
 当动作集有限时，式~\eqref{eq:problem} 有一个直接解法，即枚举全部动作、逐个检验、屏蔽不合规者。这条路要求动作可枚举，因而与连续控制不相容；而船舶的舵与推进本是连续量，量化会同时带来抖动与精度损失。本文的核心思路是把“可枚举”这一前提替换为“可投影”。
 
-我们将证明，COLREGs 的让路条款在动作空间中恰好表现为半平面约束（“\nameref{sec:rulesets}”一节），无碰撞条件可写成线性不等式（“\nameref{sec:proj}”一节），因此式~\eqref{eq:problem} 的可行集是二维空间中若干半平面与一个矩形之交，是一个凸多边形。向凸集的投影存在且唯一，可由一个规模极小的二次规划求得。这样，“逐步满足约束”便从枚举问题变成投影问题，从而可直接用于连续动作。
+我们将证明，COLREGs 的让路条款在动作空间中恰好表现为半平面约束（第~\ref{sec:rulesets} 节），无碰撞条件可写成线性不等式（第~\ref{sec:proj} 节），因此式~\eqref{eq:problem} 的可行集是二维空间中若干半平面与一个矩形之交，是一个凸多边形。向凸集的投影存在且唯一，可由一个规模极小的二次规划求得。这样，“逐步满足约束”便从枚举问题变成投影问题，从而可直接用于连续动作。
 
 \section{Methodology}
 \label{sec:method}
 
-本节给出投影式安全盾的构造。我们先把 COLREGs 让路条款形式化为动作空间中的集合约束（“\nameref{sec:rulesets}”一节），据此构造安全动作集与投影算子（“\nameref{sec:proj}”一节）；随后说明策略如何在带盾环境中学习（“\nameref{sec:rl}”一节）；最后分析该机制能够严格保证什么、不能保证什么（“\nameref{sec:guarantee}”一节）。
+本节给出投影式安全盾的构造。我们先把 COLREGs 让路条款形式化为动作空间中的集合约束（第~\ref{sec:rulesets} 节），据此构造安全动作集与投影算子（第~\ref{sec:proj} 节）；随后说明策略如何在带盾环境中学习（第~\ref{sec:rl} 节）；最后分析该机制能够严格保证什么、不能保证什么（第~\ref{sec:guarantee} 节）。
 
 %------------------------------------------------------------------------------
 \begin{figure}[t]
@@ -502,7 +502,7 @@ Submitted [Submission Date]\par
  \end{cases}
  \label{eq:ucolregs}
 \end{equation}
-其中 $\mathcal{U}_{\mathrm{box}}=\{|a|\le a_{\max}\}\cap\{|\omega|\le\omega_{\max}\}$ 是\emph{执行器物理量程}构成的动作箱。这里需要区分两个箱：策略的动作空间是较窄的常规操作箱 $\{|a|\le a_{\mathrm{op}}\}\cap\{|\omega|\le\omega_{\mathrm{op}}\}$（与量化网格的张成范围相同，见表~\ref{tab:params} 表注），而安全盾的投影与兜底一律在物理量程箱上求解。这样安排是必要的：安全盾必须能够在需要时动用超出策略权限的操纵能力，否则一旦策略的窄箱与无碰撞约束不相容，本来可解的局面会被误判为不可行。其代价是安全盾实际施加的控制可以落在策略动作箱之外，这一点在观测中如实回传（见 “\nameref{sec:rl}”一节），并在统计时按控制来源分类。三类约束的语义如下。直航态须保向保速（第 17 条），故容差取小量 $\varepsilon_a=0.016~\mathrm{m/s^2}$、$\varepsilon_\omega=0.004363~\mathrm{rad/s}$；对遇与交叉态须向右转且幅度足够明显（第 14、15 条）；追越态的让清一侧由相对几何确定，可左可右（第 13 条）。这一支需要说明其在实现中的形式：式~\eqref{eq:ucolregs} 中 $\rho_4$ 一行写作两个半平面之并，该集合非凸，不能直接作为二次规划的约束。实现上并不求解这个并集，而是先由相对几何唯一确定让清一侧（与状态机判定同一套方向逻辑），再据此选定\emph{单个}半平面进入式~\eqref{eq:Ab}。因此进入投影的合规约束始终是凸的，代价是让清一侧由几何在每个决策步重新判定，原则上可能在两侧边界附近逐步切换；本基准无追越场景，该行为未获实证检验。这些方向要求均出自《国际海上避碰规则》\citp{IMO}{1972}。紧急态 $\rho_5$ 不施加方向约束，其处置见 “\nameref{sec:proj}”一节末段。这是本方法保证覆盖不到的部分，我们在 “\nameref{sec:guarantee}”一节明确划出边界。
+其中 $\mathcal{U}_{\mathrm{box}}=\{|a|\le a_{\max}\}\cap\{|\omega|\le\omega_{\max}\}$ 是\emph{执行器物理量程}构成的动作箱。这里需要区分两个箱：策略的动作空间是较窄的常规操作箱 $\{|a|\le a_{\mathrm{op}}\}\cap\{|\omega|\le\omega_{\mathrm{op}}\}$（与量化网格的张成范围相同，见表~\ref{tab:params} 表注），而安全盾的投影与兜底一律在物理量程箱上求解。这样安排是必要的：安全盾必须能够在需要时动用超出策略权限的操纵能力，否则一旦策略的窄箱与无碰撞约束不相容，本来可解的局面会被误判为不可行。其代价是安全盾实际施加的控制可以落在策略动作箱之外，这一点在观测中如实回传（见第~\ref{sec:rl} 节），并在统计时按控制来源分类。三类约束的语义如下。直航态须保向保速（第 17 条），故容差取小量 $\varepsilon_a=0.016~\mathrm{m/s^2}$、$\varepsilon_\omega=0.004363~\mathrm{rad/s}$；对遇与交叉态须向右转且幅度足够明显（第 14、15 条）；追越态的让清一侧由相对几何确定，可左可右（第 13 条）。这一支需要说明其在实现中的形式：式~\eqref{eq:ucolregs} 中 $\rho_4$ 一行写作两个半平面之并，该集合非凸，不能直接作为二次规划的约束。实现上并不求解这个并集，而是先由相对几何唯一确定让清一侧（与状态机判定同一套方向逻辑），再据此选定\emph{单个}半平面进入式~\eqref{eq:Ab}。因此进入投影的合规约束始终是凸的，代价是让清一侧由几何在每个决策步重新判定，原则上可能在两侧边界附近逐步切换；本基准无追越场景，该行为未获实证检验。这些方向要求均出自《国际海上避碰规则》\citp{IMO}{1972}。紧急态 $\rho_5$ 不施加方向约束，其处置见第~\ref{sec:proj} 节末段。这是本方法保证覆盖不到的部分，我们在第~\ref{sec:guarantee} 节明确划出边界。
 
 \textbf{“足够明显”的量化及其下确界性质。}\ 公约要求让路动作幅度大到能被对方及时察觉。把“明显”量化为在机动时间 $T_M$ 内航向改变不少于 $\Delta_{\mathrm{lt}}$，即得阈值
 \begin{equation}
@@ -577,11 +577,11 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
  u=\begin{cases}(a_{\mathrm{st}},\,0), & t<T_{\mathrm{react}},\\[2pt] (0,\,0), & t\ge T_{\mathrm{react}},\end{cases}
  \qquad a_{\mathrm{st}}=0.2\,a_{\max},
 \end{equation}
-即在反应窗内直线加速脱离、其后停止施控。$\mathrm{base}$ 模式跟踪一个随他船当前位置移动的目标点。三种模式都经同一个位置跟踪律换算为 $(a,\omega)$。该控制器不提供任何保证，它的作用范围由 “\nameref{sec:guarantee}”一节的迫近不可避判据界定。
+即在反应窗内直线加速脱离、其后停止施控。$\mathrm{base}$ 模式跟踪一个随他船当前位置移动的目标点。三种模式都经同一个位置跟踪律换算为 $(a,\omega)$。该控制器不提供任何保证，它的作用范围由第~\ref{sec:guarantee} 节的迫近不可避判据界定。
  \item \emph{其余态势的降级}。$\rho_0$--$\rho_4$ 只在 $\mathcal{P}=\varnothing$ 时降级，且先判一种退化情形。若线性化给不出可用的分离方向，即本船标称落点与他船膨胀占据的圆心重合、或本船在该分离方向上没有控制权限（近零速时落点对转艏率的雅可比降秩），则直接返回箱内投影占位（记为“退化”），不再求解任何二次规划。否则先放松方向约束、只保留动作箱与无碰撞约束求解（记为“放松”），仍不可行才改解一个最小化最坏碰撞侵入量的软约束二次规划（记为“碰撞风险最小化”）。
 \end{itemize}
 
-有两点须注意。其一，占据仅仅已经相交并不会触发退化，那种情形照常走放松与碰撞风险最小化。其二，放松与碰撞风险最小化都在执行器物理量程上求解并整块丢弃合规约束，故转艏率可达 $\omega_{\max}$。因此紧急控制器与后三支互斥，前者只出现在 $\rho_5$，后三支只出现在 $\rho_0$--$\rho_4$。这一支是经验性的，不提供任何保证。本文从两个方向界定这一支：在 “\nameref{sec:guarantee}”一节给它配一个可判定的边界，即一个保守判据，用来识别“碰撞在物理上已不可避”的状态；同时用一组专门构造的对抗场景检验它是否真的会被触发。
+有两点须注意。其一，占据仅仅已经相交并不会触发退化，那种情形照常走放松与碰撞风险最小化。其二，放松与碰撞风险最小化都在执行器物理量程上求解并整块丢弃合规约束，故转艏率可达 $\omega_{\max}$。因此紧急控制器与后三支互斥，前者只出现在 $\rho_5$，后三支只出现在 $\rho_0$--$\rho_4$。这一支是经验性的，不提供任何保证。本文从两个方向界定这一支：在第~\ref{sec:guarantee} 节给它配一个可判定的边界，即一个保守判据，用来识别“碰撞在物理上已不可避”的状态；同时用一组专门构造的对抗场景检验它是否真的会被触发。
 
 后一点是必要的，因为在本文使用的公开基准上，降级几乎不发生。我们实测该基准的场景，本船若保持航向航速，与他船的最近中心距中位数约 $1300$~m，只有极少数算例会真正逼近，安全动作集因而基本不会为空。三支降级的实测触发率也印证了这一点：在该基准上，碰撞风险最小化占决策步的 $0.18\%$，放松与退化两支\emph{均未触发}；即便在下述专门构造的真冲突算例上，退化一支仍未触发。因此三支降级虽在实现上必须完备，其在本基准上的实际影响很小，本文据此把篇幅留给真正被频繁使用的紧急通道。为此我们以该基准场景为模板、只重造他船轨迹，使本船的保向航迹与他船的恒速航迹在指定时刻真正相交，从而得到真冲突的算例；会遇态势一律用与安全盾同一套谓词复判。在这组算例上，降级分支确实被触发：碰撞风险最小化一支的触发率由基准上的 $0.18\%$ 升至 $1.58\%$，放松一支则由从未触发变为可被观测到。该结果只用于刻画兜底机制本身是否可被激活，其场景为合成算例，不与主结果表并列。
 
@@ -726,7 +726,7 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 
 \textit{假设与作用域。}\ (B1) 单他船；(B2) 状态机的态势判定正确。该假设继承自碰撞可能性谓词的一处已知保守偏差：式~\eqref{eq:cp} 的接近条件以两船中心距为准，因而对速度接近的尾随会遇存在漏判区间，即本应判为有碰撞可能却判为无。其方向是漏判而非把方向判反，后果是该步不进入让路态、从而不施加方向约束，而非施加相反一侧的约束；此外还有四谓词并列时依判定序取一的已知缺口。两者的发生率本文未作测量。(B3) 二次规划可行；(B4) 作用域 $=$ 让路态势的会遇。让路触发率约 $13\text{--}16\%$（探索期 933 场景池实测，非本文正式评估集的 600），且这是\emph{经过碰撞可能性闸之后}的会遇（回合）级比率，而非几何类型的占比，后者按几何谓词分类时交叉与对遇占满全库；两者的分母不同；直航违规才按步计。
 
-\noindent\textbf{作用域限制。}\ 本性质不覆盖紧急态（其判据在结构上旁路合规约束）。紧急态在探索期的 933 场景池上占冲突步的 $55\text{--}60\%$，但该判据是一个过触发的保守保守判据（在专门逼出紧急支的对抗基线上，其中 $97.6\%$ 事后并非真正不可避），故该比例是判据的触发率，而非真实迫近的比例，也不覆盖放松、最小碰撞风险与退化三支兜底（它们都丢掉半平面）。因此本文的合规陈述只到“每一让路步的方向合规”这一层，并不覆盖全部决策步；实测每局违规数非零。
+\noindent\textbf{作用域限制。}\ 本性质不覆盖紧急态（其判据在结构上旁路合规约束）。紧急态在探索期的 933 场景池上占冲突步的 $55\text{--}60\%$，但该判据是一个过触发的保守保守判据（在专门逼出紧急支的对抗基线上，其中 $97.6\%$ 事后并非真正不可避），故该比例是判据的触发率，而非真实迫近的比例，也不覆盖放松、最小碰撞风险与退化三支兜底（这三支均放弃半平面约束）。因此本文的合规陈述只到“每一让路步的方向合规”这一层，并不覆盖全部决策步；实测每局违规数非零。
 
 \textbf{紧急：给黑箱划一条可判定的边界。}
 
@@ -778,7 +778,7 @@ L_{\mathrm{lat}}(t)=
 
 \noindent\textbf{辅助结论。}\ 若尾段恒速直行且他船恒速，则两个朝向固定、以恒定相对速度平移的矩形之间的距离函数 $g(t)$ 是凸的；因此一旦过了最近点开始增长，便对所有更晚的 $t$ 持续增长。
 
-\noindent\textbf{可靠性要点。}\ 凸性要求尾段恒\emph{速}，仅 $\omega=0$ 不够。加速的直行尾段路径对 $t$ 非仿射，$g$ 未必凸；故证书同时要求 $a=0$。该证书是充分条件：可靠，但保守，会拒绝一些其实安全的逃逸。
+\noindent\textbf{可靠性要点。}\ 凸性要求尾段恒\emph{速}，仅 $\omega=0$ 不够。加速的直行尾段路径对 $t$ 非仿射，$g$ 未必凸；故证书同时要求 $a=0$。该证书是充分条件：可靠，但保守，会拒绝一些实际安全的逃逸。
 
 \begin{prop}[可清障集的控制不变性，\emph{暂定}]\label{prop:inv}
 对每个 $s\in A$ 及其已认证逃逸 $m=(u_0,u_1,\dots)$，施加 $u_0$ 一个决策步后得到 $s'$，其尾 $m'=(u_1,u_2,\dots)$ 仍是 $s'$ 的已认证直尾逃逸。因为它就是同一条已通过可靠性证书的物理轨迹的后半段。故 $s'\in A$，即 $A$ 是控制不变的。据此，“后继仍在 $A$ 内”这一终端约束（实现为对一条具体后备机动的 $O(1)$ 重认证）在设计上可使带盾闭环在 $A$ 上递归可行。
@@ -826,7 +826,7 @@ L_{\mathrm{lat}}(t)=
 综合起来，本文可辩护的核心结论是：在连续控制上同时取得 COLREGs 让路条款的方向合规保证，并配以远场单步无碰的严格结论与紧急迫近不可避的可靠证书。该结论的作用域限于单个恒速他船、让路态势且投影可行的决策步；紧急态与三支降级控制不在其内。上述边界在局限一节集中说明。
 
 \textbf{兜底行为的实证边界。}
-当投影在紧急态不可行时，判据在结构上旁路方向约束，兜底控制器最小化碰撞风险。这是经验兜底，不是保证。在一个专门逼出紧急支的对抗性纯几何基线上，我们观察到的碰撞全部发生在归类为紧急控制的步上，即“最后手段尝试并失败”，且都落在性质 1 的适用域（远场、非紧急、单步）之外。它们不是对头条主张的反例，但坐实了紧急态不是保证。此处按来源分类的碰撞计数留待正式实验重评后填入（见 “\nameref{sec:res-shield}”一节，\TBD）。
+当投影在紧急态不可行时，判据在结构上旁路方向约束，兜底控制器最小化碰撞风险。这是经验兜底，不是保证。在一个专门逼出紧急支的对抗性纯几何基线上，我们观察到的碰撞全部发生在归类为紧急控制的步上，即“最后手段尝试并失败”，且都落在性质 1 的适用域（远场、非紧急、单步）之外。它们不是对头条主张的反例，但坐实了紧急态不是保证。此处按来源分类的碰撞计数留待正式实验重评后填入（见第~\ref{sec:res-shield} 节，\TBD）。
 
 
 \section{Experiments}
@@ -875,13 +875,13 @@ L_{\mathrm{lat}}(t)=
  \vspace{4pt}
  \footnotesize
  \textbf{表注。}
- (1) ③$\to$⑤ 这一级不是纯单变量：环境层与奖励层完全一致（逐值比对差为 $0$），两个算法的默认超参也已逐字核对、完全相同；但算法类（带屏蔽的 PPO vs.\ 普通 PPO）、策略族（49 类别分布 vs.\ 2 维连续分布）、熵系数的语义（离散熵与微分熵不是同一个量）三者是“换动作空间”不可分割的伴随。故这一级只能读作“动作空间及其必然伴随的贡献有多大”。
+ (1) ③$\to$⑤ 这一级不是纯单变量：环境层与奖励层完全一致（逐值比对差为 $0$），两个算法的默认超参也已逐字核对、完全相同；但算法类（带屏蔽的 PPO vs.\ 普通 PPO）、策略族（49 类别分布 vs.\ 2 维连续分布）、熵系数的语义（离散熵与微分熵不是同一个量）三者是“换动作空间”不可分割的伴随。故这一级只能理解为“动作空间及其必然伴随的改动共同带来多少收益”。
  (2) ⑥$\to$⑦ 的“连续专属塑形”是 4 件一起开的捆绑包（进门势 / 横向进带势 / 终端保速势 / 动作增量惩罚（两轴）），本次没有逐件拆开，因此只能写“这套组合贡献了 $X$”。
  (3) ⑦$\to$⑧ 换分布带一个必然伴随：两种分布的初始探索尺度在加速度轴上差约 2.5 倍。高斯的初始标准差是一个由较窄的转艏轴动作箱派生的标量（$\sigma\approx0.009$），两轴共用；加速度轴箱宽是转艏轴的 2.67 倍，故高斯在加速度轴上相对更窄（$\sigma/$半宽 $=0.19$ vs.\ 转艏轴 $0.50$）；Beta 的初始形状按箱宽相对定义（$\approx0.48\times$ 半宽，两轴相同）。这是换分布的必然伴随，不是集成错误。不存在“既换分布又保持初始探索尺度不变”的写法，因为高斯的尺度是绝对的、Beta 的是相对的。
 \end{table}
 %------------------------------------------------------------------------------
 
-\textbf{⑤⑥ 这对配置的适用条件。}\ 无盾的连续动作配置只能采用极简配置（无界高斯 / 非对称让路入口 / 零塑形），因为让无盾配置启用连续专属塑形会造成相对离散无盾基线的不对称，使归因失效。而无界高斯正是那个会把大量采样推到动作箱边界之外的形态：在探索期的四配置重评上（小规模场景池，非本文正式实验的评估设置），我们实测无界高斯策略有约 $73\%$ 的决策步紧贴动作箱边界。因此，“安全盾在连续动作空间中带来多少收益”这一倍数，是在连续动作最差的形态下测得的。同理，③$\to$⑤ 所反映的“把动作空间由离散换为连续本身带来多少收益”可能为负；该值应读作一个保守的下界。
+\textbf{⑤⑥ 这对配置的适用条件。}\ 无盾的连续动作配置只能采用极简配置（无界高斯 / 非对称让路入口 / 零塑形），因为让无盾配置启用连续专属塑形会造成相对离散无盾基线的不对称，使归因失效。而无界高斯正是那个会把大量采样推到动作箱边界之外的形态：在探索期的四配置重评上（小规模场景池，非本文正式实验的评估设置），我们实测无界高斯策略有约 $73\%$ 的决策步紧贴动作箱边界。因此，“安全盾在连续动作空间中带来多少收益”这一倍数，是在连续动作最差的形态下测得的。同理，③$\to$⑤ 所反映的“把动作空间由离散换为连续本身带来多少收益”可能为负；该值应视为一个保守的下界。
 
 \subsection{评价指标与实验方案}
 \label{sec:metrics}
@@ -917,7 +917,7 @@ L_{\mathrm{lat}}(t)=
 
 \subsubsection{统计方法}
 \label{sec:stats}
-主检验 $=$ 同种子配对符号检验。8 颗种子时双侧最小可达 $p=2/2^{8}=0.0078$，足以支撑“统计上可辨”的结论。区间用按种子重采样的自助法 95\% 区间；碰撞用 Fisher 精确检验（碰撞是稀有事件，正态近似不适用）。全部自算，不调统计库，脚本随论文给出。
+主检验 $=$ 同种子配对符号检验。8 颗种子时双侧最小可达 $p=2/2^{8}=0.0078$，足以支撑“统计上可辨”的结论。区间 $=$ 按种子重采样的自助法 95\% 区间；碰撞用 Fisher 精确检验（碰撞是稀有事件，正态近似不适用）。全部自算，不调统计库，脚本随论文给出。
 
 我们预先声明一条回退规则：若最终收敛种子数降至 3--4 颗，主检验改为按测试场景配对（每种配置在每个测试场景上的逐局明细，$N=600$），逐种子那一版降级为稳健性检查；换检验的唯一理由是算力受限，且逐场景配对不能替代逐种子回答\emph{训练可靠性}这一问题，后者只能靠种子数，$n$ 小即如实报告 $n$ 小。
 
@@ -955,9 +955,9 @@ L_{\mathrm{lat}}(t)=
  \end{tabular}
 
  \vspace{4pt}\footnotesize
- \textbf{表注。}官方测试集 600 个场景（与训练集零交集）。训练预算 10{,}158{,}080 步，用 100 个验证场景选最佳存档，全部配置同一规则。到达判据 $=$ 官方 \texttt{is\_reached}（位置 $+$ 朝向 $\pm9.74^\circ$ $+$ 时限）。区间 $=$ 按种子重采样的自助法 95\% 区间；碰撞用 Fisher 精确检验。“达标”判据见 “\nameref{sec:stats}”。
+ \textbf{表注。}官方测试集 600 个场景（与训练集零交集）。训练预算 10{,}158{,}080 步，用 100 个验证场景选最佳存档，全部配置同一规则。到达判据 $=$ 官方 \texttt{is\_reached}（位置 $+$ 朝向 $\pm9.74^\circ$ $+$ 时限）。区间 $=$ 按种子重采样的自助法 95\% 区间；碰撞用 Fisher 精确检验。“达标”判据见第~\ref{sec:stats} 节。
  ⑤⑥ 使用极简配置（无界高斯 / 非对称让路入口 / 零塑形）；该配置是无盾连续动作配置唯一合法的形态，故由 ⑤⑥ 得到的安全盾的收益是在连续动作最差形态下测得的。
- 转艏增量、油门增量与 jerk 三列均不可跨动作空间读作“我们更平顺”：连续动作配置训练时开着直接惩罚控制增量的罚项，且该罚项同时作用于两个轴，离散动作配置结构上没有；相关比较见图~\ref{fig:ablation}。
+ 转艏增量、油门增量与 jerk 三列均不可跨动作空间解读为控制更平顺：连续动作配置训练时开着直接惩罚控制增量的罚项，且该罚项同时作用于两个轴，离散动作配置结构上没有；相关比较见图~\ref{fig:ablation}。
  碰撞如实报，与对标的差异按 Fisher 检验陈述，不写“零碰撞”。
 \end{table}
 
@@ -966,7 +966,7 @@ L_{\mathrm{lat}}(t)=
 \begin{figure}[t]
  \centering
  \figplaceholder{图 2（安全—效率权衡图：到达率 $\times$ 违规，内嵌到达率 $\times$ 碰撞率）}
- \caption{安全—效率权衡。横轴为到达率，纵轴为每局 COLREGs 违规数（对数轴），每个标记为一种配置，误差棒为按种子重采样的自助法 95\% 区间；左上角为理想区。内嵌小图纵轴换为碰撞率。形状编码：圆 $=$ 连续动作、三角 $=$ 离散动作、方块 $=$ 外部几何基线；实心为带盾（投影盾或动作屏蔽），空心为无盾。读图要点：离散动作屏蔽为拿到合规性付出的代价，与连续投影所付代价之比为 \TBD。外部基线的到达率须按 “\nameref{sec:res-ext}” 的限定阅读。}
+ \caption{安全—效率权衡。横轴为到达率，纵轴为每局 COLREGs 违规数（对数轴），每个标记为一种配置，误差棒为按种子重采样的自助法 95\% 区间；左上角为理想区。内嵌小图纵轴换为碰撞率。形状编码：圆 $=$ 连续动作、三角 $=$ 离散动作、方块 $=$ 外部几何基线；实心为带盾（投影盾或动作屏蔽），空心为无盾。离散动作屏蔽为获得合规性付出的代价，与连续投影所付代价之比为 \TBD。外部基线的到达率须按第~\ref{sec:res-ext} 节的限定阅读。}
  \label{fig:tradeoff}
 \end{figure}
 % ▶ 来源：同上 → Fig3_tradeoff.*  ⚠️ 该格目前会抛 ValueError
@@ -984,7 +984,7 @@ L_{\mathrm{lat}}(t)=
 因此“⑧ 比 ⑦ 平顺 $N$ 倍”只能归因于有界动作分布，而不是额外的奖励项；
 跨配置与离散基线比较结构上不成立（我们罚了那个量、离散动作配置拿不到）。
 ⑦$\to$⑧ 这一级的不可分割伴随（初始探索尺度在加速度轴上差约 2.5 倍）见表~\ref{tab:arms} 表注 (3)。
-按 “\nameref{sec:stats}”，本组同样给出“仅收敛种子”一版。
+按第~\ref{sec:stats} 节，本组同样给出“仅收敛种子”一版。
 
 \begin{figure}[t]
  \centering
@@ -998,7 +998,7 @@ L_{\mathrm{lat}}(t)=
 \begin{figure}[t]
  \centering
  \figplaceholder{图 4（2$\times$2：学习曲线 / 同种子配对差 / 收敛种子数 / 值函数健康度）}
- \caption{样本效率与训练可靠性。（a）九种配置在 100 个验证场景上的到达率学习曲线（每 507{,}904 步一个点，共 20 个点），实线为跨种子中位数、阴影为四分位距。（b）同种子配对的到达率差值（本文方法 $-$ 对标离散动作配置），每条折线一颗种子；折线全部位于零线同侧即为一致优势。（c）“收敛种子数”随训练步数的变化（判据见 “\nameref{sec:stats}”）。（d）值函数可解释方差随训练的变化，用于区分“还在爬”与“已经崩”。全部曲线取自训练期记录的原始数值，未做任何平滑。}
+ \caption{样本效率与训练可靠性。（a）九种配置在 100 个验证场景上的到达率学习曲线（每 507{,}904 步一个点，共 20 个点），实线为跨种子中位数、阴影为四分位距。（b）同种子配对的到达率差值（本文方法 $-$ 对标离散动作配置），每条折线一颗种子；折线全部位于零线同侧即为一致优势。（c）“收敛种子数”随训练步数的变化（判据见第~\ref{sec:stats} 节）。（d）值函数可解释方差随训练的变化，用于区分“还在爬”与“已经崩”。全部曲线取自训练期记录的原始数值，未做任何平滑。}
  \label{fig:curves}
 \end{figure}
 % ▶ 来源：Paper/正式实验/04_图/make_figures.py → Fig1_sample_efficiency.*
@@ -1034,11 +1034,11 @@ L_{\mathrm{lat}}(t)=
 \subsection{外部基线对照}
 \label{sec:res-ext}
 
-我们把三条不需要训练的几何避碰控制器放在同一评估管线、同一测试集与同一分母上跑一遍，作为与学习无关的参照（表~\ref{tab:ext}）。这一组对照的作用不是证明学习方法更强，而是回答一个更基本的问题：本文所报的差异中，哪些维度上几何方法本来就够用。
+我们把三条不需要训练的几何避碰控制器放在同一评估管线、同一测试集与同一样本量下运行，作为与学习无关的参照（表~\ref{tab:ext}）。这一组对照的作用不是证明学习方法更强，而是回答一个更基本的问题：本文所报的差异中，哪些维度上几何方法本来就够用。
 
 结果把可辩护的主张收窄到一个维度。控制障碍函数滤波器在本测试集上的碰撞率为 $0.00\%$，即在碰撞这一维度上它与本文方法打平；因此碰撞率不是能区分两类方法的指标。到达率一列同样不能直接使用：几何控制器的标称控制律不含终端对准环节，其位置命中率达 $96.8\%$--$99.7\%$，却卡在终端朝向门之外，这一列反映的是终端约束的类型差异。平顺度一列则明确不利于本文：物理满量程档的转艏增量低至 $0.00032$--$0.00058$，这是手工调参的几何控制器所能达到的量级；本文与之的比值待数据到手后填入（\TBD），且无论结果如何都不作平顺度优势的主张。
 
-真正的差别在 COLREGs 违规，且集中在一个具体成因上。三条基线的违规几乎全部是直航违规，控制障碍函数 $4.49$ 次中的 $4.04$ 次、PD 控制器 $9.79$ 次中的 $9.35$ 次、速度障碍 $8.20$ 次中的 $7.70$ 次（表~\ref{tab:ext}）。这些控制器只以“不碰”为目标，因此在规则要求保向保速的时段里仍在持续机动。这与 “\nameref{sec:metrics}”一节给出的计数规则一致：违规由独立评分器按裸态势谓词判定，与是否装有安全盾无关，因此这一比较是同条件的。本文的对照结论只能落在这一维度上：\TBD。
+真正的差别在 COLREGs 违规，且集中在一个具体成因上。三条基线的违规几乎全部是直航违规，控制障碍函数 $4.49$ 次中的 $4.04$ 次、PD 控制器 $9.79$ 次中的 $9.35$ 次、速度障碍 $8.20$ 次中的 $7.70$ 次（表~\ref{tab:ext}）。这些控制器只以“不碰”为目标，因此在规则要求保向保速的时段里仍在持续机动。这与第~\ref{sec:metrics} 节给出的计数规则一致：违规由独立评分器按裸态势谓词判定，与是否装有安全盾无关，因此这一比较是同条件的。本文的对照结论只能落在这一维度上：\TBD。
 
 % ▶ 来源：结果/结果0729-外部几何基线-官方600/（baselines_cbf.json / baselines_pd.json + README）
 %  脚本 代码/m1_dock_wip/run_baselines_official.py（复用同一套评估代码与同一分母 600）
@@ -1077,7 +1077,7 @@ L_{\mathrm{lat}}(t)=
  \textbf{表注。}（1）三条基线不训练、无随机种子，故不列种子统计；参数按各自最好的配置报，调参用官方训练集另抽的
  100 例，与本表的评估集零交集。控制量程两档：“策略量程”$=$ 与本文策略同权限的 $\pm0.048/\pm0.018$，
  “物理满量程”$=\pm0.24/\pm0.03$；同时报两档是为了排除“权限差异”这一混淆。
- （2）\emph{到达率不能直接读作避碰能力}：几何控制器的标称律不含终端对准环节，它们的位置命中率达 $96.8\%$--$99.7\%$，
+ （2）\emph{到达率不能直接等同于避碰能力}：几何控制器的标称律不含终端对准环节，它们的位置命中率达 $96.8\%$--$99.7\%$，
  却卡在终端朝向门之外，因此该列反映的是终端约束类型的差异。
  （3）违规数中\textbf{直航违规占绝大多数}（控制障碍函数 $4.49$ 中的 $4.04$、PD $9.79$ 中的 $9.35$）：
  几何控制器“不撞”的代价是在规则要求保向保速时仍在机动。这是本文相对它们的差别所在，也说明碰撞率不是有效的区分维度
@@ -1086,7 +1086,7 @@ L_{\mathrm{lat}}(t)=
  可辩护的写法只有“平顺度相当，而违规更低”。
  （5）单局评估耗时（单线程墙钟）：控制障碍函数 $0.15$~s、PD $0.15$~s、速度障碍 $0.86$~s。
  （6）三条基线走无盾路径、不推状态机，全部决策步都归在“无冲突”态势下，故本表不给出按态势拆分的转艏增量（让路步 / 其他步的拆分对它们无意义），只报合计；
- 它们的违规数由离线态势评分器给出，与安全盾的态势判定无关，其计数规则见 “\nameref{sec:metrics}”一节。
+ 它们的违规数由离线态势评分器给出，与安全盾的态势判定无关，其计数规则见第~\ref{sec:metrics} 节。
 \end{table}
 
 \section{Discussion}
@@ -1182,7 +1182,7 @@ COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法
 
 \refitem{Chun, D.-H., M.-I. Roh, H.-W. Lee, J. Ha, and D. Yu. 2021. “Deep Reinforcement Learning-Based Collision Avoidance for an Autonomous Ship.” \textit{Ocean Engineering} 234: 109216.}
 
-\refitem{Dalal, Gal, Krishnamurthy Dvijotham, Matej Vecerik, Todd Hester, Cosmin Paduraru, and Yuval Tassa. 2018. “Safe exploration in continuous action spaces.” arXiv:1801.08757.}
+\refitem{Dalal, Gal, Krishnamurthy Dvijotham, Matej Vecerik, Todd Hester, Cosmin Paduraru, and Yuval Tassa. 2018. “Safe Exploration in Continuous Action Spaces.” arXiv:1801.08757.}
 
 \refitem{De Lellis, Francesco, Marco Coraggio, Giovanni Russo, Mirco Musolesi, and Mario di Bernardo. 2024. “Guaranteeing Control Requirements via Reward Shaping in Reinforcement Learning.” \textit{IEEE Transactions on Control Systems Technology}. arXiv:2311.10026.}
 
@@ -1206,13 +1206,13 @@ COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法
 
 \refitem{Kochdumper, Niklas, Hanna Krasowski, Xiao Wang, Stanley Bak, and Matthias Althoff. 2023. “Provably Safe Reinforcement Learning via Action Projection Using Reachability Analysis and Polynomial Zonotopes.” \textit{IEEE Open Journal of Control Systems} 2.}
 
-\refitem{Krasowski, Hanna, and Matthias Althoff. 2021. “Temporal logic formalization of marine traffic rules.” In \textit{Proceedings of the IEEE Intelligent Vehicles Symposium (IV)}, 186--192. DOI: 10.1109/IV48863.2021.9575685.}
+\refitem{Krasowski, Hanna, and Matthias Althoff. 2021. “Temporal Logic Formalization of Marine Traffic Rules.” In \textit{Proceedings of the IEEE Intelligent Vehicles Symposium (IV)}, 186--192. DOI: 10.1109/IV48863.2021.9575685.}
 
-\refitem{Krasowski, Hanna, and Matthias Althoff. 2022. “CommonOcean: Composable benchmarks for motion planning on oceans.” In \textit{Proceedings of the IEEE International Conference on Intelligent Transportation Systems (ITSC)}, 1676--1682. DOI: 10.1109/ITSC55140.2022.9921925.}
+\refitem{Krasowski, Hanna, and Matthias Althoff. 2022. “CommonOcean: Composable Benchmarks for Motion Planning on Oceans.” In \textit{Proceedings of the IEEE International Conference on Intelligent Transportation Systems (ITSC)}, 1676--1682. DOI: 10.1109/ITSC55140.2022.9921925.}
 
 \refitem{Krasowski, Hanna, and Matthias Althoff. 2024. “Provable Traffic Rule Compliance in Safe Reinforcement Learning on the Open Sea.” \textit{IEEE Transactions on Intelligent Vehicles} 9 (12): 7617--7634. arXiv:2402.08502.}
 
-\refitem{Krasowski, Hanna, Jakob Thumm, Marlon Müller, Lukas Schäfer, Xiao Wang, and Matthias Althoff. 2023. “Provably safe reinforcement learning: Conceptual analysis, survey, and benchmarking.” \textit{Transactions on Machine Learning Research}. arXiv:2205.06750.}
+\refitem{Krasowski, Hanna, Jakob Thumm, Marlon Müller, Lukas Schäfer, Xiao Wang, and Matthias Althoff. 2023. “Provably Safe Reinforcement Learning: Conceptual Analysis, Survey, and Benchmarking.” \textit{Transactions on Machine Learning Research}. arXiv:2205.06750.}
 
 \refitem{Kufoalor, D. K. M., Tor A. Johansen, Edmund F. Brekke, A. Hepsø, and K. Trnka. 2020. “Autonomous Maritime Collision Avoidance: Field Verification of Autonomous Surface Vehicle Behavior in Challenging Scenarios.” \textit{Journal of Field Robotics} 37.}
 
@@ -1236,7 +1236,7 @@ COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法
 
 \refitem{Pizarro Bejarano, Federico, Lukas Brunke, and Angela P. Schoellig. 2025. “Safety Filtering While Training: Improving the Performance and Sample Efficiency of Reinforcement Learning Agents.” \textit{IEEE Robotics and Automation Letters}. arXiv:2410.11671.}
 
-\refitem{Raffin, Antonin, Ashley Hill, Adam Gleave, Anssi Kanervisto, Maximilian Ernestus, and Noah Dormann. 2021. “Stable-Baselines3: Reliable reinforcement learning implementations.” \textit{Journal of Machine Learning Research} 22 (268): 1--8.}
+\refitem{Raffin, Antonin, Ashley Hill, Adam Gleave, Anssi Kanervisto, Maximilian Ernestus, and Noah Dormann. 2021. “Stable-Baselines3: Reliable Reinforcement Learning Implementations.” \textit{Journal of Machine Learning Research} 22 (268): 1--8.}
 
 \refitem{Sarhadi, Pouria, Wasif Naeem, and Nikolaos Athanasopoulos. 2022. “A Survey of Recent Machine Learning Solutions for Ship Collision Avoidance and Mission Planning.” \textit{IFAC-PapersOnLine}. arXiv:2207.02767.}
 
