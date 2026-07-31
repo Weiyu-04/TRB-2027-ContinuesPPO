@@ -12,6 +12,11 @@
    · `curves` = 每次 rollout 的训练期遥测（盾归口 / 打满舵率 / 盾改写量 / 态势分布 / PPO 内部量）
    两者都与重评无关，所以在重评之前就能画。
 
+🎨 画法（user 2026-08-01 指定，对齐 Fig1_sample_efficiency 那一版的观感）：
+   **不画分位数色带**。8 颗种子里有崩的，[25,75] 带会糊成一大片，既难看又不说明问题。
+   改为**每颗种子一条细半透明线 + 一条粗中位线**，分散度由真实轨迹本身呈现。
+   另加浅色横向网格、行末内联标签（省掉图例框）、面板标题居上。
+
 跑法（用隔离 venv，别污染为基线钉住的 numpy）：
     <venv>/bin/python 结果/结果0801-出图草图/make_fig45_draft.py
 """
@@ -114,6 +119,61 @@ def _src_share(runs, group, nbin=40):
     return bx[ok], by[ok]
 
 
+def grid(ax, axis="y"):
+    """浅色网格，压在数据下面。"""
+    ax.grid(axis=axis, color=N.PALETTE["neutral_light"], linewidth=0.5, alpha=0.7)
+    ax.set_axisbelow(True)
+
+
+def seed_lines(ax, runs, key, color, x_scale=1e6):
+    """每颗种子一条细线 + 一条粗中位线。返回中位线末端坐标，供内联标签定位。"""
+    series = []
+    for r in runs:
+        xs = [t["step"] / x_scale for t in r["trend"]]
+        ys = [t[key] for t in r["trend"]]
+        ax.plot(xs, ys, color=color, linewidth=0.5, alpha=0.22, zorder=1)
+        series.append((xs, ys))
+    L = max(len(y) for _, y in series)
+    mx, my = [], []
+    for i in range(L):
+        v = [y[i] for _, y in series if i < len(y)]
+        if v:
+            mx.append(next(x[i] for x, y in series if i < len(y)))
+            my.append(float(np.median(v)))
+    ax.plot(mx, my, color=color, linewidth=1.6, zorder=3, solid_capstyle="round")
+    return mx[-1], my[-1]
+
+
+
+class LabelStack:
+    """行末内联标签：先收集，最后按 y 排序并强制最小间距，避免互相压住。"""
+
+    def __init__(self, ax, gap_frac=0.052, size=5.6):
+        self.ax, self.items, self.gap_frac, self.size = ax, [], gap_frac, size
+
+    def add(self, x, y, text, color):
+        self.items.append([x, y, text, color])
+
+    def draw(self):
+        if not self.items:
+            return
+        lo, hi = self.ax.get_ylim()
+        gap = (hi - lo) * self.gap_frac
+        self.items.sort(key=lambda t: t[1])
+        for i in range(1, len(self.items)):
+            if self.items[i][1] - self.items[i - 1][1] < gap:
+                self.items[i][1] = self.items[i - 1][1] + gap
+        for x, y, text, color in self.items:
+            self.ax.annotate(text, (x, y), xytext=(4, 0), textcoords="offset points",
+                             color=color, fontsize=self.size, fontweight="bold",
+                             va="center", zorder=5)
+
+
+def inline_label(ax, x, y, text, color, dx=3, dy=0, size=5.6):
+    ax.annotate(text, (x, y), xytext=(dx, dy), textcoords="offset points",
+                color=color, fontsize=size, fontweight="bold", va="center", zorder=5)
+
+
 def _trend_band(runs):
     """逐段验证集到达率：中位数、[25,75] 分位带，以及每段实际参与的种子数。
 
@@ -147,72 +207,69 @@ def save_pub(fig, name):
 
 # ══════════════════════════════════════════════════════════════════════════════
 def fig4(D):
-    """训练可靠性与样本效率（2×2）。"""
-    fig, AX = plt.subplots(2, 2, figsize=(N.COL2, N.COL2 * 0.62))
+    """训练可靠性（2x2）。细线=逐种子，粗线=中位数，不画分位色带。"""
+    fig, AX = plt.subplots(2, 2, figsize=(N.COL2, N.COL2 * 0.60))
     (a, b), (c, d) = AX
 
-    # (a) 学习曲线 —— 四条主对照臂
-    for tag in ("ours", "disc", "base", "rr"):
-        runs = list(D[tag].values())
-        x, m, lo, hi, ns = _trend_band(runs)
-        if not len(x):
-            continue
-        lab, col = ARMS[tag]
-        k = int((ns == ns.max()).sum())            # 全部种子都在的最后一段
-        a.plot(x[:k] / 1e6, m[:k], color=col, label=f"{lab} (n={ns.max()})")
-        if k < len(x):                              # 后段样本变少 → 虚线并标 n
-            a.plot(x[k - 1:] / 1e6, m[k - 1:], color=col, linestyle="--", linewidth=0.9)
-            a.annotate(f"n={ns[-1]}", (x[-1] / 1e6, m[-1]), color=col, fontsize=5,
-                       xytext=(3, 0), textcoords="offset points", va="center")
-        a.fill_between(x / 1e6, lo, hi, color=col, alpha=0.16, linewidth=0)
-    a.set_xlabel("Training steps (millions)"); a.set_ylabel("Validation arrival rate (%)")
-    a.legend(loc="lower right", fontsize=5.6); a.set_ylim(0, 100)
-    a.text(0.02, 0.97, "dashed: fewer seeds still running (n shown)", transform=a.transAxes,
-           fontsize=5.2, va="top", color=N.PALETTE["neutral_mid"], style="italic")
-    N.panel_label(a, "a")
-
-    # (b) 同种子配对：⑦ 消融·都不改 → ① 本文方法
-    g, h = "ab0", "ours"
-    common = sorted(set(D[g]) & set(D[h]))
-    for i, s in enumerate(common):
-        y0 = D[g][s]["trend"][-1]["到达率%"]; y1 = D[h][s]["trend"][-1]["到达率%"]
-        b.plot([0, 1], [y0, y1], color=N.PALETTE["neutral_mid"], linewidth=0.7, zorder=1)
-        b.scatter([0, 1], [y0, y1], s=12, zorder=2,
-                  color=[ARMS[g][1], ARMS[h][1]])
-    b.set_xticks([0, 1]); b.set_xticklabels(["Ablation:\nneither", "Ours"])
-    b.set_ylabel("Validation arrival rate (%)"); b.set_xlim(-0.35, 1.35); b.set_ylim(0, 100)
-    b.set_title(f"paired by seed (n={len(common)})", pad=3)
-    N.panel_label(b, "b")
-
-    # (c) 达到「练成」判据（验证集到达 ≥50）的种子数随训练
-    for tag in ("ours", "disc", "ab0", "abB", "abG"):
+    a.set_title("(a) Validation arrival rate", pad=4)
+    a.set_ylim(-2, 122); a.set_xlim(0, 16.5)
+    LSa = LabelStack(a, gap_frac=0.055)
+    for tag in ("base", "rr", "disc", "ours"):
         runs = list(D[tag].values())
         if not runs:
             continue
-        L = max(len(r["trend"]) for r in runs)
-        x = np.array([next(r["trend"][i]["step"] for r in runs if i < len(r["trend"]))
-                      for i in range(L)], dtype=float)
-        y = [sum(1 for r in runs if i < len(r["trend"]) and r["trend"][i]["到达率%"] >= CRASH_ARR)
-             for i in range(L)]
         lab, col = ARMS[tag]
-        c.plot(x / 1e6, y, color=col, label=lab, drawstyle="steps-post")
-    c.set_xlabel("Training steps (millions)")
-    c.set_ylabel(f"Seeds with arrival $\\geq${CRASH_ARR:.0f}%")
-    c.set_ylim(-0.3, 8.4); c.legend(loc="upper left", fontsize=5.6)
-    N.panel_label(c, "c")
+        x, y = seed_lines(a, runs, "\u5230\u8fbe\u7387%", col)
+        LSa.add(x, y, lab.split(" (")[0], col)
+    LSa.draw()
+    a.set_xlabel("Training steps (millions)"); a.set_ylabel("Arrival rate (%)")
+    a.set_xticks([0, 2, 4, 6, 8, 10]); a.set_yticks([0, 20, 40, 60, 80, 100]); grid(a)
 
-    # (d) 值函数健康度
-    for tag in ("ours", "ush", "uns", "ab0"):
+    b.set_title("(b) Paired by seed", pad=4)
+    g, h = "ab0", "ours"
+    common = sorted(set(D[g]) & set(D[h]))
+    for sd in common:
+        y0 = D[g][sd]["trend"][-1]["\u5230\u8fbe\u7387%"]
+        y1 = D[h][sd]["trend"][-1]["\u5230\u8fbe\u7387%"]
+        b.plot([0, 1], [y0, y1], color=N.PALETTE["neutral_light"], linewidth=0.8, zorder=1)
+        b.scatter([0, 1], [y0, y1], s=14, zorder=2, color=[ARMS[g][1], ARMS[h][1]], linewidths=0)
+    b.set_xticks([0, 1]); b.set_xticklabels(["Ablation:\nneither", "Ours"])
+    b.set_ylabel("Arrival rate (%)"); b.set_xlim(-0.45, 1.45); b.set_ylim(-2, 104); grid(b)
+    inline_label(b, 1.06, 45, "n=%d" % len(common), N.PALETTE["neutral_mid"], dx=0)
+
+    c.set_title("(c) Seeds reaching the 50% arrival criterion", pad=4)
+    c.set_ylim(-0.3, 8.6); c.set_xlim(0, 19.5)
+    LSc = LabelStack(c, gap_frac=0.075)
+    for tag in ("ours", "disc", "abB", "abG", "ab0"):
+        runs = list(D[tag].values())
+        if not runs:
+            continue
+        lab, col = ARMS[tag]
+        L = max(len(r["trend"]) for r in runs)
+        xs = [next(r["trend"][i]["step"] for r in runs if i < len(r["trend"])) / 1e6 for i in range(L)]
+        ys = [sum(1 for r in runs if i < len(r["trend"])
+                  and r["trend"][i]["\u5230\u8fbe\u7387%"] >= CRASH_ARR) for i in range(L)]
+        c.plot(xs, ys, color=col, linewidth=1.3, drawstyle="steps-post")
+        LSc.add(xs[-1], ys[-1], lab.replace("Ablation: ", "abl. ").split(" (")[0], col)
+    LSc.draw()
+    c.set_xlabel("Training steps (millions)"); c.set_ylabel("Seeds (of 8)")
+    c.set_xticks([0, 2, 4, 6, 8, 10]); grid(c)
+
+    d.set_title("(d) Value-function explained variance", pad=4)
+    d.set_ylim(0.86, 1.02); d.set_xlim(0, 19.5)
+    LSd = LabelStack(d)
+    for tag in ("uns", "ours", "ush", "ab0"):
         x, y = _curve(list(D[tag].values()), "explained_variance")
         if not len(x):
             continue
         lab, col = ARMS[tag]
-        d.plot(x / 1e6, y, color=col, label=lab)
-    d.set_xlabel("Training steps (millions)"); d.set_ylabel("Explained variance of value fn.")
-    d.set_ylim(0, 1.02); d.legend(loc="lower right")
-    N.panel_label(d, "d")
+        d.plot(x / 1e6, y, color=col, linewidth=1.3)
+        LSd.add(x[-1] / 1e6, y[-1], lab.split(" (")[0], col)
+    LSd.draw()
+    d.set_xlabel("Training steps (millions)"); d.set_ylabel("Explained variance")
+    d.set_xticks([0, 2, 4, 6, 8, 10]); grid(d)
 
-    fig.tight_layout(w_pad=2.0, h_pad=1.6)
+    fig.tight_layout(w_pad=2.6, h_pad=1.8)
     save_pub(fig, "Fig4_training_reliability")
     plt.close(fig)
 
