@@ -1,68 +1,68 @@
 %==============================================================================
-%  TRB 2027 投稿草稿 —— 连续动作空间下投影式安全盾的可证明 COLREGs 方向合规无人船避碰
+% TRB 2027 投稿草稿 —— 连续动作空间下投影式安全盾的可证明 COLREGs 方向合规无人船避碰
 %
-%  ▶ 版本：0626-paper.tex（首版中文草稿·基于 paper.tex 原版 TRB/TAD 模板）
-%  ▶ 规矩（user 2026-06-26）：
-%     · paper.tex = 原版模板·永不改（备份/格式基准）。
-%     · 本文件 = 当前工作草稿。先写【中文】，待内容定稿再译英文投稿。
-%     · 重大转折/大改 → 复制本文件、按日期命名 + 文件名注明改了什么（如
-%       0701-paper-换provable档位B.tex），旧稿即备份，形成时间线。
-%  ▶ 编译：因含中文，须用 xelatex（非 pdflatex）：xelatex 0626-paper.tex（跑两次更新交叉引用）。
+% ▶ 版本：0626-paper.tex（首版中文草稿·基于 paper.tex 原版 TRB/TAD 模板）
+% ▶ 规矩（user 2026-06-26）：
+%   · paper.tex = 原版模板·永不改（备份/格式基准）。
+%   · 本文件 = 当前工作草稿。先写【中文】，待内容定稿再译英文投稿。
+%   · 重大转折/大改 → 复制本文件、按日期命名 + 文件名注明改了什么（如
+%    0701-paper-换provable档位B.tex），旧稿即备份，形成时间线。
+% ▶ 编译：因含中文，须用 xelatex（非 pdflatex）：xelatex 0626-paper.tex（跑两次更新交叉引用）。
 %
-%  ▶ 诚实标注（2026-06-26 撰稿时状态·`02`/`03` L89）：
-%     · 主贡献=投影盾把【可证明 COLREGs 方向合规】带进【连续动作空间】（档位A·经验性）。
-%     · "provably 零碰撞 / 前向不变性"=档位B/Phase 4·未做 → 标题/正文只敢说"方向合规"。
-%     · 结果章为【骨架+占位】：训练在跑、Φ_xtrack 有效性未证、修法A n=5 显著性未达——
-%       绝不填未定数字；定稿前所有 [待数据] 须换成多种子 IQM+自助法CI+失败率（不挑种子）。
+% ▶ 诚实标注（2026-06-26 撰稿时状态·`02`/`03` L89）：
+%   · 主贡献=投影盾把【可证明 COLREGs 方向合规】带进【连续动作空间】（档位A·经验性）。
+%   · "provably 零碰撞 / 前向不变性"=档位B/Phase 4·未做 → 标题/正文只敢说"方向合规"。
+%   · 结果章为【骨架+占位】：训练在跑、Φ_xtrack 有效性未证、修法A n=5 显著性未达——
+%    绝不填未定数字；定稿前所有 [待数据] 须换成多种子 IQM+自助法CI+失败率（不挑种子）。
 %==============================================================================
 \documentclass[12pt,letterpaper]{article}
 
 %--- 字体：拉丁/公式用 Times 风格；中文用 xeCJK（须 xelatex 编译）---------------
 \usepackage{iftex}
-\usepackage{amsmath}          % 数学：\text、\arg\min 等（须在字体包前·标准·不改版式）
+\usepackage{amsmath}     % 数学：\text、\arg\min 等（须在字体包前·标准·不改版式）
 % 🆕 2026-07-29：0626 模板只载了 amsmath ⟹ \varnothing / \square / \bm 全是未定义命令。
-%   本稿的四条命题要用到（空集 / 证毕方块 / 粗体向量）⟹ 补齐。须在字体包前载。
-\usepackage{amssymb}          % \varnothing（空集·兜底集为空）· \square（证毕）
-\usepackage{bm}               % \bm（粗体向量·速度矢量 \bm{v}）
+%  本稿的四条命题要用到（空集 / 证毕方块 / 粗体向量）⟹ 补齐。须在字体包前载。
+\usepackage{amssymb}     % \varnothing（空集·兜底集为空）· \square（证毕）
+\usepackage{bm}        % \bm（粗体向量·速度矢量 \bm{v}）
 % 🆕 定理环境（user 2026-07-29 指出"观感不像研究论文"）：原来命题是 \subsubsection，
-%   渲染成斜体正文、读者分不清哪里是命题陈述哪里是讨论。改用标准定理环境。
+%  渲染成斜体正文、读者分不清哪里是命题陈述哪里是讨论。改用标准定理环境。
 \usepackage{amsthm}
 \renewcommand{\proofname}{证明}
 % 性质环境：独立编号（与节号无关，本稿 secnumdepth=0）。正文引用一律写"性质 N"。
 \newtheorem{prop}{性质}
 \newenvironment{propscope}{\par\noindent\itshape}{\par}
 \ifPDFTeX
-  \usepackage[T1]{fontenc}
-  \usepackage[utf8]{inputenc}
-  \usepackage{mathptmx}       % 拉丁与公式 Times 风格（pdflatex 分支）
-\else                         % XeLaTeX / LuaLaTeX：原生 UTF-8 + 中日韩字体
-  \usepackage{mathptmx}       % 先载（提供 Times 数学）；其文本字体族随后被 fontspec 覆盖
-  \usepackage{fontspec}
-  \usepackage{xeCJK}
-  % 🔴 字体按机器自适应（2026-07-29）：原来写死 `Times New Roman` + `Songti SC` 是 **macOS 专有**，
-  %    在 Linux（本项目的云端容器、以及多数服务器）上 fontspec 会 **fail-hard、根本编译不出来**。
-  %    ⟹ 改成按存在性挑，第一个存在的就用。**macOS 上行为与原来逐字相同**（Times/Songti 排在最前）。
-  %    投稿定稿前若要锁死字体，把下面各自的第一候选留下、其余删掉即可。
-  \IfFontExistsTF{Times New Roman}{\setmainfont{Times New Roman}}{%
-    \IfFontExistsTF{TeX Gyre Termes}{\setmainfont{TeX Gyre Termes}}{%
-      \IfFontExistsTF{Liberation Serif}{\setmainfont{Liberation Serif}}{%
-        \IfFontExistsTF{Nimbus Roman}{\setmainfont{Nimbus Roman}}{%
-          \setmainfont{FreeSerif}}}}}
-  % 🔴 优先级修正（2026-07-31）：原来把 Noto Sans（黑体/无衬线）排在 Fandol Song（宋体）前面，
-  %   有黑体没衬线宋体的机器会渲染成黑体 ⟹ user 反馈"字体不对、之前是宋体"。
-  %   改为把所有【宋体/衬线】候选排在【黑体/无衬线】之前，只有全都没有才退到文泉驿黑体。
-  \IfFontExistsTF{Songti SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Songti SC}}{%
-    \IfFontExistsTF{Noto Serif CJK SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Noto Serif CJK SC}}{%
-      \IfFontExistsTF{Source Han Serif SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Source Han Serif SC}}{%
-        \IfFontExistsTF{Fandol Song}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Fandol Song}}{%
-          \IfFontExistsTF{Noto Sans CJK SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Noto Sans CJK SC}}{%
-            \setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{WenQuanYi Zen Hei}}}}}}
-  % 🆕 圈号 ①–⑳ 与全角括号等落在 xeCJK 默认的"西文"类里 ⟹ 会被送给拉丁字体、
-  %   而拉丁字体没有这些字形（编译日志报 Missing character）。它们是**九条臂的编号 = 内容**，
-  %   ⟹ 显式声明为 CJK 类，走中文字体。
-  %   同理中文引号 “ ” ‘ ’（U+2018–U+201F，落在 General Punctuation）也会被送给拉丁字体
-  %   ⟹ 渲染成直引号且间距发飘。一并声明为 CJK 类。
-  \xeCJKDeclareCharClass{CJK}{"2018 -> "201F, "2460 -> "24FF, "3000 -> "303F, "FF00 -> "FFEF}
+ \usepackage[T1]{fontenc}
+ \usepackage[utf8]{inputenc}
+ \usepackage{mathptmx}    % 拉丁与公式 Times 风格（pdflatex 分支）
+\else             % XeLaTeX / LuaLaTeX：原生 UTF-8 + 中日韩字体
+ \usepackage{mathptmx}    % 先载（提供 Times 数学）；其文本字体族随后被 fontspec 覆盖
+ \usepackage{fontspec}
+ \usepackage{xeCJK}
+ % 🔴 字体按机器自适应（2026-07-29）：原来写死 `Times New Roman` + `Songti SC` 是 **macOS 专有**，
+ %  在 Linux（本项目的云端容器、以及多数服务器）上 fontspec 会 **fail-hard、根本编译不出来**。
+ %  ⟹ 改成按存在性挑，第一个存在的就用。**macOS 上行为与原来逐字相同**（Times/Songti 排在最前）。
+ %  投稿定稿前若要锁死字体，把下面各自的第一候选留下、其余删掉即可。
+ \IfFontExistsTF{Times New Roman}{\setmainfont{Times New Roman}}{%
+  \IfFontExistsTF{TeX Gyre Termes}{\setmainfont{TeX Gyre Termes}}{%
+   \IfFontExistsTF{Liberation Serif}{\setmainfont{Liberation Serif}}{%
+    \IfFontExistsTF{Nimbus Roman}{\setmainfont{Nimbus Roman}}{%
+     \setmainfont{FreeSerif}}}}}
+ % 🔴 优先级修正（2026-07-31）：原来把 Noto Sans（黑体/无衬线）排在 Fandol Song（宋体）前面，
+ %  有黑体没衬线宋体的机器会渲染成黑体 ⟹ user 反馈"字体不对、之前是宋体"。
+ %  改为把所有【宋体/衬线】候选排在【黑体/无衬线】之前，只有全都没有才退到文泉驿黑体。
+ \IfFontExistsTF{Songti SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Songti SC}}{%
+  \IfFontExistsTF{Noto Serif CJK SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Noto Serif CJK SC}}{%
+   \IfFontExistsTF{Source Han Serif SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Source Han Serif SC}}{%
+    \IfFontExistsTF{Fandol Song}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Fandol Song}}{%
+     \IfFontExistsTF{Noto Sans CJK SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Noto Sans CJK SC}}{%
+      \setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{WenQuanYi Zen Hei}}}}}}
+ % 🆕 圈号 ①–⑳ 与全角括号等落在 xeCJK 默认的"西文"类里 ⟹ 会被送给拉丁字体、
+ %  而拉丁字体没有这些字形（编译日志报 Missing character）。它们是**九条臂的编号 = 内容**，
+ %  ⟹ 显式声明为 CJK 类，走中文字体。
+ %  同理中文引号 “ ” ‘ ’（U+2018–U+201F，落在 General Punctuation）也会被送给拉丁字体
+ %  ⟹ 渲染成直引号且间距发飘。一并声明为 CJK 类。
+ \xeCJKDeclareCharClass{CJK}{"2018 -> "201F, "2460 -> "24FF, "3000 -> "303F, "FF00 -> "FFEF}
 \fi
 
 %--- 页面：US Letter，四周 1 英寸页边距，页眉/页脚 0.5 英寸 ----------------------
@@ -87,23 +87,23 @@
 %--- 标题层级样式 --------------------------------------------------------------
 \usepackage{titlesec}
 % 🔴 工作稿可读性设置（user 2026-07-31 要求：加 1/1.1 编号 + 一级标题放大）。
-%   ⚠️ 偏离官方 TAD 模板（实测其 Heading1 = 12pt 加粗、不编号）——英文投稿定稿前须复原：
-%   把 secnumdepth 改回 0、各级字号改回 \normalfont\bfseries / \normalfont\itshape。
-\setcounter{secnumdepth}{4}                                   % 开到四级标题编号
-\titleformat{\section}{\normalfont\Large\bfseries}{\thesection.}{0.5em}{}   % 题名式英文一级标题（如 3. Methodology），不全大写、不带冒号
+%  ⚠️ 偏离官方 TAD 模板（实测其 Heading1 = 12pt 加粗、不编号）——英文投稿定稿前须复原：
+%  把 secnumdepth 改回 0、各级字号改回 \normalfont\bfseries / \normalfont\itshape。
+\setcounter{secnumdepth}{4}                  % 开到四级标题编号
+\titleformat{\section}{\normalfont\Large\bfseries}{\thesection.}{0.5em}{}  % 题名式英文一级标题（如 3. Methodology），不全大写、不带冒号
 \titlespacing*{\section}{0pt}{16pt}{6pt}
 \titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{0.6em}{}
 \titlespacing*{\subsection}{0pt}{14pt}{4pt}
 \titleformat{\subsubsection}{\normalfont\bfseries}{\thesubsubsection}{0.6em}{}
 \titlespacing*{\subsubsection}{0pt}{12pt}{3pt}
-\titleformat{\paragraph}[hang]{\normalfont\bfseries}{\theparagraph}{0.6em}{}   % 四级（需要时用）
+\titleformat{\paragraph}[hang]{\normalfont\bfseries}{\theparagraph}{0.6em}{}  % 四级（需要时用）
 \titlespacing*{\paragraph}{0pt}{10pt}{2pt}
 
 %--- 图表标题 ------------------------------------------------------------------
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{array}
-\usepackage{multirow}   % 参数汇总表的跨行类别列
+\usepackage{multirow}  % 参数汇总表的跨行类别列
 \usepackage{caption}
 \captionsetup{labelsep=space,font=bf,justification=raggedright,singlelinecheck=false}
 \captionsetup[table]{name=TABLE}
@@ -112,15 +112,15 @@
 \usepackage[hidelinks]{hyperref}
 
 %--- M1 行号：TRB 硬要求（参考论文每行都带行号）· 0626 稿缺这一项 ---------------
-\usepackage[left,pagewise]{lineno}   % pagewise = 每页行号从 1 重新开始（官方硬要求）
+\usepackage[left,pagewise]{lineno}  % pagewise = 每页行号从 1 重新开始（官方硬要求）
 \renewcommand{\linenumberfont}{\normalfont\small}
 
 \newcommand{\abshead}[1]{#1\ }
 %--- 参考文献：官方规范要求 **Chicago 作者-年份**、按第一作者姓氏字母序、悬挂缩进、
-%    正文引用写 (Author, Year)，**不许用上标或编号**。
-%    〔2026-07-29 订正：此前我照参考论文改成了数字顺序引用，与官方规范相反，已改回。〕
+%  正文引用写 (Author, Year)，**不许用上标或编号**。
+%  〔2026-07-29 订正：此前我照参考论文改成了数字顺序引用，与官方规范相反，已改回。〕
 \newcommand{\refitem}[1]{\par\begingroup\emergencystretch=3em\sloppy\noindent\hangindent=0.5in\hangafter=1 #1\par\endgroup\vspace{6pt}}
-%    正文引用宏：\cit{Smith 2020} → (Smith 2020)；\citp{Smith 2020}{25--27} → (Smith 2020, 25--27)
+%  正文引用宏：\cit{Smith 2020} → (Smith 2020)；\citp{Smith 2020}{25--27} → (Smith 2020, 25--27)
 \newcommand{\cit}[1]{(#1)}
 \newcommand{\citp}[2]{(#1 #2)}
 
@@ -129,35 +129,35 @@
 \newcommand{\TBD}{【待填】}
 
 %==============================================================================
-%  TRB 2027 · 中文工作稿  ——  连续动作空间下投影式安全盾的可证明 COLREGs 方向合规无人船避碰
+% TRB 2027 · 中文工作稿 —— 连续动作空间下投影式安全盾的可证明 COLREGs 方向合规无人船避碰
 %
-%  ▶ 本文件 = 当前工作稿（user 2026-07-29 定名 `729-paper-中文版.tex`）。
-%     `_模板_原版勿改_paper.tex` = 原版模板·永不改。
-%     `_留档_0626_*.tex` = 四臂时代旧稿·已过时·仅留档，**别照它改**。
-%  ▶ 落笔前先读 `写作方案_0729.md`（篇幅预算 / 10 张图表设计 / 数据利用 / 写作顺序 / 结果预案）。
-%  ▶ 编译：含中文，须 xelatex（跑两次更新交叉引用）：xelatex 729-paper-中文版.tex
+% ▶ 本文件 = 当前工作稿（user 2026-07-29 定名 `729-paper-中文版.tex`）。
+%   `_模板_原版勿改_paper.tex` = 原版模板·永不改。
+%   `_留档_0626_*.tex` = 四臂时代旧稿·已过时·仅留档，**别照它改**。
+% ▶ 落笔前先读 `写作方案_0729.md`（篇幅预算 / 10 张图表设计 / 数据利用 / 写作顺序 / 结果预案）。
+% ▶ 编译：含中文，须 xelatex（跑两次更新交叉引用）：xelatex 729-paper-中文版.tex
 %
-%  ▶ 🔴 写作红线（CLAUDE.md §0 · 一个字不能松）：
-%     能严证 = 性质 1 远场单步无碰 + 命题2 每让路步方向合规 + 命题3 紧急迫近不可避 可靠性证书。
-%     绝不写 provably collision-free / 裸 provably compliant / 完整可证明覆盖。
-%     命题4 = PROVISIONAL：闭环验证前只写"证了可清障集控制不变 + 设计了终端约束"。
-%  ▶ 篇幅：TRB 7500 词上限，图表各折 250 词 ⟹ 10 张图表 = 2500 ⟹ 正文 5000 词。
-%     中文稿先往多里写（目标 11000–13000 汉字），定稿转英文时压回。**本会议不允许附录。**
+% ▶ 🔴 写作红线（CLAUDE.md §0 · 一个字不能松）：
+%   能严证 = 性质 1 远场单步无碰 + 命题2 每让路步方向合规 + 命题3 紧急迫近不可避 可靠性证书。
+%   绝不写 provably collision-free / 裸 provably compliant / 完整可证明覆盖。
+%   命题4 = PROVISIONAL：闭环验证前只写"证了可清障集控制不变 + 设计了终端约束"。
+% ▶ 篇幅：TRB 7500 词上限，图表各折 250 词 ⟹ 10 张图表 = 2500 ⟹ 正文 5000 词。
+%   中文稿先往多里写（目标 11000–13000 汉字），定稿转英文时压回。**本会议不允许附录。**
 %==============================================================================
 \begin{document}
 \linenumbers
 
 %------------------------------------------------------------------------------
-%  题名与作者信息
+% 题名与作者信息
 %------------------------------------------------------------------------------
 \begin{flushleft}
 {\bfseries 连续动作空间下基于投影式安全盾的可证明 COLREGs 方向合规无人船避碰}\par
 \vspace{12pt}
 
 % ── 作者块（逐段量过官方模板 TAD_Publications_AMSamplePaper.docx 的封面）──
-%  模板约定：姓名一行**加粗**；**通讯作者**在姓名后加 `*`，文末以「*Corresponding Author」注明。
-%  🔴 星号只标通讯作者，与"第一作者"是两回事 —— **排在第一位即第一作者**，模板不另设标记。
-%  每位作者：姓名（粗）→ 职务（有则写）→ 实验室 → 院系 → 单位, 城市, 邮编, 国家 → Email；块间空一行。
+% 模板约定：姓名一行**加粗**；**通讯作者**在姓名后加 `*`，文末以「*Corresponding Author」注明。
+% 🔴 星号只标通讯作者，与"第一作者"是两回事 —— **排在第一位即第一作者**，模板不另设标记。
+% 每位作者：姓名（粗）→ 职务（有则写）→ 实验室 → 院系 → 单位, 城市, 邮编, 国家 → Email；块间空一行。
 {\bfseries Weiyu Tang}\par
 Graduate Research Assistant\par
 Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
@@ -195,20 +195,20 @@ Submitted [Submission Date]\par
 \textsuperscript{*}Corresponding Author\par
 \end{flushleft}
 
-\newpage   % 封面信息独占一页（user 指定）
+\newpage  % 封面信息独占一页（user 指定）
 
 %------------------------------------------------------------------------------
 \section*{Abstract}
 % 官方规范：≤300 词 · 独占一页且**不含其他内容** · 五个必需标题（粗体、按序）· 每节一段 ·
-%   **不得含图表、公式或未定义缩写** · 须能独立成文。数字待结果回填，以【待填】标出。
-%   ⚠️ 篇幅：中文 478 字符 ⟹ 按 1.6--1.8 汉字/词折算 = 266--299 词（官方硬上限 300）。
-%      **译成英文后必须实际数一遍**；超 300 就先压 Methods 段（五段里最长）。
+%  **不得含图表、公式或未定义缩写** · 须能独立成文。数字待结果回填，以【待填】标出。
+%  ⚠️ 篇幅：中文 478 字符 ⟹ 按 1.6--1.8 汉字/词折算 = 266--299 词（官方硬上限 300）。
+%   **译成英文后必须实际数一遍**；超 300 就先压 Methods 段（五段里最长）。
 
 \justifying
 
 \abshead{Objectives：}本文旨在为自主水面航行器的避碰控制建立一种在连续控制量上逐步成立的《国际海上避碰规则》方向合规保证，并界定其适用范围。该规则的让路条款具有方向性：未碰撞但从错误一侧通过的航迹仍属违规。
 
-\abshead{Methods：}我们把让路条款表述为控制量平面上的半平面约束，与执行器量程及单步无碰条件求交，得到凸的安全控制集，并以一个二维二次规划把策略输出投影到该集合的最近可行点；该投影并入环境转移，使策略在训练中即适应修正。数据为公开的双船相遇仿真场景库，共 2000 个算例；官方划分为 1400 训练 / 600 测试，我们把官方训练侧再切为 1300 训练与 100 验证。共设 9 种对照配置构成单变量递进序列，每种以 8 个固定种子训练。
+\abshead{Methods：}我们把让路条款表述为控制量平面上的半平面约束，与执行器量程及单步无碰条件求交，得到凸的安全控制集，并以一个二维二次规划把策略输出投影到该集合的最近可行点；该投影并入环境转移，使策略在训练中即适应修正。数据为公开的双船会遇仿真场景库，共 2000 个算例；官方划分为 1400 训练 / 600 测试，我们把官方训练侧再切为 1300 训练与 100 验证。共设 9 种对照配置构成单变量递进序列，每种以 8 个固定种子训练。
 
 \abshead{Findings：}在投影可行的每一让路决策步上，方向合规由硬约束构造式成立，与训练结果及随机种子无关；转入兜底的步不在此列。测试集上每局违规次数为\TBD、碰撞率为\TBD、到达率为\TBD；到达率不作为效能主张。
 
@@ -222,7 +222,7 @@ Submitted [Submission Date]\par
 
 \RaggedRight
 
-\newpage   % 摘要独占一页；此后正文连续（user 指定）
+\newpage  % 摘要独占一页；此后正文连续（user 指定）
 
 %==============================================================================
 \section{Introduction}
@@ -245,10 +245,10 @@ Submitted [Submission Date]\par
 
 \noindent\textbf{贡献。}
 \begin{enumerate}\itemsep2pt
-  \item 连续动作空间中的投影式 COLREGs 安全盾（“\nameref{sec:proj}”一节）。合规方向作为硬区间约束进入二次规划，因此每一个投影可行的让路步的方向合规是构造式成立的，不依赖训练结果、不受种子方差影响。
-  \item 一个分级的安全性陈述（第~\ref{sec:guarantee} 节）。我们把该层能提供的保证按强度逐条给出并划定其作用域：远场单步无碰为严格结论，且对多他船可无损地按目标合取推广；每一让路步的方向合规由构造成立；紧急迫近不可避则给出一个只漏报、不误报的充分条件证书，它取代了此前只检查转向、会漏掉加减速逃逸的判据。在此基础上我们进一步给出一条通往递归可行性的路径，即证明由该证书定义的可清障集在理想模型下是控制不变的，并据此设计后备机动的终端约束；该路径的闭环验证尚未完成，第~\ref{sec:guarantee} 节标注其状态。
-  \item 一个把机制逐级拆开的实验设计（“\nameref{sec:setup}”一节）：9 种配置构成一条连通的单变量递进序列，相邻两级之间只改动一个变量，从离散基线一路走到完整方法；其中两跳带有不可分割的伴随变量，我们把这一点写在递进序列表的表注里，而不是藏进脚注。
-  \item 一组针对机制本身的检验（第~\ref{sec:setup} 节）。除公开基准外，我们另行构造真冲突算例，用以激活并检验降级链与终端约束，从而使这些只在极端态势下才会启用的分支获得实证刻画，而不只停留在设计描述。
+ \item 连续动作空间中的投影式 COLREGs 安全盾（“\nameref{sec:proj}”一节）。合规方向作为硬区间约束进入二次规划，因此每一个投影可行的让路步的方向合规是构造式成立的，不依赖训练结果、不受种子方差影响。
+ \item 一个分级的安全性陈述（第~\ref{sec:guarantee} 节）。我们把该层能提供的保证按强度逐条给出并划定其作用域：远场单步无碰为严格结论，且对多他船可无损地按目标合取推广；每一让路步的方向合规由构造成立；紧急迫近不可避则给出一个只漏报、不误报的充分条件证书，它取代了此前只检查转向、会漏掉加减速逃逸的判据。在此基础上我们进一步给出一条通往递归可行性的路径，即证明由该证书定义的可清障集在理想模型下是控制不变的，并据此设计后备机动的终端约束；该路径的闭环验证尚未完成，第~\ref{sec:guarantee} 节标注其状态。
+ \item 一个把机制逐级拆开的实验设计（“\nameref{sec:setup}”一节）：9 种配置构成一条连通的单变量递进序列，相邻两级之间只改动一个变量，从离散基线一路走到完整方法；其中两跳带有不可分割的伴随变量，这两处伴随变量在递进序列表的表注中列出。
+ \item 一组针对机制本身的检验（第~\ref{sec:setup} 节）。除公开基准外，我们另行构造真冲突算例，用以激活并检验降级链与终端约束，从而使这些只在极端态势下才会启用的分支获得实证刻画，而不只停留在设计描述。
 \end{enumerate}
 
 
@@ -281,54 +281,54 @@ Submitted [Submission Date]\par
 
 %------------------------------------------------------------------------------
 \begin{table}[t]
-  \caption{符号表}
-  \label{tab:notation}
-  \centering\footnotesize
-  \setlength{\tabcolsep}{6pt}
-  \begin{tabular}{@{}llll@{}}
-    \toprule
-    符号 & 含义 & 符号 & 含义 \\
-    \midrule
-    $s$                       & 本船状态向量            & $\rho$                          & 相遇态势（$\rho_0$--$\rho_5$）\\
-    $\theta,\,v$              & 艏向、航速              & $\mathcal{U}_{\mathrm{colregs}}(\rho)$ & 规则允许的控制集 \\
-    $u=(a,\omega)$            & 控制（加速度、转艏率）  & $\mathcal{U}_{\mathrm{cf}}(s)$   & 无碰撞约束集 \\
-    $a,\,\omega$              & 纵向加速度、转艏率      & $\mathcal{U}_{\mathrm{box}}$     & 执行器物理量程箱 \\
-    $\Delta t$                & 决策周期（零阶保持）    & $\mathcal{P}(s,\rho)$            & 安全动作集 \\
-    $a_{\max},\omega_{\max}$  & 执行器量程上限          & $\Pi_{\mathcal{P}}$             & 向 $\mathcal{P}$ 的欧氏投影 \\
-    $a_{\mathrm{op}},\omega_{\mathrm{op}}$ & 策略动作箱半宽 & $u_{\mathrm{policy}},u_{\mathrm{safe}}$ & 策略输出、实际执行控制 \\
-    $v_{\max}$                & 航速上限                & $\Delta_{\mathrm{lt}}$          & 明显转向阈值（航向）\\
-    $v_{\mathrm{bnd}}$        & 步内航速上界            & $\Delta_{\mathrm{nt}}$          & 直航容差角 \\
-    $\oplus$                  & Minkowski 和            & $T_M$                           & 机动段时长 \\
-    $\mathrm{disk}(r)$        & 半径 $r$ 的闭圆盘       & $\omega_{\mathrm{turn}}$        & 合规转艏率下确界 \\
-    $R_{\mathrm{circ}},r_{\mathrm{insc}}$ & 外接圆、内切圆半径 & $\varepsilon_a,\varepsilon_\omega$ & 直航保速、保向容差 \\
-    $\mathcal{O}$             & 他船占据                & $T_h,T_{\mathrm{pred}}$         & 碰撞可能、紧急预测时域 \\
-    $d$                       & 两船中心距              & $R_{\mathrm{box}}(t)$           & 本船可达中心过近似集 \\
-    $p_e,p_m$                 & 本船、他船中心位置      & $A$                             & 可清障集 \\
-    $v_{\mathrm{obs,max}}$    & 他船速度上界（假设）    & $\gamma$                        & 折扣因子 \\
-    $K$                       & 回合步数上限            & $\alpha,\beta$                  & Beta 分布形状参数 \\
-    $\Phi$                    & 势函数（奖励塑形）      & $r$                             & 单步回报 \\
-    \addlinespace
-    $\Delta_{\mathrm{ho}}$      & 前扇区半角 / 对遇航向带 & $\Delta_{\mathrm{sd}}$          & 舷侧扇区外边界 \\
-    $\Delta_{\mathrm{ot}}$      & 追越航向带半角          & $T_{\mathrm{react}}$            & 反应时域（状态机转移）\\
-    $r_m$                     & 他船膨胀半径（态势判定）& $v_\varepsilon$                 & 速度集半宽 \\
-    $\mathcal{C}_m$            & 碰撞锥                  & $\mathcal{V}_e$                 & 本船速度集 \\
-    $R_m$                     & 他船占据圆半径（含裕度）& $d_{\mathrm{safe}}$             & 无碰撞所需中心距 \\
-    $u_{\mathrm{nom}}$         & 线性化基点              & $p_{\mathrm{nom}}$              & 标称落点 \\
-    $J$                       & 落点对控制的雅可比      & $n,\ \delta$                    & 分离方向、分离距离 \\
-    $g,\ h$                    & 无碰撞约束的系数与右端  & $A,\ b$                          & 安全动作集的约束矩阵与右端 \\
-    $a_{\mathrm{eff}}$         & 速度矢量变化率上界      & $B_{\mathrm{lon}},L_{\mathrm{lat}}$ & 可达集纵向 / 横向半轴 \\
-    $a_{\mathrm{st}}$          & 紧急 stern 模式加速度   & $d_{\mathrm{ah}}$               & 紧急 ahead 模式目标距离 \\
-    $\Delta_{\mathrm{ah}},\Delta_{\mathrm{st}}$ & 紧急 ahead / stern 判据角 & $\ell_m$          & 他船船长（逐场景真实值）\\
-    \bottomrule
-  \end{tabular}
+ \caption{符号表}
+ \label{tab:notation}
+ \centering\footnotesize
+ \setlength{\tabcolsep}{6pt}
+ \begin{tabular}{@{}llll@{}}
+  \toprule
+  符号 & 含义 & 符号 & 含义 \\
+  \midrule
+  $s$            & 本船状态向量      & $\rho$             & 会遇态势（$\rho_0$--$\rho_5$）\\
+  $\theta,\,v$       & 艏向、航速       & $\mathcal{U}_{\mathrm{colregs}}(\rho)$ & 规则允许的控制集 \\
+  $u=(a,\omega)$      & 控制（加速度、转艏率） & $\mathcal{U}_{\mathrm{cf}}(s)$  & 无碰撞约束集 \\
+  $a,\,\omega$       & 纵向加速度、转艏率   & $\mathcal{U}_{\mathrm{box}}$   & 执行器物理量程箱 \\
+  $\Delta t$        & 决策周期（零阶保持）  & $\mathcal{P}(s,\rho)$      & 安全动作集 \\
+  $a_{\max},\omega_{\max}$ & 执行器量程上限     & $\Pi_{\mathcal{P}}$       & 向 $\mathcal{P}$ 的欧氏投影 \\
+  $a_{\mathrm{op}},\omega_{\mathrm{op}}$ & 策略动作箱半宽 & $u_{\mathrm{policy}},u_{\mathrm{safe}}$ & 策略输出、实际执行控制 \\
+  $v_{\max}$        & 航速上限        & $\Delta_{\mathrm{lt}}$     & 明显转向阈值（航向）\\
+  $v_{\mathrm{bnd}}$    & 步内航速上界      & $\Delta_{\mathrm{nt}}$     & 直航容差角 \\
+  $\oplus$         & Minkowski 和      & $T_M$              & 机动段时长 \\
+  $\mathrm{disk}(r)$    & 半径 $r$ 的闭圆盘    & $\omega_{\mathrm{turn}}$    & 合规转艏率下确界 \\
+  $R_{\mathrm{circ}},r_{\mathrm{insc}}$ & 外接圆、内切圆半径 & $\varepsilon_a,\varepsilon_\omega$ & 直航保速、保向容差 \\
+  $\mathcal{O}$       & 他船占据        & $T_h,T_{\mathrm{pred}}$     & 碰撞可能、紧急预测时域 \\
+  $d$            & 两船中心距       & $R_{\mathrm{box}}(t)$      & 本船可达中心过近似集 \\
+  $p_e,p_m$         & 本船、他船中心位置   & $A$               & 可清障集 \\
+  $v_{\mathrm{obs,max}}$  & 他船速度上界（假设）  & $\gamma$            & 折扣因子 \\
+  $K$            & 回合步数上限      & $\alpha,\beta$         & Beta 分布形状参数 \\
+  $\Phi$          & 势函数（奖励塑形）   & $r$               & 单步回报 \\
+  \addlinespace
+  $\Delta_{\mathrm{ho}}$   & 前扇区半角 / 对遇航向带 & $\Delta_{\mathrm{sd}}$     & 舷侧扇区外边界 \\
+  $\Delta_{\mathrm{ot}}$   & 追越航向带半角     & $T_{\mathrm{react}}$      & 反应时域（状态机转移）\\
+  $r_m$           & 他船膨胀半径（态势判定）& $v_\varepsilon$         & 速度集半宽 \\
+  $\mathcal{C}_m$      & 碰撞锥         & $\mathcal{V}_e$         & 本船速度集 \\
+  $R_m$           & 他船占据圆半径（含裕度）& $d_{\mathrm{safe}}$       & 无碰撞所需中心距 \\
+  $u_{\mathrm{nom}}$     & 线性化基点       & $p_{\mathrm{nom}}$       & 标称落点 \\
+  $J$            & 落点对控制的雅可比   & $n,\ \delta$          & 分离方向、分离距离 \\
+  $g,\ h$          & 无碰撞约束的系数与右端 & $A,\ b$             & 安全动作集的约束矩阵与右端 \\
+  $a_{\mathrm{eff}}$     & 速度矢量变化率上界   & $B_{\mathrm{lon}},L_{\mathrm{lat}}$ & 可达集纵向 / 横向半轴 \\
+  $a_{\mathrm{st}}$     & 紧急 stern 模式加速度  & $d_{\mathrm{ah}}$        & 紧急 ahead 模式目标距离 \\
+  $\Delta_{\mathrm{ah}},\Delta_{\mathrm{st}}$ & 紧急 ahead / stern 判据角 & $\ell_m$     & 他船船长（逐场景真实值）\\
+  \bottomrule
+ \end{tabular}
 \end{table}
 %------------------------------------------------------------------------------
 
 \textbf{本船运动学模型。}\ 我们把受控船舶建模为受偏航约束的质点，状态 $s=[p_x,p_y,\theta,v]^{\!\top}\in\mathbb{R}^4$，以纵向加速度 $a$ 与转艏率 $\omega$ 为控制输入：
 \begin{equation}
-  \dot s=\bigl[\,v\cos\theta,\ \ v\sin\theta,\ \ \omega,\ \ a\,\bigr]^{\!\top},
-  \qquad u=[a,\omega]^{\!\top},
-  \label{eq:dyn}
+ \dot s=\bigl[\,v\cos\theta,\ \ v\sin\theta,\ \ \omega,\ \ a\,\bigr]^{\!\top},
+ \qquad u=[a,\omega]^{\!\top},
+ \label{eq:dyn}
 \end{equation}
 控制受箱约束 $|a|\le a_{\max}$、$|\omega|\le\omega_{\max}$，航速受 $0\le v\le v_{\max}$ 限制，决策以零阶保持方式每 $\Delta t$ 施加一次。航速界的施加时机需要明确。环境按式~\eqref{eq:dyn} 完成整个决策步的积分之后，再把步末航速截入 $[0,v_{\max}]$，因此步\emph{内}航速可短暂超出 $v_{\max}$，单步位移界必须把步内加速算进去，取 $v_{\max}\Delta t+\tfrac12 a_{\max}\Delta t^2$；步末航速上界记为 $v_{\mathrm{bnd}}=v_{\max}+a_{\max}\Delta t$，用于后备机动的可达集包络（表~\ref{tab:params}）。安全盾内部用于验证后备机动的积分则在积分过程中即施加饱和，是一个更保守的模型。全文凡涉及单步位移界的推导一律取前者。
 
@@ -340,40 +340,40 @@ Submitted [Submission Date]\par
 
 %------------------------------------------------------------------------------
 \begin{table}[t]
-  \caption{模型与安全盾参数}
-  \label{tab:params}
-  \centering\footnotesize
-  \begin{tabular}{@{}llll@{}}
-    \toprule
-    \textbf{类别} & \textbf{符号} & \textbf{含义} & \textbf{取值} \\
-    \midrule
-    \multirow{9}{*}{船舶与运动学}
-      & $L\times W$        & 船体尺度                & $175 \times 25.4$~m \\
-      & $a_{\max}$         & 纵向加速度上限          & $0.24~\mathrm{m/s^2}$ \\
-      & $\omega_{\max}$    & 转艏率上限              & $0.03~\mathrm{rad/s}$（$\approx1.7^\circ/\mathrm{s}$）\\
-      & $v_{\max}$         & 航速上限                & $9.5~\mathrm{m/s}$ \\
-      & $\Delta t$         & 决策周期（零阶保持）    & $10$~s \\
-      & $K$                & 回合步数上限            & $170$（$=1700$~s）\\
-      & $R_{\mathrm{circ}}$& 外接圆半径（过近似）    & $88.4$~m \\
-      & $r_{\mathrm{insc}}$& 内切圆半径（欠近似）    & $12.7$~m \\
-      & $v_{\mathrm{bnd}}$ & 步内航速上界            & $v_{\max}+a_{\max}\Delta t=11.9~\mathrm{m/s}$ \\
-    \addlinespace
-    \multirow{8}{*}{安全盾}
-      & $a_{\mathrm{op}},\omega_{\mathrm{op}}$ & 常规操作动作箱半宽 & $0.048~\mathrm{m/s^2}$,\ \ $0.018~\mathrm{rad/s}$ \\
-      & $\Delta_{\mathrm{lt}}$ & 明显转向的航向阈值   & $20^\circ$ \\
-      & $T_M$              & 机动段时长              & $40$~s \\
-      & $\omega_{\mathrm{turn}}$ & 合规转艏率下确界   & $\Delta_{\mathrm{lt}}/T_M=0.008727~\mathrm{rad/s}$ \\
-      & $\varepsilon_a,\varepsilon_\omega$ & 直航态保速/保向容差 & $0.016~\mathrm{m/s^2}$,\ \ $0.004363~\mathrm{rad/s}$ \\
-      & ---                & 舷侧扇区半角            & $112.5^\circ$ \\
-      & ---                & 对遇航向带 / 追越判定角 & $\pm5^\circ$ / $67.5^\circ$ \\
-      & $T_h$              & 碰撞可能性检查时域      & $420$~s \\
-    \bottomrule
-  \end{tabular}
+ \caption{模型与安全盾参数}
+ \label{tab:params}
+ \centering\footnotesize
+ \begin{tabular}{@{}llll@{}}
+  \toprule
+  \textbf{类别} & \textbf{符号} & \textbf{含义} & \textbf{取值} \\
+  \midrule
+  \multirow{9}{*}{船舶与运动学}
+   & $L\times W$    & 船体尺度        & $175 \times 25.4$~m \\
+   & $a_{\max}$     & 纵向加速度上限     & $0.24~\mathrm{m/s^2}$ \\
+   & $\omega_{\max}$  & 转艏率上限       & $0.03~\mathrm{rad/s}$（$\approx1.7^\circ/\mathrm{s}$）\\
+   & $v_{\max}$     & 航速上限        & $9.5~\mathrm{m/s}$ \\
+   & $\Delta t$     & 决策周期（零阶保持）  & $10$~s \\
+   & $K$        & 回合步数上限      & $170$（$=1700$~s）\\
+   & $R_{\mathrm{circ}}$& 外接圆半径（过近似）  & $88.4$~m \\
+   & $r_{\mathrm{insc}}$& 内切圆半径（欠近似）  & $12.7$~m \\
+   & $v_{\mathrm{bnd}}$ & 步内航速上界      & $v_{\max}+a_{\max}\Delta t=11.9~\mathrm{m/s}$ \\
+  \addlinespace
+  \multirow{8}{*}{安全盾}
+   & $a_{\mathrm{op}},\omega_{\mathrm{op}}$ & 常规操作动作箱半宽 & $0.048~\mathrm{m/s^2}$,\ \ $0.018~\mathrm{rad/s}$ \\
+   & $\Delta_{\mathrm{lt}}$ & 明显转向的航向阈值  & $20^\circ$ \\
+   & $T_M$       & 机动段时长       & $40$~s \\
+   & $\omega_{\mathrm{turn}}$ & 合规转艏率下确界  & $\Delta_{\mathrm{lt}}/T_M=0.008727~\mathrm{rad/s}$ \\
+   & $\varepsilon_a,\varepsilon_\omega$ & 直航态保速/保向容差 & $0.016~\mathrm{m/s^2}$,\ \ $0.004363~\mathrm{rad/s}$ \\
+   & ---        & 舷侧扇区半角      & $112.5^\circ$ \\
+   & ---        & 对遇航向带 / 追越判定角 & $\pm5^\circ$ / $67.5^\circ$ \\
+   & $T_h$       & 碰撞可能性检查时域   & $420$~s \\
+  \bottomrule
+ \end{tabular}
 
-  \vspace{4pt}\footnotesize
-  \textbf{表注。}$\omega_{\mathrm{turn}}$ 是合规转艏率的下确界，其推导见式~\eqref{eq:omegaturn}。
-  常规操作动作箱的半宽恰等于量化网格的张成范围，使两种动作空间的控制权限相同、仅分辨率不同；
-  物理满程 $\pm a_{\max}/\pm\omega_{\max}$ 只留给安全盾与紧急控制器，不属于策略权限。
+ \vspace{4pt}\footnotesize
+ \textbf{表注。}$\omega_{\mathrm{turn}}$ 是合规转艏率的下确界，其推导见式~\eqref{eq:omegaturn}。
+ 常规操作动作箱的半宽恰等于量化网格的张成范围，使两种动作空间的控制权限相同、仅分辨率不同；
+ 物理满程 $\pm a_{\max}/\pm\omega_{\max}$ 只留给安全盾与紧急控制器，不属于策略权限。
 \end{table}
 %------------------------------------------------------------------------------
 
@@ -382,25 +382,25 @@ Submitted [Submission Date]\par
 \subsection{问题表述}
 \label{sec:problem}
 
-我们考虑开阔水域的双船相遇，并作如下假设：
+我们考虑开阔水域的双船会遇，并作如下假设：
 
 \begin{enumerate}\itemsep1pt
-  \item[(A1)] 开阔水域，无航道分隔、无静态障碍、无岸线约束；
-  \item[(A2)] 场景中有一条受控船与一条他船，均为机动船；
-  \item[(A3)] 受控船动力学由式~\eqref{eq:dyn} 描述，控制以 $\Delta t$ 为周期零阶保持；
-  \item[(A4)] 他船当前状态无量测误差地可得；
-  \item[(A5)] 相遇初始时刻不存在任何已生效的让路义务。
+ \item[(A1)] 开阔水域，无航道分隔、无静态障碍、无岸线约束；
+ \item[(A2)] 场景中有一条受控船与一条他船，均为机动船；
+ \item[(A3)] 受控船动力学由式~\eqref{eq:dyn} 描述，控制以 $\Delta t$ 为周期零阶保持；
+ \item[(A4)] 他船当前状态无量测误差地可得；
+ \item[(A5)] 会遇初始时刻不存在任何已生效的让路义务。
 \end{enumerate}
 
 假设 (A2) 不是为了简化而作的让步，而是 COLREGs 本身的适用边界：该规则集是\emph{成对}制定的，当三船以上同时相遇、且各自的义务互相冲突时（例如对一条船须保向保速、对另一条须避让），公约本身并未规定如何取舍。我们在 “\nameref{sec:guarantee}”一节给出多他船情形下各结论如何合成、以及在何处必然失效。
 
-在此设定下，令 $\rho_t$ 为 $t$ 时刻的相遇态势，$\mathcal{U}_{\mathrm{colregs}}(\rho_t)\subseteq\mathbb{R}^2$ 为该态势下规则允许的控制集合（“\nameref{sec:rulesets}”一节给出其显式形式）。我们要求的策略是
+在此设定下，令 $\rho_t$ 为 $t$ 时刻的会遇态势，$\mathcal{U}_{\mathrm{colregs}}(\rho_t)\subseteq\mathbb{R}^2$ 为该态势下规则允许的控制集合（“\nameref{sec:rulesets}”一节给出其显式形式）。我们要求的策略是
 \begin{equation}
-  \pi:\ \mathcal{S}\rightarrow\mathbb{R}^2
-  \quad\text{使得}\quad
-  u_t\in\mathcal{U}_{\mathrm{colregs}}(\rho_t)\cap\mathcal{U}_{\mathrm{cf}}(s_t)
-  \quad \forall t,
-  \label{eq:problem}
+ \pi:\ \mathcal{S}\rightarrow\mathbb{R}^2
+ \quad\text{使得}\quad
+ u_t\in\mathcal{U}_{\mathrm{colregs}}(\rho_t)\cap\mathcal{U}_{\mathrm{cf}}(s_t)
+ \quad \forall t,
+ \label{eq:problem}
 \end{equation}
 其中 $\mathcal{U}_{\mathrm{cf}}$ 为无碰撞约束集。式~\eqref{eq:problem} 与“把合规写进奖励”有本质区别，它要求每一步执行的动作都落在集合内，而非要求某个期望值达到最优。
 
@@ -415,22 +415,22 @@ Submitted [Submission Date]\par
 
 %------------------------------------------------------------------------------
 \begin{figure}[t]
-  \centering
-  \figplaceholder{图 1（两格：a 系统框图 · b 动作平面几何）}
-  \caption{\textbf{方法总览。}（a）系统框图。$27$ 维观测经策略网络给出期望控制 $u_{\mathrm{policy}}=(a,\omega)$；策略的输出分布是支撑为闭区间的 Beta 分布，故采样动作按构造落在动作箱内（对比：无界高斯须裁剪，裁剪切断策略梯度；且高斯的微分熵无上界，与常数熵系数配合会持续推大标准差，这两条缺陷 Beta 分布同时封闭）。规则状态机把当前相遇判入六类态势 $\rho_0$--$\rho_5$，让路三类另给出规则要求的转向一侧。安全动作集 $\mathcal{P}$ 由执行器量程、合规方向半平面与单步无碰约束求交而成，二次规划把 $u_{\mathrm{policy}}$ 投影为 $u_{\mathrm{safe}}$ 后送入环境。\emph{该投影并入环境转移}，即安全盾在训练回路之内（图中回流箭头），策略因而在训练过程中即适应投影的存在，而非训练结束后再与滤波器磨合。安全动作集为空或不构造的处置\emph{按态势分支}：紧急态 $\rho_5$ 走独立通道，直接交紧急控制器（该态不构造无碰约束、不求解二次规划）；$\rho_0$--$\rho_4$ 仅在安全动作集为空时降级，先判占据几何退化（返回箱内投影），否则依次尝试放松方向约束与最小化碰撞风险。两条通道互斥。实线深色框为可严格保证的模块，虚线浅色框为经验模块。（b）动作平面 $(a,\omega)$ 上的几何，按策略动作箱的尺度绘制（安全盾的二次规划实际求解于更大的执行器物理量程箱）。横线为合规方向约束的边界 $\omega=-\omega_{\mathrm{turn}}$，其下方为合规半平面；斜线为单步无碰的线性约束；两者与动作箱之交即 $\mathcal{P}$（深色填充）。空心点为 $7\times7$ 量化网格。期望控制落在 $\mathcal{P}$ 外时被投影到最近的可行点，箭头长度即投影修正量。连续动作能精确取到 $\omega_{\mathrm{turn}}$ 这一合规下确界；量化网格上最近的合规档位为 $0.012~\mathrm{rad/s}$，比该下确界高出 $37.5\%$。}
-  \label{fig:overview}
+ \centering
+ \figplaceholder{图 1（两格：a 系统框图 · b 动作平面几何）}
+ \caption{\textbf{方法总览。}（a）系统框图。$27$ 维观测经策略网络给出期望控制 $u_{\mathrm{policy}}=(a,\omega)$；策略的输出分布是支撑为闭区间的 Beta 分布，故采样动作按构造落在动作箱内（对比：无界高斯须裁剪，裁剪切断策略梯度；且高斯的微分熵无上界，与常数熵系数配合会持续推大标准差，这两条缺陷 Beta 分布同时封闭）。规则状态机把当前相遇判入六类态势 $\rho_0$--$\rho_5$，让路三类另给出规则要求的转向一侧。安全动作集 $\mathcal{P}$ 由执行器量程、合规方向半平面与单步无碰约束求交而成，二次规划把 $u_{\mathrm{policy}}$ 投影为 $u_{\mathrm{safe}}$ 后送入环境。\emph{该投影并入环境转移}，即安全盾在训练回路之内（图中回流箭头），策略因而在训练过程中即适应投影的存在，而非训练结束后再与滤波器磨合。安全动作集为空或不构造的处置\emph{按态势分支}：紧急态 $\rho_5$ 走独立通道，直接交紧急控制器（该态不构造无碰约束、不求解二次规划）；$\rho_0$--$\rho_4$ 仅在安全动作集为空时降级，先判占据几何退化（返回箱内投影），否则依次尝试放松方向约束与最小化碰撞风险。两条通道互斥。实线深色框为可严格保证的模块，虚线浅色框为经验模块。（b）动作平面 $(a,\omega)$ 上的几何，按策略动作箱的尺度绘制（安全盾的二次规划实际求解于更大的执行器物理量程箱）。横线为合规方向约束的边界 $\omega=-\omega_{\mathrm{turn}}$，其下方为合规半平面；斜线为单步无碰的线性约束；两者与动作箱之交即 $\mathcal{P}$（深色填充）。空心点为 $7\times7$ 量化网格。期望控制落在 $\mathcal{P}$ 外时被投影到最近的可行点，箭头长度即投影修正量。连续动作能精确取到 $\omega_{\mathrm{turn}}$ 这一合规下确界；量化网格上最近的合规档位为 $0.012~\mathrm{rad/s}$，比该下确界高出 $37.5\%$。}
+ \label{fig:overview}
 \end{figure}
-%  ▶ 来源：Paper/01_论文稿/figs/make_fig1_overview.py（手绘示意·遵 nature-figure 规范）
+% ▶ 来源：Paper/01_论文稿/figs/make_fig1_overview.py（手绘示意·遵 nature-figure 规范）
 %------------------------------------------------------------------------------
 
 \subsection{COLREGs 让路条款在动作空间中的形式化}
 \label{sec:rulesets}
 
-\subsubsection{相遇态势的谓词化}
+\subsubsection{会遇态势的谓词化}
 
 本小节的谓词结构、阈值取值与状态机的判定优先序沿用 \citp{Krasowski and Althoff}{2021} 的时序逻辑形式化及其在 \citp{Krasowski and Althoff}{2024} 中的实现。本文在此之上的新增部分为三项：碰撞可能性谓词中膨胀半径与速度集半宽的显式取值、让路态入口的对称化（第~\ref{sec:rl} 节），以及把式~\eqref{eq:ucolregs} 由离散动作屏蔽改写为连续控制上的半平面约束。
 
-我们用一个规则状态机把当前相遇归入六类，
+我们用一个规则状态机把当前会遇归入六类，
 \begin{equation*}
 \rho\in\{\rho_0\ \text{无冲突},\ \ \rho_1\ \text{直航},\ \ \rho_2\ \text{对遇},\ \ \rho_3\ \text{交叉},\ \ \rho_4\ \text{追越},\ \ \rho_5\ \text{紧急}\},
 \end{equation*}
@@ -464,8 +464,8 @@ Submitted [Submission Date]\par
 
 第三组是碰撞可能性，
 \begin{equation}
-  \mathrm{CP}(s_e,s_m)\ \Leftrightarrow\ \bigl(\mathcal{V}_e\cap\mathcal{C}_m\neq\varnothing\bigr)\ \wedge\ \Bigl(\lVert v_e-v_m\rVert\ \ge\ d/T_h\Bigr),
-  \label{eq:cp}
+ \mathrm{CP}(s_e,s_m)\ \Leftrightarrow\ \bigl(\mathcal{V}_e\cap\mathcal{C}_m\neq\varnothing\bigr)\ \wedge\ \Bigl(\lVert v_e-v_m\rVert\ \ge\ d/T_h\Bigr),
+ \label{eq:cp}
 \end{equation}
 其中 $\mathcal{C}_m$ 为以本船位置为顶点、对按膨胀半径 $r_m$ 放大的他船占据作外切、再沿他船速度平移 $v_m$ 所得的碰撞锥，$\mathcal{V}_e=\{\lambda\,[\cos\theta_e,\ \sin\theta_e]^{\!\top}:\lambda\in[\max(0,v_e-v_\varepsilon),\ v_e+v_\varepsilon]\}$ 为本船的速度集。两个参数此前未在文献中明确给出，此处一并写明：膨胀半径按他船真实船长取 $r_m=3\ell_m$，本场景库中 $\ell_m\in[200,300]$~m，故 $r_m\in[600,900]$~m；速度集半宽 $v_\varepsilon=1$~m/s；检查时域 $T_h=420$~s。式~\eqref{eq:cp} 的第二项要求相对速度足以在 $T_h$ 内闭合当前距离。
 
@@ -483,8 +483,8 @@ Submitted [Submission Date]\par
 
 状态机的转移由三条规则给出。其一，从无冲突态进入让路态由\emph{持续性}条件触发，对让路谓词 $X\in\{\rho_2,\rho_3,\rho_4\}$ 定义
 \begin{equation}
-  \mathrm{Pers}_X(s_e,s_m)\ \Leftrightarrow\ \neg X(s_e,s_m)\ \wedge\ \bigl(\forall\,t\in\{\Delta t,2\Delta t,\dots,T_{\mathrm{react}}\}:\ X(\hat s_e(t),\hat s_m(t))\bigr),
-  \label{eq:persistent}
+ \mathrm{Pers}_X(s_e,s_m)\ \Leftrightarrow\ \neg X(s_e,s_m)\ \wedge\ \bigl(\forall\,t\in\{\Delta t,2\Delta t,\dots,T_{\mathrm{react}}\}:\ X(\hat s_e(t),\hat s_m(t))\bigr),
+ \label{eq:persistent}
 \end{equation}
 其中 $\hat s(\cdot)$ 为恒速外推，$T_{\mathrm{react}}=60$~s。合取项 $\neg X(s_e,s_m)$ 是必要的，它把“现在尚未成立、但在反应窗内将持续成立”与“现在已经成立”区分开，使该条件只负责\emph{提前}进入。其二，让路态一旦进入即维持，直到碰撞可能性谓词不再成立，即 $\neg\mathrm{CP}$，以免义务在单步判据的抖动中反复通断。其三，紧急态优先于其余一切态势，其进入与解除见下。
 
@@ -492,22 +492,22 @@ Submitted [Submission Date]\par
 
 \textbf{合规动作集。}\ 每一类态势对应一个显式的控制约束集：
 \begin{equation}
-  \mathcal{U}_{\mathrm{colregs}}(\rho)=
-  \begin{cases}
-    \mathcal{U}_{\mathrm{box}}, & \rho=\rho_0,\\[2pt]
-    \{|a|\le\varepsilon_a\}\cap\{|\omega|\le\varepsilon_\omega\}, & \rho=\rho_1,\\[2pt]
-    \{\omega\le-\omega_{\mathrm{turn}}\}, & \rho\in\{\rho_2,\rho_3\},\\[2pt]
-    \{\omega\le-\omega_{\mathrm{turn}}\}\ \text{或}\ \{\omega\ge+\omega_{\mathrm{turn}}\}, & \rho=\rho_4,\\[2pt]
-    \mathcal{U}_{\mathrm{box}}, & \rho=\rho_5,
-  \end{cases}
-  \label{eq:ucolregs}
+ \mathcal{U}_{\mathrm{colregs}}(\rho)=
+ \begin{cases}
+  \mathcal{U}_{\mathrm{box}}, & \rho=\rho_0,\\[2pt]
+  \{|a|\le\varepsilon_a\}\cap\{|\omega|\le\varepsilon_\omega\}, & \rho=\rho_1,\\[2pt]
+  \{\omega\le-\omega_{\mathrm{turn}}\}, & \rho\in\{\rho_2,\rho_3\},\\[2pt]
+  \{\omega\le-\omega_{\mathrm{turn}}\}\ \text{或}\ \{\omega\ge+\omega_{\mathrm{turn}}\}, & \rho=\rho_4,\\[2pt]
+  \mathcal{U}_{\mathrm{box}}, & \rho=\rho_5,
+ \end{cases}
+ \label{eq:ucolregs}
 \end{equation}
-其中 $\mathcal{U}_{\mathrm{box}}=\{|a|\le a_{\max}\}\cap\{|\omega|\le\omega_{\max}\}$ 是\emph{执行器物理量程}构成的动作箱。这里需要区分两个箱：策略的动作空间是较窄的常规操作箱 $\{|a|\le a_{\mathrm{op}}\}\cap\{|\omega|\le\omega_{\mathrm{op}}\}$（与量化网格的张成范围相同，见表~\ref{tab:params} 表注），而安全盾的投影与兜底一律在物理量程箱上求解。这样安排是必要的：安全盾必须能够在需要时动用超出策略权限的操纵能力，否则一旦策略的窄箱与无碰撞约束不相容，本来可解的局面会被误判为不可行。其代价是安全盾实际施加的控制可以落在策略动作箱之外，这一点在观测中如实回传（见 “\nameref{sec:rl}”一节），并在报数时按控制来源分类。三类约束的语义如下。直航态须保向保速（第 17 条），故容差取小量 $\varepsilon_a=0.016~\mathrm{m/s^2}$、$\varepsilon_\omega=0.004363~\mathrm{rad/s}$；对遇与交叉态须向右转且幅度足够明显（第 14、15 条）；追越态的让清一侧由相对几何确定，可左可右（第 13 条）。这一支需要说明其在实现中的形式：式~\eqref{eq:ucolregs} 中 $\rho_4$ 一行写作两个半平面之并，该集合非凸，不能直接作为二次规划的约束。实现上并不求解这个并集，而是先由相对几何唯一确定让清一侧（与状态机判定同一套方向逻辑），再据此选定\emph{单个}半平面进入式~\eqref{eq:Ab}。因此进入投影的合规约束始终是凸的，代价是让清一侧由几何在每个决策步重新判定，原则上可能在两侧边界附近逐步切换；本基准无追越场景，该行为未获实证检验。这些方向要求均出自《国际海上避碰规则》\citp{IMO}{1972}。紧急态 $\rho_5$ 不施加方向约束，其处置见 “\nameref{sec:proj}”一节末段。这是本方法保证覆盖不到的部分，我们在 “\nameref{sec:guarantee}”一节明确划出边界。
+其中 $\mathcal{U}_{\mathrm{box}}=\{|a|\le a_{\max}\}\cap\{|\omega|\le\omega_{\max}\}$ 是\emph{执行器物理量程}构成的动作箱。这里需要区分两个箱：策略的动作空间是较窄的常规操作箱 $\{|a|\le a_{\mathrm{op}}\}\cap\{|\omega|\le\omega_{\mathrm{op}}\}$（与量化网格的张成范围相同，见表~\ref{tab:params} 表注），而安全盾的投影与兜底一律在物理量程箱上求解。这样安排是必要的：安全盾必须能够在需要时动用超出策略权限的操纵能力，否则一旦策略的窄箱与无碰撞约束不相容，本来可解的局面会被误判为不可行。其代价是安全盾实际施加的控制可以落在策略动作箱之外，这一点在观测中如实回传（见 “\nameref{sec:rl}”一节），并在统计时按控制来源分类。三类约束的语义如下。直航态须保向保速（第 17 条），故容差取小量 $\varepsilon_a=0.016~\mathrm{m/s^2}$、$\varepsilon_\omega=0.004363~\mathrm{rad/s}$；对遇与交叉态须向右转且幅度足够明显（第 14、15 条）；追越态的让清一侧由相对几何确定，可左可右（第 13 条）。这一支需要说明其在实现中的形式：式~\eqref{eq:ucolregs} 中 $\rho_4$ 一行写作两个半平面之并，该集合非凸，不能直接作为二次规划的约束。实现上并不求解这个并集，而是先由相对几何唯一确定让清一侧（与状态机判定同一套方向逻辑），再据此选定\emph{单个}半平面进入式~\eqref{eq:Ab}。因此进入投影的合规约束始终是凸的，代价是让清一侧由几何在每个决策步重新判定，原则上可能在两侧边界附近逐步切换；本基准无追越场景，该行为未获实证检验。这些方向要求均出自《国际海上避碰规则》\citp{IMO}{1972}。紧急态 $\rho_5$ 不施加方向约束，其处置见 “\nameref{sec:proj}”一节末段。这是本方法保证覆盖不到的部分，我们在 “\nameref{sec:guarantee}”一节明确划出边界。
 
 \textbf{“足够明显”的量化及其下确界性质。}\ 公约要求让路动作幅度大到能被对方及时察觉。把“明显”量化为在机动时间 $T_M$ 内航向改变不少于 $\Delta_{\mathrm{lt}}$，即得阈值
 \begin{equation}
-  \omega_{\mathrm{turn}}=\frac{\Delta_{\mathrm{lt}}}{T_M}=\frac{20^\circ}{40~\mathrm{s}}\approx 0.008727~\mathrm{rad/s}.
-  \label{eq:omegaturn}
+ \omega_{\mathrm{turn}}=\frac{\Delta_{\mathrm{lt}}}{T_M}=\frac{20^\circ}{40~\mathrm{s}}\approx 0.008727~\mathrm{rad/s}.
+ \label{eq:omegaturn}
 \end{equation}
 $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega|\ge\omega_{\mathrm{turn}}$ 的转向都合规，且该界不可再降。
 
@@ -522,18 +522,18 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 
 把他船在一个决策步之后的占据外近似为圆盘，圆心 $p_m^{+}$ 取恒速外推、半径 $R_m$ 已含安全裕度，本船以外接圆过近似，于是“两船体不交”的一个充分条件是两圆心距不小于
 \begin{equation}
-  d_{\mathrm{safe}}=R_{\mathrm{circ}}+R_m .
+ d_{\mathrm{safe}}=R_{\mathrm{circ}}+R_m .
 \end{equation}
 记 $p_e(u)$ 为本船在控制 $u$ 下一个决策步之后的位置，$u_{\mathrm{nom}}$ 为线性化基点（取裁剪进动作箱的策略输出），$p_{\mathrm{nom}}=p_e(u_{\mathrm{nom}})$。取分离方向为由他船指向本船标称落点的单位向量
 \begin{equation}
-  n=\frac{p_{\mathrm{nom}}-p_m^{+}}{\lVert p_{\mathrm{nom}}-p_m^{+}\rVert},\qquad
-  \delta=\lVert p_{\mathrm{nom}}-p_m^{+}\rVert .
+ n=\frac{p_{\mathrm{nom}}-p_m^{+}}{\lVert p_{\mathrm{nom}}-p_m^{+}\rVert},\qquad
+ \delta=\lVert p_{\mathrm{nom}}-p_m^{+}\rVert .
 \end{equation}
 把落点沿控制作一阶展开，$p_e(u)\approx p_{\mathrm{nom}}+J\,(u-u_{\mathrm{nom}})$，其中 $J=\partial p_e/\partial u\in\mathbb{R}^{2\times2}$ 为落点对控制的雅可比。将“落点位于分离超平面的安全侧”写成 $n^{\!\top}\bigl(p_e(u)-p_m^{+}\bigr)\ge d_{\mathrm{safe}}$，代入展开式即得对 $u$ 的一条线性不等式
 \begin{equation}
-  \underbrace{-\,n^{\!\top}\!J}_{\textstyle g^{\!\top}}\,u\ \le\ \underbrace{-\bigl(d_{\mathrm{safe}}-\delta+n^{\!\top}\!J\,u_{\mathrm{nom}}\bigr)}_{\textstyle h},
-  \qquad \mathcal{U}_{\mathrm{cf}}(s)=\{u: g^{\!\top}u\le h\}.
-  \label{eq:ucf}
+ \underbrace{-\,n^{\!\top}\!J}_{\textstyle g^{\!\top}}\,u\ \le\ \underbrace{-\bigl(d_{\mathrm{safe}}-\delta+n^{\!\top}\!J\,u_{\mathrm{nom}}\bigr)}_{\textstyle h},
+ \qquad \mathcal{U}_{\mathrm{cf}}(s)=\{u: g^{\!\top}u\le h\}.
+ \label{eq:ucf}
 \end{equation}
 这里需要说明一阶展开与保守性的关系。线性化本身既非内近似也非外近似，其余项符号随曲率变化，故仅由式~\eqref{eq:ucf} 并不能直接断言保守。使该断言成立的是安全距离中预留的裕度。他船占据圆的半径取其外接圆再叠加 $2\ell_m$ 的安全裕度（$\ell_m$ 为逐场景真实他船船长，本库中 $\ell_m\in[200,300]$~m，故该裕度为 $400$--$600$~m）。另一方面，落点线性化的余项在整个执行器量程箱上有界：在全速域与全艏向上数值求其上确界，得 $\sup\lVert p_e(u)-p_{\mathrm{nom}}-J(u-u_{\mathrm{nom}})\rVert\le 10.4$~m，不足该裕度的 $3\%$。余项因而被裕度整体吸收，$\mathcal{U}_{\mathrm{cf}}$ 内的控制满足原始的无碰条件，反之不然。这一论证依赖于裕度的存在，若改用不含裕度的占据表示，则须把余项界显式加入 $d_{\mathrm{safe}}$ 才能保持该性质。
 
@@ -543,20 +543,20 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 
 安全动作集取三者之交
 \begin{equation}
-  \mathcal{P}(s,\rho)=\mathcal{U}_{\mathrm{box}}\cap\mathcal{U}_{\mathrm{colregs}}(\rho)\cap\mathcal{U}_{\mathrm{cf}}(s),
-  \label{eq:safeset}
+ \mathcal{P}(s,\rho)=\mathcal{U}_{\mathrm{box}}\cap\mathcal{U}_{\mathrm{colregs}}(\rho)\cap\mathcal{U}_{\mathrm{cf}}(s),
+ \label{eq:safeset}
 \end{equation}
 它是 $\mathbb{R}^2$ 中的凸多边形。给定策略给出的期望控制 $u_{\mathrm{policy}}$，实际执行的控制取其在 $\mathcal{P}$ 上的欧氏投影
 \begin{equation}
-  u_{\mathrm{safe}}=\Pi_{\mathcal{P}}(u_{\mathrm{policy}})=\arg\min_{u\in\mathcal{P}}\lVert u-u_{\mathrm{policy}}\rVert_2^2 .
-  \label{eq:qp}
+ u_{\mathrm{safe}}=\Pi_{\mathcal{P}}(u_{\mathrm{policy}})=\arg\min_{u\in\mathcal{P}}\lVert u-u_{\mathrm{policy}}\rVert_2^2 .
+ \label{eq:qp}
 \end{equation}
 式~\eqref{eq:qp} 的可行集是若干半平面之交，可统一写成 $\mathcal{P}=\{u:Au\le b\}$，其中
 \begin{equation}
-  A=\begin{bmatrix} I_2\\ -I_2\\ c^{\!\top}\\ g^{\!\top}\end{bmatrix}\in\mathbb{R}^{6\times2},
-  \qquad
-  b=\begin{bmatrix} u_{\mathrm{hi}}\\ -u_{\mathrm{lo}}\\ c_0\\ h\end{bmatrix},
-  \label{eq:Ab}
+ A=\begin{bmatrix} I_2\\ -I_2\\ c^{\!\top}\\ g^{\!\top}\end{bmatrix}\in\mathbb{R}^{6\times2},
+ \qquad
+ b=\begin{bmatrix} u_{\mathrm{hi}}\\ -u_{\mathrm{lo}}\\ c_0\\ h\end{bmatrix},
+ \label{eq:Ab}
 \end{equation}
 前四行为动作箱 $u_{\mathrm{lo}}\le u\le u_{\mathrm{hi}}$，第五行 $c^{\!\top}u\le c_0$ 为式~\eqref{eq:ucolregs} 给出的合规方向半平面（如让路态的 $\omega\le-\omega_{\mathrm{turn}}$ 对应 $c=[0,1]^{\!\top}$、$c_0=-\omega_{\mathrm{turn}}$；$\rho_0$ 与 $\rho_5$ 无此行，$\rho_1$ 则为两条逐轴区间），第六行为式~\eqref{eq:ucf} 的无碰撞约束。因此这是一个两变量、至多六条约束的二次规划，其解存在且唯一。我们把 $\lVert u_{\mathrm{safe}}-u_{\mathrm{policy}}\rVert$ 记为投影修正量，它度量策略输出与规则要求之间的差距，并在实验中作为一项诊断指标上报。
 
@@ -564,7 +564,7 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 
 安全动作集为空时投影无解，此时须由一条不提供保证的替代规则给出控制，本文称之为兜底。兜底的处置按态势分支，而非按一条固定优先级依次尝试，可分为两条互斥的通道。
 \begin{itemize}\setlength{\itemsep}{2pt}
-  \item \emph{紧急态通道}。紧急态 $\rho_5$ 自成一路，该态不构造无碰撞约束、也不求解式~\eqref{eq:qp}，而是直接交给紧急控制器。该控制器是一个有状态的三模式几何律，其生命周期对应一次完整的紧急事件。进入 $\rho_5$ 的首步选定模式并记录初始快照，此后模式不再重选（$\mathrm{ahead}$ 模式可单向切换到 $\mathrm{base}$）。模式判据互斥，
+ \item \emph{紧急态通道}。紧急态 $\rho_5$ 自成一路，该态不构造无碰撞约束、也不求解式~\eqref{eq:qp}，而是直接交给紧急控制器。该控制器是一个有状态的三模式几何律，其生命周期对应一次完整的紧急事件。进入 $\rho_5$ 的首步选定模式并记录初始快照，此后模式不再重选（$\mathrm{ahead}$ 模式可单向切换到 $\mathrm{base}$）。模式判据互斥，
 \begin{equation}
 \begin{aligned}
 \mathrm{ahead}&:\ |\beta|\le\Delta_{\mathrm{ah}}\ \wedge\ \text{两船航向近反向（带宽 }\Delta_{\mathrm{ah}}\text{）},\\
@@ -574,16 +574,16 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 \end{equation}
 其中 $\Delta_{\mathrm{ah}}=45^\circ$、$\Delta_{\mathrm{st}}=20^\circ$。三种模式的控制律如下。$\mathrm{ahead}$ 模式跟踪一个由初始快照确定的\emph{固定}目标点，该点位于初始位置沿规定转向一侧 $90^\circ$ 方向、距离 $d_{\mathrm{ah}}=3\ell_m$ 处；当本船自初始位置起的行驶距离超过该阈值而紧急仍未解除时，单向切换到 $\mathrm{base}$。$\mathrm{stern}$ 模式取
 \begin{equation}
-  u=\begin{cases}(a_{\mathrm{st}},\,0), & t<T_{\mathrm{react}},\\[2pt] (0,\,0), & t\ge T_{\mathrm{react}},\end{cases}
-  \qquad a_{\mathrm{st}}=0.2\,a_{\max},
+ u=\begin{cases}(a_{\mathrm{st}},\,0), & t<T_{\mathrm{react}},\\[2pt] (0,\,0), & t\ge T_{\mathrm{react}},\end{cases}
+ \qquad a_{\mathrm{st}}=0.2\,a_{\max},
 \end{equation}
 即在反应窗内直线加速脱离、其后停止施控。$\mathrm{base}$ 模式跟踪一个随他船当前位置移动的目标点。三种模式都经同一个位置跟踪律换算为 $(a,\omega)$。该控制器不提供任何保证，它的作用范围由 “\nameref{sec:guarantee}”一节的迫近不可避判据界定。
-  \item \emph{其余态势的降级}。$\rho_0$--$\rho_4$ 只在 $\mathcal{P}=\varnothing$ 时降级，且先判一种退化情形。若线性化给不出可用的分离方向，即本船标称落点与他船膨胀占据的圆心重合、或本船在该分离方向上没有控制权限（近零速时落点对转艏率的雅可比降秩），则直接返回箱内投影占位（记为“退化”），不再求解任何二次规划。否则先放松方向约束、只保留动作箱与无碰撞约束求解（记为“放松”），仍不可行才改解一个最小化最坏碰撞侵入量的软约束二次规划（记为“碰撞风险最小化”）。
+ \item \emph{其余态势的降级}。$\rho_0$--$\rho_4$ 只在 $\mathcal{P}=\varnothing$ 时降级，且先判一种退化情形。若线性化给不出可用的分离方向，即本船标称落点与他船膨胀占据的圆心重合、或本船在该分离方向上没有控制权限（近零速时落点对转艏率的雅可比降秩），则直接返回箱内投影占位（记为“退化”），不再求解任何二次规划。否则先放松方向约束、只保留动作箱与无碰撞约束求解（记为“放松”），仍不可行才改解一个最小化最坏碰撞侵入量的软约束二次规划（记为“碰撞风险最小化”）。
 \end{itemize}
 
 有两点须注意。其一，占据仅仅已经相交并不会触发退化，那种情形照常走放松与碰撞风险最小化。其二，放松与碰撞风险最小化都在执行器物理量程上求解并整块丢弃合规约束，故转艏率可达 $\omega_{\max}$。因此紧急控制器与后三支互斥，前者只出现在 $\rho_5$，后三支只出现在 $\rho_0$--$\rho_4$。这一支是经验性的，不提供任何保证。本文从两个方向界定这一支：在 “\nameref{sec:guarantee}”一节给它配一个可判定的边界，即一个保守判据，用来识别“碰撞在物理上已不可避”的状态；同时用一组专门构造的对抗场景检验它是否真的会被触发。
 
-后一点是必要的，因为在本文使用的公开基准上，降级几乎不发生。我们实测该基准的场景，本船若保持航向航速，与他船的最近中心距中位数约 $1300$~m，只有极少数算例会真正逼近，安全动作集因而基本不会为空。三支降级的实测触发率也印证了这一点：在该基准上，碰撞风险最小化占决策步的 $0.18\%$，放松与退化两支\emph{均未触发}；即便在下述专门构造的真冲突算例上，退化一支仍未触发。因此三支降级虽在实现上必须完备，其在本基准上的实际影响很小，本文据此把篇幅留给真正被频繁使用的紧急通道。为此我们以该基准场景为模板、只重造他船轨迹，使本船的保向航迹与他船的恒速航迹在指定时刻真正相交，从而得到真冲突的算例；相遇态势一律用与安全盾同一套谓词复判。在这组算例上，降级分支确实被触发：碰撞风险最小化一支的触发率由基准上的 $0.18\%$ 升至 $1.58\%$，放松一支则由从未触发变为可被观测到。该结果只用于刻画兜底机制本身是否可被激活，其场景为合成算例，不与正式结果表并列。
+后一点是必要的，因为在本文使用的公开基准上，降级几乎不发生。我们实测该基准的场景，本船若保持航向航速，与他船的最近中心距中位数约 $1300$~m，只有极少数算例会真正逼近，安全动作集因而基本不会为空。三支降级的实测触发率也印证了这一点：在该基准上，碰撞风险最小化占决策步的 $0.18\%$，放松与退化两支\emph{均未触发}；即便在下述专门构造的真冲突算例上，退化一支仍未触发。因此三支降级虽在实现上必须完备，其在本基准上的实际影响很小，本文据此把篇幅留给真正被频繁使用的紧急通道。为此我们以该基准场景为模板、只重造他船轨迹，使本船的保向航迹与他船的恒速航迹在指定时刻真正相交，从而得到真冲突的算例；会遇态势一律用与安全盾同一套谓词复判。在这组算例上，降级分支确实被触发：碰撞风险最小化一支的触发率由基准上的 $0.18\%$ 升至 $1.58\%$，放松一支则由从未触发变为可被观测到。该结果只用于刻画兜底机制本身是否可被激活，其场景为合成算例，不与主结果表并列。
 
 \subsection{策略学习}
 \label{sec:rl}
@@ -592,9 +592,9 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 
 我们不把安全盾放在策略之后作为事后纠正，而是把式~\eqref{eq:qp} 并入环境的转移。策略输出 $u_{\mathrm{policy}}$，环境施加 $u_{\mathrm{safe}}$ 并返回相应的后继状态与回报，即策略面对的是复合转移
 \begin{equation}
-  s_{t+1}\ \sim\ P\bigl(\,\cdot\,\bigm|\, s_t,\ \Pi_{\mathcal{P}(s_t,\rho_t)}(u_t)\bigr),
-  \qquad u_t\sim\pi(\cdot\mid s_t),
-  \label{eq:shielded-mdp}
+ s_{t+1}\ \sim\ P\bigl(\,\cdot\,\bigm|\, s_t,\ \Pi_{\mathcal{P}(s_t,\rho_t)}(u_t)\bigr),
+ \qquad u_t\sim\pi(\cdot\mid s_t),
+ \label{eq:shielded-mdp}
 \end{equation}
 而非事后滤波所对应的 $P(\cdot\mid s_t,u_t)$。这样策略学习到的是经过投影之后的转移，因而会主动适应投影的存在，而不必在训练结束后再与一个陌生的滤波器磨合。
 
@@ -604,20 +604,20 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 
 回报结构沿用 \citp{Krasowski and Althoff}{2024} 的设定，除本节末声明的三处偏离外逐项相同。回报由五项相加而成，
 \begin{equation}
-  r=r_{\mathrm{sparse}}+r_{\mathrm{goal}}+r_{\mathrm{velocity}}+r_{\mathrm{deviate}}+r_{\mathrm{colregs}},
-  \label{eq:reward}
+ r=r_{\mathrm{sparse}}+r_{\mathrm{goal}}+r_{\mathrm{velocity}}+r_{\mathrm{deviate}}+r_{\mathrm{colregs}},
+ \label{eq:reward}
 \end{equation}
 各项定义如下，系数取值见表~\ref{tab:train}。
 \begin{itemize}\setlength{\itemsep}{2pt}
-  \item 终止稀疏项 $r_{\mathrm{sparse}}$ 在回合终止时按事件给出，到达为 $c_{\mathrm{goal}}$、超时为 $c_{\mathrm{time}}$、原地停住为 $c_{\mathrm{stop}}$、碰撞为 $c_{\mathrm{coll}}$，并对每一个进入紧急控制的决策步给固定惩罚 $c_{\mathrm{em}}$。它另含一个“驶出航行区”事件 $c_{\mathrm{area}}$，但本基准场景不带航行区边界，该事件与其观测位在本文全部实验中恒不触发，此处列出以保证实现描述完整。
-  \item 趋近项为稠密的向目标位移奖励，
-  \begin{equation}
-    r_{\mathrm{goal}}=c_{\mathrm{reach}}\bigl(\lVert p_{t-1}-p_g\rVert-\lVert p_t-p_g\rVert\bigr),
-  \end{equation}
-  其中 $p_g$ 为目标位置。
-  \item 航速项 $r_{\mathrm{velocity}}$ 对航速落在巡航区间 $[2.5,\,8.0]~\mathrm{m/s}$ 之外的部分按偏离量线性惩罚。
-  \item 偏航项 $r_{\mathrm{deviate}}$ 惩罚偏离起点至目标参考线的横向距离，并在 $2000$~m 处饱和。
-  \item 软性合规项 $r_{\mathrm{colregs}}$ 为随距离衰减的合规惩罚，其中他船径向速度按其速度上界 $10.0~\mathrm{m/s}$ 归一化、指数项施加上界钳制。它只在软性奖励对照组与离散动作屏蔽配置上启用（后者忠实复现 \citp{Krasowski and Althoff}{2024} 的原始设定，该工作在动作屏蔽之外保留了这一惩罚项），无盾基线与本文全部连续动作配置一律置零，因为本文方法的合规由式~\eqref{eq:ucolregs} 的硬约束承担。各配置取值见表~\ref{tab:arms}。
+ \item 终止稀疏项 $r_{\mathrm{sparse}}$ 在回合终止时按事件给出，到达为 $c_{\mathrm{goal}}$、超时为 $c_{\mathrm{time}}$、原地停住为 $c_{\mathrm{stop}}$、碰撞为 $c_{\mathrm{coll}}$，并对每一个进入紧急控制的决策步给固定惩罚 $c_{\mathrm{em}}$。它另含一个“驶出航行区”事件 $c_{\mathrm{area}}$，但本基准场景不带航行区边界，该事件与其观测位在本文全部实验中恒不触发，此处列出以保证实现描述完整。
+ \item 趋近项为稠密的向目标位移奖励，
+ \begin{equation}
+  r_{\mathrm{goal}}=c_{\mathrm{reach}}\bigl(\lVert p_{t-1}-p_g\rVert-\lVert p_t-p_g\rVert\bigr),
+ \end{equation}
+ 其中 $p_g$ 为目标位置。
+ \item 航速项 $r_{\mathrm{velocity}}$ 对航速落在巡航区间 $[2.5,\,8.0]~\mathrm{m/s}$ 之外的部分按偏离量线性惩罚。
+ \item 偏航项 $r_{\mathrm{deviate}}$ 惩罚偏离起点至目标参考线的横向距离，并在 $2000$~m 处饱和。
+ \item 软性合规项 $r_{\mathrm{colregs}}$ 为随距离衰减的合规惩罚，其中他船径向速度按其速度上界 $10.0~\mathrm{m/s}$ 归一化、指数项施加上界钳制。它只在软性奖励对照组与离散动作屏蔽配置上启用（后者忠实复现 \citp{Krasowski and Althoff}{2024} 的原始设定，该工作在动作屏蔽之外保留了这一惩罚项），无盾基线与本文全部连续动作配置一律置零，因为本文方法的合规由式~\eqref{eq:ucolregs} 的硬约束承担。各配置取值见表~\ref{tab:arms}。
 \end{itemize}
 
 相对 \citp{Krasowski and Althoff}{2024} 的公开设定，本文有三处偏离，需要显式声明。其一，趋近项 $r_{\mathrm{goal}}$ 取上式的差分方向。按另一种常见写法，
@@ -630,61 +630,61 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 
 我们改用支撑为闭区间的 Beta 分布。动作因此按构造不可能越箱，裁剪退化为恒等映射，上述两条通道同时封闭；平顺性惩罚处处可微，且 Beta 的熵有上界（在均匀分布处取得）。具体地，网络对每个控制轴输出两个实数 $(\tilde\alpha,\tilde\beta)$，形状参数与执行动作由
 \begin{equation}
-  \alpha=\mathrm{softplus}(\tilde\alpha)+1,\quad \beta=\mathrm{softplus}(\tilde\beta)+1,\qquad
-  u=u_{\mathrm{lo}}+(u_{\mathrm{hi}}-u_{\mathrm{lo}})\,z,\quad z\sim\mathrm{Beta}(\alpha,\beta)
-  \label{eq:beta}
+ \alpha=\mathrm{softplus}(\tilde\alpha)+1,\quad \beta=\mathrm{softplus}(\tilde\beta)+1,\qquad
+ u=u_{\mathrm{lo}}+(u_{\mathrm{hi}}-u_{\mathrm{lo}})\,z,\quad z\sim\mathrm{Beta}(\alpha,\beta)
+ \label{eq:beta}
 \end{equation}
 给出，评估时取确定性动作，即以众数 $z^\ast=(\alpha-1)/(\alpha+\beta-2)$ 代替采样。这一参数化使两个形状参数严格大于 $1$。这一约束不可省。当形状参数小于 $1$ 时 Beta 呈 U 形，密度在两端发散，等价于一个数学形式的 bang-bang 控制；更关键的是此时分布的众数落在\emph{区间端点}，而区间内部的驻点是密度的极小值，由于评估一律使用确定性动作（取众数），这会静默地污染每一个上报数字，且在聚合指标上无从察觉。需要说明的是，该约束只保证分布单峰且端点密度有限，\emph{并不}阻止策略选择接近饱和的动作；真正起作用的是“支撑落在箱内”与“熵有上界”这两条。
 
 \subsubsection{让路态入口的对称化}
 
-状态机中“无冲突 $\rightarrow$ 让路”这一转移原本只由持续性条件触发，而“直航 $\rightarrow$ 让路”另有一条即时条件。我们补上对称的一支，即持续性条件未命中时，再检查即时条件是否已成立，成立即进入让路态。该改动使让路义务的识别时机在两条入口上一致，代价是它改变安全盾实际施加的动作，因此训练与评估必须在同一设置下进行。 这一改动的必要性可以在专门构造的算例上直接看到。若一次相遇在\emph{初始时刻}就已满足让路谓词，则式~\eqref{eq:persistent} 的必要合取项 $\neg X$ 恒不成立，持续性条件永远不会触发，该相遇因而始终不被识别为让路态。我们在一组这样的真冲突算例上实测：仅用持续性入口时让路态决策步为 $0$，补上即时支之后为 $201$ 步。该测量取自合成的对抗算例，用于说明机制差异，不与正式结果表并列。
+状态机中“无冲突 $\rightarrow$ 让路”这一转移原本只由持续性条件触发，而“直航 $\rightarrow$ 让路”另有一条即时条件。我们补上对称的一支，即持续性条件未命中时，再检查即时条件是否已成立，成立即进入让路态。该改动使让路义务的识别时机在两条入口上一致，代价是它改变安全盾实际施加的动作，因此训练与评估必须在同一设置下进行。 这一改动的必要性可以在专门构造的算例上直接看到。若一次会遇在\emph{初始时刻}就已满足让路谓词，则式~\eqref{eq:persistent} 的必要合取项 $\neg X$ 恒不成立，持续性条件永远不会触发，该会遇因而始终不被识别为让路态。我们在一组这样的真冲突算例上实测：仅用持续性入口时让路态决策步为 $0$，补上即时支之后为 $201$ 步。该测量取自合成的对抗算例，用于说明机制差异，不与主结果表并列。
 
 \subsubsection{训练配置}
 
-训练超参见表~\ref{tab:train}。除熵正则系数（取 $0.01$）与有界动作分布外，其余强化学习超参一律取 stable-baselines3~2.3.2 的默认值、未作调整，其具体数值已列入表~\ref{tab:train}；离散与连续两类配置在这些值上逐项相同，故超参不构成两类配置之间的差异来源。观测与回报的滑动归一化不是可选项，不做时式~\eqref{eq:reward} 中大尺度的趋近项会把策略推向“原地停船”的退化解。完整配方另含四项塑形，全部仅作用于连续动作策略，即三项势函数型塑形（进门势、横向进带势、终端保速势）与一项动作增量惩罚，其权重与半径见表~\ref{tab:train}。动作增量惩罚需明确其形式与作用范围，它惩罚相邻两个决策步之间策略指令的变化量，按策略动作箱各轴的半宽（$a_{\mathrm{op}},\omega_{\mathrm{op}}$，非物理量程）归一化后取平方和，因此同时作用于加速度轴与转艏轴，而不只作用于转艏；它也不是势函数，不具备势函数型塑形的策略不变性。
+训练超参见表~\ref{tab:train}。除熵正则系数（取 $0.01$）与有界动作分布外，其余强化学习超参一律取 stable-baselines3~2.3.2 的默认值、未作调整，其具体数值已列入表~\ref{tab:train}；离散与连续两类配置在这些值上逐项相同，故超参不构成两类配置之间的差异来源。观测与回报的滑动归一化不是可选项，不做时式~\eqref{eq:reward} 中大尺度的趋近项会把策略推向“原地停船”的退化解。完整配置另含四项塑形，全部仅作用于连续动作策略，即三项势函数型塑形（进门势、横向进带势、终端保速势）与一项动作增量惩罚，其权重与半径见表~\ref{tab:train}。动作增量惩罚需明确其形式与作用范围，它惩罚相邻两个决策步之间策略指令的变化量，按策略动作箱各轴的半宽（$a_{\mathrm{op}},\omega_{\mathrm{op}}$，非物理量程）归一化后取平方和，因此同时作用于加速度轴与转艏轴，而不只作用于转艏；它也不是势函数，不具备势函数型塑形的策略不变性。
 
 \noindent 这四项塑形是一并启用或一并关闭的，本文\emph{未}逐项拆开做消融，因此关于它们的结论只能表述为“这一组塑形共同带来多少变化”。又由于其中的动作增量惩罚同时作用于两个控制轴，凡涉及\emph{转艏增量、油门增量与 jerk} 这三项指标的比较，都必须在同样启用该惩罚的两组之间进行，否则差异分不清是控制器带来的还是训练目标带来的。这一点在实验部分再次强调，也限定了后文关于平顺度的全部结论。
 
 %------------------------------------------------------------------------------
 \begin{table}[t]
-  \caption{回报函数与训练超参}
-  \label{tab:train}
-  \centering\footnotesize
-  \begin{tabular}{@{}llll@{}}
-    \toprule
-    \textbf{类别} & \textbf{符号} & \textbf{含义} & \textbf{取值} \\
-    \midrule
-    \multirow{7}{*}{回报函数}
-      & $c_{\mathrm{goal}}$ & 到达（正）                & $+50$ \\
-      & $c_{\mathrm{time}},c_{\mathrm{area}}$ & 超时 / 出界 & $-25$,\ \ $-5$ \\
-      & $c_{\mathrm{stop}},c_{\mathrm{coll}}$ & 原地停住 / 碰撞 & $-40$,\ \ $-50$ \\
-      & $c_{\mathrm{em}}$   & 每一步紧急控制            & $-0.5$ \\
-      & $c_{\mathrm{reach}},c_v,c_{\mathrm{dev}}$ & 趋近 / 速度 / 偏航 & $1.5$,\ \ $-2.0$,\ \ $-0.001$ \\
-      & ---                 & 塑形权重（进门/进带/保速/动作增量） & $200,\ 200,\ 20,\ 1.0$ \\
-      & ---                 & 塑形半径（进门/进带/保速）          & $500 / 80 / 400$~m \\
-    \addlinespace
-    \multirow{13}{*}{强化学习}
-      & ---                & 策略/价值网络           & 多层感知机，2 层 $\times$ 64 \\
-      & ---                & 并行环境数              & $8$ \\
-      & $\gamma$           & 折扣因子                & $0.99$ \\
-      & ---                & 熵正则系数（常数）      & $0.01$ \\
-      & ---                & 学习率                  & $3\times10^{-4}$ \\
-      & ---                & 采样步数 / 批大小       & $2048$ / $64$ \\
-      & ---                & 更新迭代轮数            & $10$ \\
-      & ---                & GAE 折扣 $\lambda$      & $0.95$ \\
-      & ---                & 裁剪范围                & $0.2$ \\
-      & ---                & 价值损失系数            & $0.5$ \\
-      & ---                & 梯度裁剪范数上限        & $0.5$ \\
-      & ---                & 优势归一化              & 是 \\
-      & ---                & 观测/回报归一化         & 滑动归一化，观测裁剪至 $\pm10\sigma$ \\
-    \bottomrule
-  \end{tabular}
+ \caption{回报函数与训练超参}
+ \label{tab:train}
+ \centering\footnotesize
+ \begin{tabular}{@{}llll@{}}
+  \toprule
+  \textbf{类别} & \textbf{符号} & \textbf{含义} & \textbf{取值} \\
+  \midrule
+  \multirow{7}{*}{回报函数}
+   & $c_{\mathrm{goal}}$ & 到达（正）        & $+50$ \\
+   & $c_{\mathrm{time}},c_{\mathrm{area}}$ & 超时 / 出界 & $-25$,\ \ $-5$ \\
+   & $c_{\mathrm{stop}},c_{\mathrm{coll}}$ & 原地停住 / 碰撞 & $-40$,\ \ $-50$ \\
+   & $c_{\mathrm{em}}$  & 每一步紧急控制      & $-0.5$ \\
+   & $c_{\mathrm{reach}},c_v,c_{\mathrm{dev}}$ & 趋近 / 速度 / 偏航 & $1.5$,\ \ $-2.0$,\ \ $-0.001$ \\
+   & ---         & 塑形权重（进门/进带/保速/动作增量） & $200,\ 200,\ 20,\ 1.0$ \\
+   & ---         & 塑形半径（进门/进带/保速）     & $500 / 80 / 400$~m \\
+  \addlinespace
+  \multirow{13}{*}{强化学习}
+   & ---        & 策略/价值网络      & 多层感知机，2 层 $\times$ 64 \\
+   & ---        & 并行环境数       & $8$ \\
+   & $\gamma$      & 折扣因子        & $0.99$ \\
+   & ---        & 熵正则系数（常数）   & $0.01$ \\
+   & ---        & 学习率         & $3\times10^{-4}$ \\
+   & ---        & 采样步数 / 批大小    & $2048$ / $64$ \\
+   & ---        & 更新迭代轮数      & $10$ \\
+   & ---        & GAE 折扣 $\lambda$   & $0.95$ \\
+   & ---        & 裁剪范围        & $0.2$ \\
+   & ---        & 价值损失系数      & $0.5$ \\
+   & ---        & 梯度裁剪范数上限    & $0.5$ \\
+   & ---        & 优势归一化       & 是 \\
+   & ---        & 观测/回报归一化     & 滑动归一化，观测裁剪至 $\pm10\sigma$ \\
+  \bottomrule
+ \end{tabular}
 
-  \vspace{4pt}\footnotesize
-  \textbf{表注。}强化学习超参除熵正则系数（$0.01$）外均为 stable-baselines3~2.3.2 \citp{Raffin et al.}{2021} 的默认取值、未作调整，
-  离散（MaskablePPO）与连续（PPO）两类配置在这些值上逐项相同。塑形四项仅用于连续动作策略；
-  终端保速势的目标航速取 $4$~m/s。
+ \vspace{4pt}\footnotesize
+ \textbf{表注。}强化学习超参除熵正则系数（$0.01$）外均为 stable-baselines3~2.3.2 \citp{Raffin et al.}{2021} 的默认取值、未作调整，
+ 离散（MaskablePPO）与连续（PPO）两类配置在这些值上逐项相同。塑形四项仅用于连续动作策略；
+ 终端保速势的目标航速取 $4$~m/s。
 \end{table}
 %------------------------------------------------------------------------------
 
@@ -698,8 +698,8 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 \begin{prop}[远场单步无碰]\label{prop:farfield}
 设本船与单个他船的中心位置分别为 $p_e,p_m$，中心距 $d=\lVert p_e-p_m\rVert$。若
 \begin{equation}
-  d \;\ge\; d_{\mathrm{safe}} + v_{\mathrm{obs,max}}\Delta t + \rho_{\mathrm{ego}},
-  \label{eq:farfield}
+ d \;\ge\; d_{\mathrm{safe}} + v_{\mathrm{obs,max}}\Delta t + \rho_{\mathrm{ego}},
+ \label{eq:farfield}
 \end{equation}
 则一个决策步之后，两船（以外接圆保守占据）必不相交。其中 $d_{\mathrm{safe}}=R_{\mathrm{circ,ego}}+R_{\mathrm{circ,obs}}$，$\rho_{\mathrm{ego}}=v_{\max}\Delta t+\tfrac12 a_{\max}\Delta t^2$ 为本船单步最大位移。
 \end{prop}
@@ -724,9 +724,9 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 合规半平面以硬区间约束进入二次规划，故投影解必然满足它。该结论是构造式的，不依赖任何额外引理。
 \end{proof}
 
-\textit{假设与作用域。}\ (B1) 单他船；(B2) 状态机的态势判定正确。该假设继承自碰撞可能性谓词的一处已知保守偏差：式~\eqref{eq:cp} 的接近条件以两船中心距为准，因而对速度接近的尾随会遇存在漏判区间，即本应判为有碰撞可能却判为无。其方向是漏判而非把方向判反，后果是该步不进入让路态、从而不施加方向约束，而非施加相反一侧的约束；此外还有四谓词并列时依判定序取一的已知缺口。两者的发生率本文未作测量。(B3) 二次规划可行；(B4) 作用域 $=$ 让路态势的相遇。让路触发率约 $13\text{--}16\%$（探索期 933 场景池实测，非本文正式报数池的 600），且这是\emph{经过碰撞可能性闸之后}的相遇（回合）级比率，而非几何类型的占比，后者按几何谓词分类时交叉与对遇占满全库；两者不可混读；直航违规才按步计。
+\textit{假设与作用域。}\ (B1) 单他船；(B2) 状态机的态势判定正确。该假设继承自碰撞可能性谓词的一处已知保守偏差：式~\eqref{eq:cp} 的接近条件以两船中心距为准，因而对速度接近的尾随会遇存在漏判区间，即本应判为有碰撞可能却判为无。其方向是漏判而非把方向判反，后果是该步不进入让路态、从而不施加方向约束，而非施加相反一侧的约束；此外还有四谓词并列时依判定序取一的已知缺口。两者的发生率本文未作测量。(B3) 二次规划可行；(B4) 作用域 $=$ 让路态势的会遇。让路触发率约 $13\text{--}16\%$（探索期 933 场景池实测，非本文正式评估集的 600），且这是\emph{经过碰撞可能性闸之后}的会遇（回合）级比率，而非几何类型的占比，后者按几何谓词分类时交叉与对遇占满全库；两者的分母不同；直航违规才按步计。
 
-\noindent\textbf{作用域限制。}\ 本性质不覆盖紧急态（其判据在结构上旁路合规约束）。紧急态在探索期的 933 场景池上占冲突步的 $55\text{--}60\%$，但该判据是一个过触发的保守大筐（在专门逼出紧急支的对抗基线上，其中 $97.6\%$ 事后并非真正不可避），故该比例只应读作“判据触发率”，不应读作“真实迫近比例”，也不覆盖放松、最小碰撞风险与退化三支兜底（它们都丢掉半平面）。因此本文的合规陈述只到“每一让路步的方向合规”这一层，并不覆盖全部决策步；实测每局违规数非零。
+\noindent\textbf{作用域限制。}\ 本性质不覆盖紧急态（其判据在结构上旁路合规约束）。紧急态在探索期的 933 场景池上占冲突步的 $55\text{--}60\%$，但该判据是一个过触发的保守保守判据（在专门逼出紧急支的对抗基线上，其中 $97.6\%$ 事后并非真正不可避），故该比例是判据的触发率，而非真实迫近的比例，也不覆盖放松、最小碰撞风险与退化三支兜底（它们都丢掉半平面）。因此本文的合规陈述只到“每一让路步的方向合规”这一层，并不覆盖全部决策步；实测每局违规数非零。
 
 \textbf{紧急：给黑箱划一条可判定的边界。}
 
@@ -743,8 +743,8 @@ L_{\mathrm{lat}}(t)=
 \end{equation}
 设 $O(t)$ 为他船船体矩形。若
 \begin{equation}
-  \exists\,t^\ast\in[0,T]:\quad R_{\mathrm{box}}(t^\ast)\subseteq\bigl(O(t^\ast)\oplus\mathrm{disk}(r_{\mathrm{insc,ego}}=12.7~\mathrm{m})\bigr),
-  \label{eq:imminent}
+ \exists\,t^\ast\in[0,T]:\quad R_{\mathrm{box}}(t^\ast)\subseteq\bigl(O(t^\ast)\oplus\mathrm{disk}(r_{\mathrm{insc,ego}}=12.7~\mathrm{m})\bigr),
+ \label{eq:imminent}
 \end{equation}
 则碰撞不可避：任何可行控制序列都会在 $t^\ast$ 与该他船相撞。
 \end{prop}
@@ -759,7 +759,7 @@ L_{\mathrm{lat}}(t)=
 
 \noindent\textbf{覆盖范围。}\ 本判据是可靠的（单侧保守的充分条件）。不是早预警（它是末端分类器，不是规划代价）；不完备（不触发 $\ne$ 可避）；不覆盖多障碍（逐对可避不能合成）；不覆盖机动他船（必须恒速）。本判据是紧急层的一个分类器，不构成全系统的无碰撞保证。
 
-\noindent\textbf{关于多他船。}\ 本文的实证范围是双船相遇（假设 (A1)），故不展开多他船的推广。
+\noindent\textbf{关于多他船。}\ 本文的实证范围是双船会遇（假设 (A1)），故不展开多他船的推广。
 仅指出一点作用域事实：碰撞自由在数学上是对全部他船的合取，因此上述“一定不碰”型的充分条件按逐目标合取即可保守推广；
 但\emph{方向合规无法这样推广}。若两条他船要求相反的让路一侧，两个半平面的交为空，该步只能落入兜底并记为一次违规。
 这不是本方法的缺陷，而是 COLREGs 自身的边界：它是成对制定的规则集，对多船冲突情形并未给出规范。相应的实证检验需要多他船场景数据，见局限一节。
@@ -767,10 +767,10 @@ L_{\mathrm{lat}}(t)=
 \textbf{从单步到递归可行（暂定结论）。}
 
 % 🔴🔴 书写纪律（`Paper/README.md` + `02_理论推导/命题4_..._0723.md` 的 v2.1 三条更正）：
-%   ① 证的是"可清障集 A 控制不变"，不是"盾已前向不变"——盾还没接上终端约束；
-%   ② 残余 ≈ 0（不是 46%、也不是 5%）：门2 的 in-A 条件率三态全 100%，
-%      crossing 那 2.9% 是 not-in-A（压根不可清障、落兜底），与合规冲突无关；
-%   ③ 别写"每让路步 by construction"——门2 测的是"该状态**存在**合规 certified 后备"。
+%  ① 证的是"可清障集 A 控制不变"，不是"盾已前向不变"——盾还没接上终端约束；
+%  ② 残余 ≈ 0（不是 46%、也不是 5%）：门2 的 in-A 条件率三态全 100%，
+%   crossing 那 2.9% 是 not-in-A（压根不可清障、落兜底），与合规冲突无关；
+%  ③ 别写"每让路步 by construction"——门2 测的是"该状态**存在**合规 certified 后备"。
 
 性质 1--2 都是单步保证。单步无碰不自带递归可行性：一个此刻安全的状态，可能没有任何安全的后续。这也是反应式控制障碍函数滤波器在 $\Delta t=10$~s 这样长的零阶保持下所缺的东西。我们的升级思路如下。
 
@@ -786,41 +786,41 @@ L_{\mathrm{lat}}(t)=
 
 \textbf{合规版本 $A\cap \mathcal{U}_{\mathrm{colregs}}$。}\ 盾必须选一个合规的第一步。设合规后备为“向规定一侧转 $t_1$ 秒、然后直行”。情形 1（$t_1>\Delta t$）：尾段仍以合规转向开头、仍已认证，故 $s'\in A\cap U_{\mathrm{colregs}}$。这一情形已证。情形 2（$t_1\le\Delta t$）：尾段第一步是直行，需从 $s'$ 重新找合规逃逸，一般性证明尚缺。在盾的真实让路状态分布上，情形 2 未曾出现（$175$~m 级船体、转艏率约 $1.7^\circ$/s，任何合规的清障转向都必然长于一个决策步）。
 
-\noindent\textbf{暂定与作用域。}\ (0) 终端约束只在让路后继上认证 $A$ 归属；降级为无冲突的后继平凡安全，直航后继由式~\eqref{eq:ucolregs} 的保向保速硬约束承担（构造式成立，但受本节所述累积口径错配的限制，未立为独立性质），远场时另有性质 1；紧急后继落回经验兜底。(i) 单恒速他船；多他船更弱（$A=\bigcap_i A_i$，逐目标的可行域可能互相冲突）。(ii) $A$ 由有限机动族加保守证书判定，是真可清障集的内近似。在真实让路分布上，可清障状态里每一个都存在 COLREGs 合规的已认证脱离机动（三种态势的条件率均为 $100\%$）；唯一的缺口是交叉态势中约 $2.9\%$ 的状态本身即不可清障（任何方向都无法清出净空）而落入兜底。上述比率取自带盾回放中的让路状态，非对抗性分布，另见本性质作用域第 (iv) 条。这是可清障性的边界，并非合规与安全之间的冲突。(iii) 终端约束模块已实现并通过单元测试，接进部署中的盾并验证闭环仍待完成；上述比率来自高精度本地积分器，官方口径复算待补。(iv) 这些让路状态取自表现良好的带盾回放，故比率刻画的是可清障集的几何，不是对抗性迫近冲突下的性能。
+\noindent\textbf{暂定与作用域。}\ (0) 终端约束只在让路后继上认证 $A$ 归属；降级为无冲突的后继平凡安全，直航后继由式~\eqref{eq:ucolregs} 的保向保速硬约束承担（构造式成立，但受本节所述累积计数错配的限制，未立为独立性质），远场时另有性质 1；紧急后继落回经验兜底。(i) 单恒速他船；多他船更弱（$A=\bigcap_i A_i$，逐目标的可行域可能互相冲突）。(ii) $A$ 由有限机动族加保守证书判定，是真可清障集的内近似。在真实让路分布上，可清障状态里每一个都存在 COLREGs 合规的已认证脱离机动（三种态势的条件率均为 $100\%$）；唯一的缺口是交叉态势中约 $2.9\%$ 的状态本身即不可清障（任何方向都无法清出净空）而落入兜底。上述比率取自带盾回放中的让路状态，非对抗性分布，另见本性质作用域第 (iv) 条。这是可清障性的边界，并非合规与安全之间的冲突。(iii) 终端约束模块已实现并通过单元测试，集成进部署的安全盾并验证闭环仍待完成；上述比率来自高精度本地积分器，官方评估流程复算待补。(iv) 这些让路状态取自表现良好的带盾回放，故比率刻画的是可清障集的几何，不是对抗性迫近冲突下的性能。
 
 %------------------------------------------------------------------------------
 \begin{table}[t]
-  \caption{可证明安全层：保证、状态与诚实作用域}
-  \label{tab:provable}
-  \centering\footnotesize
-  \begin{tabular}{@{}p{0.20\linewidth}p{0.24\linewidth}p{0.46\linewidth}@{}}
-    \toprule
-    保证 & 状态 & 作用域与限制 \\
-    \midrule
-    远场单步无碰（性质 1）
-      & 已证（初等引理；多他船合取不额外保守）
-      & $d\ge\sim780$~m；他船恒速；$\forall i$ 合取；每个 $v_{\mathrm{obs}}\le9.5$~m/s；单步，非不变性；尚未实现提前退出 \\
-    \addlinespace
-    每让路步方向合规（性质 2）
-      & 构造式成立（作用域受限）
-      & 让路相遇（约 $13\text{--}16\%$，探索期场景池实测、相遇级非逐步级）；不含紧急态与兜底；多他船下随 $N$ 下降；方向冲突 $\to$ 兜底（COLREGs 成对性边界）；合规陈述只到让路步一层 \\
-    \addlinespace
-    紧急迫近不可避证书（性质 3）
-      & 可靠充分条件（$>$20{,}000 对抗场景 0 假阳）
-      & 仅迫近；他船恒速；$\exists i$ 可合成、可避性不可合成；不完备、非早预警；是分类器不是系统保证 \\
-    \addlinespace
-    可清障集 $A$ 的控制不变性（性质 4，\emph{暂定}）
-      & \emph{暂定}：$A$ 的控制不变性已证、证书可靠（长时域模糊 0 假阳）；终端约束模块已单测；闭环接线与官方口径复算待补
-      & 单恒速他船；$A$ 是内近似；可清障态中合规已认证脱离机动的条件存在率三态均 $100\%$（带盾回放的让路状态，非对抗分布）；唯一缺口是交叉态约 $2.9\%$ 的状态本身即不可清障 $\to$ 兜底（非合规冲突）；$A\cap \mathcal{U}_{\mathrm{colregs}}$ 的不变性仅情形 1 已证 \\
-    \bottomrule
-  \end{tabular}
+ \caption{可证明安全层：保证、状态与诚实作用域}
+ \label{tab:provable}
+ \centering\footnotesize
+ \begin{tabular}{@{}p{0.20\linewidth}p{0.24\linewidth}p{0.46\linewidth}@{}}
+  \toprule
+  保证 & 状态 & 作用域与限制 \\
+  \midrule
+  远场单步无碰（性质 1）
+   & 已证（初等引理；多他船合取不额外保守）
+   & $d\ge\sim780$~m；他船恒速；$\forall i$ 合取；每个 $v_{\mathrm{obs}}\le9.5$~m/s；单步，非不变性；尚未实现提前退出 \\
+  \addlinespace
+  每让路步方向合规（性质 2）
+   & 构造式成立（作用域受限）
+   & 让路相遇（约 $13\text{--}16\%$，探索期场景池实测、相遇级非逐步级）；不含紧急态与兜底；多他船下随 $N$ 下降；方向冲突 $\to$ 兜底（COLREGs 成对性边界）；合规陈述只到让路步一层 \\
+  \addlinespace
+  紧急迫近不可避证书（性质 3）
+   & 可靠充分条件（$>$20{,}000 对抗场景 0 假阳）
+   & 仅迫近；他船恒速；$\exists i$ 可合成、可避性不可合成；不完备、非早预警；是分类器不是系统保证 \\
+  \addlinespace
+  可清障集 $A$ 的控制不变性（性质 4，\emph{暂定}）
+   & \emph{暂定}：$A$ 的控制不变性已证、证书可靠（长时域模糊 0 假阳）；终端约束模块已单测；闭环集成与官方评估流程复算待补
+   & 单恒速他船；$A$ 是内近似；可清障态中合规已认证脱离机动的条件存在率三态均 $100\%$（带盾回放的让路状态，非对抗分布）；唯一缺口是交叉态约 $2.9\%$ 的状态本身即不可清障 $\to$ 兜底（非合规冲突）；$A\cap \mathcal{U}_{\mathrm{colregs}}$ 的不变性仅情形 1 已证 \\
+  \bottomrule
+ \end{tabular}
 
-  \vspace{4pt}\footnotesize
-  \textbf{表注。}性质 1 与性质 3 的\emph{数学}作用域可按目标逐一合取地推广到多他船（碰撞自由是对全部他船的合取），
-  性质 2 不能（方向要求相反时两个半平面的交为空）。但本文\emph{部署}的安全盾按单他船实现，遇到多于一艘他船时显式报错，
-  故上述推广未经实现，也没有多他船的实验数据支撑。表中凡提“多他船”一律只指数学作用域。
+ \vspace{4pt}\footnotesize
+ \textbf{表注。}性质 1 与性质 3 的\emph{数学}作用域可按目标逐一合取地推广到多他船（碰撞自由是对全部他船的合取），
+ 性质 2 不能（方向要求相反时两个半平面的交为空）。但本文\emph{部署}的安全盾按单他船实现，遇到多于一艘他船时显式报错，
+ 故上述推广未经实现，也没有多他船的实验数据支撑。表中凡提“多他船”一律只指数学作用域。
 \end{table}
-%  ▶ 本表内容已定稿，零待填。数据来源：Paper/02_理论推导/ 全部六份。
+% ▶ 本表内容已定稿，零待填。数据来源：Paper/02_理论推导/ 全部六份。
 %------------------------------------------------------------------------------
 
 综合起来，本文可辩护的核心结论是：在连续控制上同时取得 COLREGs 让路条款的方向合规保证，并配以远场单步无碰的严格结论与紧急迫近不可避的可靠证书。该结论的作用域限于单个恒速他船、让路态势且投影可行的决策步；紧急态与三支降级控制不在其内。上述边界在局限一节集中说明。
@@ -835,15 +835,15 @@ L_{\mathrm{lat}}(t)=
 \subsection{场景库与对照配置}
 \label{sec:dataset}
 
-\textbf{场景来源与构成。}\ 实验在 CommonOcean 基准 \citp{Krasowski and Althoff}{2022} 的双船相遇场景库上进行，共 $2000$ 个场景。每个场景规定受控船的初始位姿与航速、他船的初始状态与其既定航迹、以及受控船的目标区域（含位置门、朝向门与时限）。场景的相遇几何是程序化生成的，覆盖不同的相对方位、航向交角与接近速率；受控船为前述 $175$~m 级机动船，他船为场景库给定的机动船（船长 $200$--$300$~m）。回合上限为 $170$ 个决策步，折合 $1700$~s。
+\textbf{场景来源与构成。}\ 实验在 CommonOcean 基准 \citp{Krasowski and Althoff}{2022} 的双船会遇场景库上进行，共 $2000$ 个场景。每个场景规定受控船的初始位姿与航速、他船的初始状态与其既定航迹、以及受控船的目标区域（含位置门、朝向门与时限）。场景的会遇几何是程序化生成的，覆盖不同的相对方位、航向交角与接近速率；受控船为前述 $175$~m 级机动船，他船为场景库给定的机动船（船长 $200$--$300$~m）。回合上限为 $170$ 个决策步，折合 $1700$~s。
 
-\textbf{相遇类型分布。}\ 按状态机的\emph{几何}类型谓词（不含 $420$~s 碰撞可能性这道闸）对全库分类的结果是：\emph{交叉}与\emph{对遇}两类占满全库，\emph{追越场景数为零}。这一点对本文的作用域有直接影响：式~\eqref{eq:ucolregs} 中 $\rho_4$ 一支虽已实现并可被单元测试触发，但\emph{无法在本场景库上得到实证检验}，我们在局限一节如实列出。就官方测试集 $600$ 个场景而言，交叉 $395$ 个、对遇 $205$ 个。
+\textbf{会遇类型分布。}\ 按状态机的\emph{几何}类型谓词（不含 $420$~s 碰撞可能性这道闸）对全库分类的结果是：\emph{交叉}与\emph{对遇}两类占满全库，\emph{追越场景数为零}。这一点对本文的作用域有直接影响：式~\eqref{eq:ucolregs} 中 $\rho_4$ 一支虽已实现并可被单元测试触发，但\emph{无法在本场景库上得到实证检验}，我们在局限一节如实列出。就官方测试集 $600$ 个场景而言，交叉 $395$ 个、对遇 $205$ 个。
 
 \textbf{划分。}\ 场景库的官方划分为\emph{训练 $1400$ / 测试 $600$}。我们把官方训练侧再切为 $1300$ 个训练场景与 $100$ 个验证场景（其中训练侧对遇 $468$、交叉 $832$；验证侧对遇 $36$、交叉 $64$）。验证集只用于训练期监控与存档选取，测试集在训练与调参全程不被访问。
 
-\textbf{报数分母。}\ 由于全部训练均在官方 $1300$ 上进行，而该集合与官方测试 $600$ \emph{零交集}，测试集上不存在任何被训练过的场景，故报数分母即为 $600$。该划分经独立复算核验：训练 $\cap$ 测试 $=0$、验证 $\cap$ 测试 $=0$、训练 $\cup$ 验证 $=$ 官方训练 $1400$、训练 $\cap$ 验证 $=0$。
+\textbf{评估样本量。}\ 由于全部训练均在官方 $1300$ 上进行，而该集合与官方测试 $600$ \emph{零交集}，测试集上不存在任何被训练过的场景，故评估样本量即为 $600$。该划分经独立复算核验：训练 $\cap$ 测试 $=0$、验证 $\cap$ 测试 $=0$、训练 $\cup$ 验证 $=$ 官方训练 $1400$、训练 $\cap$ 验证 $=0$。
 
-\noindent 本文此前的探索性实验使用过一个较小的场景子集，其训练场景与官方测试集有交集、须剔除后才能报数，因而分母与此处不同。两套分母下的数值\emph{不可放入同一张表}；正文如需引用探索期结论，会标明其口径。
+\noindent 本文此前的探索性实验使用过一个较小的场景子集，其训练场景与官方测试集有交集、须剔除后才能统计，因而样本量与此处不同。两套样本量下的数值不可放入同一张表；正文如需引用探索期结论，会标明其来源。
 
 \subsubsection{九种配置与八级单变量递进序列}
 \label{sec:arms}
@@ -852,51 +852,51 @@ L_{\mathrm{lat}}(t)=
 
 %------------------------------------------------------------------------------
 \begin{table}[t]
-  \caption{九种配置的配方与单变量递进序列}
-  \label{tab:arms}
-  \centering\footnotesize
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{@{}cllcccll@{}}
-    \toprule
-    \# & 配置 & 动作空间 & 合规施加方式 & 塑形 & 分布 & 让路入口 & 相对上一级只改 \\
-    \midrule
-    ① & 完整方法        & 连续 & 投影盾              & 全 & Beta & 对称   & 由 ⑧ 或 ⑨ 各补一项 \\
-    ② & 离散 $+$ 屏蔽   & 离散 & 动作屏蔽 $+$ 软奖励 & 零 & ---  & 原设定 & 动作屏蔽（相对 ④）\\
-    ③ & 离散基线        & 离散 & 无                  & 零 & ---  & ---    & ---（序列的根）\\
-    ④ & 离散 $+$ 软奖励 & 离散 & 软性合规项          & 零 & ---  & ---    & 软性合规项（相对 ③）\\
-    ⑤ & 连续无盾        & 连续 & 无                  & 零 & 高斯 & 原设定 & 动作空间（相对 ③）\\
-    ⑥ & 连续有盾        & 连续 & 投影盾              & 零 & 高斯 & 原设定 & 安全盾（相对 ⑤）\\
-    ⑦ & 消融基准        & 连续 & 投影盾              & 全 & 高斯 & 原设定 & 连续专属塑形（相对 ⑥）\\
-    ⑧ & 消融：仅有界分布 & 连续 & 投影盾             & 全 & Beta & 原设定 & 动作分布（相对 ⑦）\\
-    ⑨ & 消融：仅对称入口 & 连续 & 投影盾             & 全 & 高斯 & 对称   & 让路入口（相对 ⑦）\\
-    \bottomrule
-  \end{tabular}
+ \caption{九种配置的配置与单变量递进序列}
+ \label{tab:arms}
+ \centering\footnotesize
+ \setlength{\tabcolsep}{4pt}
+ \begin{tabular}{@{}cllcccll@{}}
+  \toprule
+  \# & 配置 & 动作空间 & 合规施加方式 & 塑形 & 分布 & 让路入口 & 相对上一级只改 \\
+  \midrule
+  ① & 完整方法    & 连续 & 投影盾       & 全 & Beta & 对称  & 由 ⑧ 或 ⑨ 各补一项 \\
+  ② & 离散 $+$ 屏蔽  & 离散 & 动作屏蔽 $+$ 软奖励 & 零 & --- & 原设定 & 动作屏蔽（相对 ④）\\
+  ③ & 离散基线    & 离散 & 无         & 零 & --- & ---  & ---（序列的根）\\
+  ④ & 离散 $+$ 软奖励 & 离散 & 软性合规项     & 零 & --- & ---  & 软性合规项（相对 ③）\\
+  ⑤ & 连续无盾    & 连续 & 无         & 零 & 高斯 & 原设定 & 动作空间（相对 ③）\\
+  ⑥ & 连续有盾    & 连续 & 投影盾       & 零 & 高斯 & 原设定 & 安全盾（相对 ⑤）\\
+  ⑦ & 消融基准    & 连续 & 投影盾       & 全 & 高斯 & 原设定 & 连续专属塑形（相对 ⑥）\\
+  ⑧ & 消融：仅有界分布 & 连续 & 投影盾       & 全 & Beta & 原设定 & 动作分布（相对 ⑦）\\
+  ⑨ & 消融：仅对称入口 & 连续 & 投影盾       & 全 & 高斯 & 对称  & 让路入口（相对 ⑦）\\
+  \bottomrule
+ \end{tabular}
 
-  \vspace{4pt}
-  \footnotesize
-  \textbf{表注（三条限定必须与本表同处出现）。}
-  (1) ③$\to$⑤ 这一级不是纯单变量：环境层与奖励层完全一致（逐值比对差为 $0$），两个算法的默认超参也已逐字核对、完全相同；但算法类（带屏蔽的 PPO vs.\ 普通 PPO）、策略族（49 类别分布 vs.\ 2 维连续分布）、熵系数的语义（离散熵与微分熵不是同一个量）三者是“换动作空间”不可分割的伴随。故这一级只能读作“动作空间及其必然伴随的贡献有多大”。
-  (2) ⑥$\to$⑦ 的“连续专属塑形”是 4 件一起开的捆绑包（进门势 / 横向进带势 / 终端保速势 / 动作增量惩罚（两轴）），本次没有逐件拆开，因此只能写“这套组合贡献了 $X$”。
-  (3) ⑦$\to$⑧ 换分布带一个必然伴随：两种分布的初始探索尺度在加速度轴上差约 2.5 倍。高斯的初始标准差是一个由较窄的转艏轴动作箱派生的标量（$\sigma\approx0.009$），两轴共用；加速度轴箱宽是转艏轴的 2.67 倍，故高斯在加速度轴上相对更窄（$\sigma/$半宽 $=0.19$ vs.\ 转艏轴 $0.50$）；Beta 的初始形状按箱宽相对定义（$\approx0.48\times$ 半宽，两轴相同）。这是换分布的必然伴随，不是接线错误。不存在“既换分布又保持初始探索尺度不变”的写法，因为高斯的尺度是绝对的、Beta 的是相对的。
+ \vspace{4pt}
+ \footnotesize
+ \textbf{表注。}
+ (1) ③$\to$⑤ 这一级不是纯单变量：环境层与奖励层完全一致（逐值比对差为 $0$），两个算法的默认超参也已逐字核对、完全相同；但算法类（带屏蔽的 PPO vs.\ 普通 PPO）、策略族（49 类别分布 vs.\ 2 维连续分布）、熵系数的语义（离散熵与微分熵不是同一个量）三者是“换动作空间”不可分割的伴随。故这一级只能读作“动作空间及其必然伴随的贡献有多大”。
+ (2) ⑥$\to$⑦ 的“连续专属塑形”是 4 件一起开的捆绑包（进门势 / 横向进带势 / 终端保速势 / 动作增量惩罚（两轴）），本次没有逐件拆开，因此只能写“这套组合贡献了 $X$”。
+ (3) ⑦$\to$⑧ 换分布带一个必然伴随：两种分布的初始探索尺度在加速度轴上差约 2.5 倍。高斯的初始标准差是一个由较窄的转艏轴动作箱派生的标量（$\sigma\approx0.009$），两轴共用；加速度轴箱宽是转艏轴的 2.67 倍，故高斯在加速度轴上相对更窄（$\sigma/$半宽 $=0.19$ vs.\ 转艏轴 $0.50$）；Beta 的初始形状按箱宽相对定义（$\approx0.48\times$ 半宽，两轴相同）。这是换分布的必然伴随，不是集成错误。不存在“既换分布又保持初始探索尺度不变”的写法，因为高斯的尺度是绝对的、Beta 的是相对的。
 \end{table}
 %------------------------------------------------------------------------------
 
-\textbf{⑤⑥ 这对配置的适用条件（须与安全盾收益这一数字同处出现）。}\ 无盾的连续动作配置只能采用极简配方（无界高斯 / 非对称让路入口 / 零塑形），因为让无盾配置启用连续专属塑形会造成相对离散无盾基线的不对称，使归因失效。而无界高斯正是那个会把大量采样推到动作箱边界之外的形态：在探索期的四配置重评上（小规模场景池，非本文正式报数口径），我们实测无界高斯策略有约 $73\%$ 的决策步紧贴动作箱边界。因此，“安全盾在连续动作空间中带来多少收益”这一倍数，是在连续动作最差的形态下测得的。同理，③$\to$⑤ 所反映的“把动作空间由离散换为连续本身带来多少收益”可能为负；该值应读作一个保守的下界。
+\textbf{⑤⑥ 这对配置的适用条件。}\ 无盾的连续动作配置只能采用极简配置（无界高斯 / 非对称让路入口 / 零塑形），因为让无盾配置启用连续专属塑形会造成相对离散无盾基线的不对称，使归因失效。而无界高斯正是那个会把大量采样推到动作箱边界之外的形态：在探索期的四配置重评上（小规模场景池，非本文正式实验的评估设置），我们实测无界高斯策略有约 $73\%$ 的决策步紧贴动作箱边界。因此，“安全盾在连续动作空间中带来多少收益”这一倍数，是在连续动作最差的形态下测得的。同理，③$\to$⑤ 所反映的“把动作空间由离散换为连续本身带来多少收益”可能为负；该值应读作一个保守的下界。
 
 \subsection{评价指标与实验方案}
 \label{sec:metrics}
 
-\textbf{COLREGs 违规的计数口径。}\ 违规数不是由安全盾的态势判定给出的，而是由一个\emph{独立于安全盾}的离线评分器给出，这一点必须先讲清楚，否则会被误读成“盾自己判自己”。评分器只看轨迹：对每一步用裸的态势谓词重新判定本船处于直航还是让路义务下，然后按两条规则计数。直航违规按步计：在一段连续的直航义务期内逐步重判，取该期内的\emph{带符号}累积航向变化，某一步的累积量绝对值达到 $\Delta_{\mathrm{nt}}=10^\circ$ 即该步记一次（因此本船回正航向、把累积量拉回阈值以下的那些步不计）；直航义务解除时累积量清零。让路违规按相遇计：若一次让路相遇从触发到解除的全程都没有出现达到 $\Delta_{\mathrm{lt}}=20^\circ$ 的规定方向转向，则该次相遇记一次。两者相加即每局违规数。因为评分器独立于安全盾，它对本文方法与对全部基线（包括不含状态机的几何控制器）使用同一套判据，可直接比较。需要补充一处实现事实：评分器与安全盾虽共用同一组阈值取值（$\Delta_{\rm nt}=10^\circ$、$\Delta_{\rm lt}=20^\circ$），但二者在实现中各自持有一份常量定义，而非引用同一处。本文报数时两份取值一致。
+\textbf{COLREGs 违规的计数规则。}\ 违规数不是由安全盾的态势判定给出的，而是由一个\emph{独立于安全盾}的离线评分器给出，该评分器与安全盾相互独立。评分器只看轨迹：对每一步用裸的态势谓词重新判定本船处于直航还是让路义务下，然后按两条规则计数。直航违规按步计：在一段连续的直航义务期内逐步重判，取该期内的\emph{带符号}累积航向变化，某一步的累积量绝对值达到 $\Delta_{\mathrm{nt}}=10^\circ$ 即该步记一次（因此本船回正航向、把累积量拉回阈值以下的那些步不计）；直航义务解除时累积量清零。让路违规按会遇计：若一次让路会遇从触发到解除的全程都没有出现达到 $\Delta_{\mathrm{lt}}=20^\circ$ 的规定方向转向，则该次相遇记一次。两者相加即每局违规数。因为评分器独立于安全盾，它对本文方法与对全部基线（包括不含状态机的几何控制器）使用同一套判据，可直接比较。需要补充一处实现事实：评分器与安全盾虽共用同一组阈值取值（$\Delta_{\rm nt}=10^\circ$、$\Delta_{\rm lt}=20^\circ$），但二者在实现中各自持有一份常量定义，而非引用同一处。本文统计时两份取值一致。
 
-\textbf{直航约束与该口径之间的一处结构性错配。}\ 式~\eqref{eq:ucolregs} 中直航态的容差取 $\varepsilon_\omega=\Delta_{\mathrm{nt}}/T_M=0.004363$~rad/s，即它约束的是\emph{单个 $T_M=40$~s 窗内}的航向变化不超过 $10^\circ$。而评分器累积的是整段直航义务期，该期可以远长于 $T_M$：在容差上界处每个决策步累积 $2.5^\circ$，故连续 4 步之后累积量即达阈值。由于安全盾的容差带是闭的（允许恰取 $\pm\varepsilon_\omega$），而评分器在累积量\emph{达到} $\Delta_{\mathrm{nt}}$ 时即计违规，两个口径在单个 $T_M$ 窗的闭边界上就已经不一致：一段达到 $40$~s 的直航期，即使每一步都落在安全盾的约束内，也可能被记为违规。
+\textbf{直航约束与该计数规则之间的一处结构性错配。}\ 式~\eqref{eq:ucolregs} 中直航态的容差取 $\varepsilon_\omega=\Delta_{\mathrm{nt}}/T_M=0.004363$~rad/s，即它约束的是\emph{单个 $T_M=40$~s 窗内}的航向变化不超过 $10^\circ$。而评分器累积的是整段直航义务期，该期可以远长于 $T_M$：在容差上界处每个决策步累积 $2.5^\circ$，故连续 4 步之后累积量即达阈值。由于安全盾的容差带是闭的（允许恰取 $\pm\varepsilon_\omega$），而评分器在累积量\emph{达到} $\Delta_{\mathrm{nt}}$ 时即计违规，两者的判定规则在单个 $T_M$ 窗的闭边界上就已经不一致：一段达到 $40$~s 的直航期，即使每一步都落在安全盾的约束内，也可能被记为违规。
 
 \textbf{非零直航违规的三个来源。}\ 上述容差错配只是其中之一，且不是最主要的一个。更基础的一层是\emph{义务窗与约束窗并不重合}：评分器按裸态势谓词逐帧判定直航义务，而安全盾只在状态机判为 $\rho_1$ 的决策步上施加 $\{|a|\le\varepsilon_a\}\cap\{|\omega|\le\varepsilon_\omega\}$。两者在两处系统性地错开。其一，紧急判据在状态机中优先于一切态势：一旦触发，该步的态势即为 $\rho_5$，安全盾不施加任何航向约束，而评分器的直航义务谓词不含任何紧急豁免，仍按义务计数。其二，$\rho_1$ 下安全动作集为空时，“放松”与“碰撞风险最小化”两支兜底在\emph{执行器物理量程}上求解并整块丢弃合规约束，转艏率可达 $\omega_{\max}$，单步航向变化即达 $17.2^\circ$，一步便越过 $10^\circ$ 阈值。此外，状态机的态势具有路径依赖（进入 $\rho_5$ 后须满足独立的解除条件才退出），而评分器的谓词是逐帧瞬时的，这使两者的窗口边界进一步错开。
 
-因此安全盾在结构上并不保证直航违规为零，本文也不作此主张。让路一侧存在同类的结构性错配，且方向相反，此处一并声明：安全盾施加的是\emph{逐决策步}的转艏率下界约束 $\omega\le-\omega_{\mathrm{turn}}$，而评分器判定的是一次让路义务期内\emph{累积}的航向变化是否达到 $\Delta_{\mathrm{lt}}$。若某次让路相遇的持续时长短于机动段时长 $T_M$，则该相遇的每一个决策步都满足硬约束、而整段累积转向仍可能不足 $\Delta_{\mathrm{lt}}$，按评分器规则记为一次违规。因此性质~\ref{prop:comply} 保证的是每一让路步的转向\emph{方向}，并不蕴含让路违规计数为零。该错配在本文报数中的实际发生频率未作测量。需要区分的是：容差侧的错配\emph{原则上可以消除}，评分器累积的是带符号航向变化且义务期结束即清零，故可把固定的 $\varepsilon_\omega$ 换成累积预算式约束 $\omega\in[(-\Delta_{\mathrm{nt}}-c)/\Delta t,\ (\Delta_{\mathrm{nt}}-c)/\Delta t]$（$c$ 为本期已累积量），该区间恒含 $\omega=0$ 故永不为空、仍是逐轴区间故投影仍精确、且不会随期长把容差压到零；本文未采用该写法，因为正式实验的训练配方在报数前已冻结。真正不能由改约束消除的，是上述义务窗与约束窗的不重合，那是评分口径与安全盾作用域之间的边界。
+因此安全盾在结构上并不保证直航违规为零，本文也不作此主张。让路一侧存在同类的结构性错配，且方向相反，此处一并声明：安全盾施加的是\emph{逐决策步}的转艏率下界约束 $\omega\le-\omega_{\mathrm{turn}}$，而评分器判定的是一次让路义务期内\emph{累积}的航向变化是否达到 $\Delta_{\mathrm{lt}}$。若某次让路会遇的持续时长短于机动段时长 $T_M$，则该会遇的每一个决策步都满足硬约束、而整段累积转向仍可能不足 $\Delta_{\mathrm{lt}}$，按评分器规则记为一次违规。因此性质~\ref{prop:comply} 保证的是每一让路步的转向\emph{方向}，并不蕴含让路违规计数为零。该错配在本文报数中的实际发生频率未作测量。需要区分的是：容差侧的错配\emph{原则上可以消除}，评分器累积的是带符号航向变化且义务期结束即清零，故可把固定的 $\varepsilon_\omega$ 换成累积预算式约束 $\omega\in[(-\Delta_{\mathrm{nt}}-c)/\Delta t,\ (\Delta_{\mathrm{nt}}-c)/\Delta t]$（$c$ 为本期已累积量），该区间恒含 $\omega=0$ 故永不为空、仍是逐轴区间故投影仍精确、且不会随期长把容差压到零；本文未采用该写法，因为正式实验的训练配置在统计前已冻结。真正不能由改约束消除的，是上述义务窗与约束窗的不重合，那是评分规则与安全盾作用域之间的边界。
 
 主指标沿用 \citp{Krasowski and Althoff}{2024} 的定义，以保证可比：到达率、碰撞率、每局 COLREGs 违规数、紧急控制步占比、每局时长；违规数进一步拆成让路违规与直航违规。控制质量：转艏增量（分总计 / 让路步 / 其他步）、油门增量、jerk、控制努力、次网格细调率、速度反转次数。安全裕度：最近点中心距 / 净空 / 发生时刻、最近点处航向误差与速度。盾的行为：介入步数、兜底触发率、投影修正量（均值 / p95 / 最大 / 零修正比例）。分型：按会遇类型拆全部指标、失败原因分型。实时性：单步求解耗时，分盾 / 策略 / 整步三层。
 
-\textit{采集边界（决定了图能怎么画）。}\ 训练期每 507{,}904 步记录验证曲线；每个 rollout（16{,}384 步）记录策略与值函数损失、熵、KL、裁剪比例、可解释方差、每局回报，以及动作饱和率、舵反转率、盾介入率、盾改写量等行为量（转艏与加速度两轴分开记，盾改写量按箱半宽归一化后再合成，不做量纲直加）。训练期没有违规曲线。违规计数只在评估侧接线，因此违规只有那 20 个评估点。另外，各配置奖励口径不同，每局回报不可跨配置比较。
+\textit{采集边界（决定了图能怎么画）。}\ 训练期每 507{,}904 步记录验证曲线；每个 rollout（16{,}384 步）记录策略与值函数损失、熵、KL、裁剪比例、可解释方差、每局回报，以及动作饱和率、舵反转率、盾介入率、盾改写量等行为量（转艏与加速度两轴分开记，盾改写量按箱半宽归一化后再合成，不做量纲直加）。训练期没有违规曲线。违规计数只在评估侧集成，因此违规只有那 20 个评估点。另外，各配置的奖励函数不同，每局回报不可跨配置比较。
 
 \subsubsection{训练预算、种子与算力}
 
@@ -908,10 +908,10 @@ L_{\mathrm{lat}}(t)=
 
 \textbf{运行环境。}\ 全部训练与评估在服务器 CPU 上完成，\emph{未使用 GPU}：单机 32 个 vCPU（AMD EPYC 7T83，64 核处理器），内存 60~GB。不使用 GPU 是因为本文策略网络仅两层各 64 个神经元，其前向与反向的算术量远小于数据在主机与显存间往返的开销；真正占用算力的是环境仿真与每步的二次规划求解，二者均在 CPU 上执行。据此，每台机器的并发路数按内存上界而非核数确定：单条训练的常驻内存约 6~GB，故每台并发 6 路（约占内存的 $60\%$），余量用于覆盖启动期与段末评估的瞬时峰值。这一配置同时说明本方法的算力门槛不高，便于在不具备加速硬件的条件下复现。
 
-\textbf{单步求解耗时的口径。}\ 我们上报的单步求解耗时是\emph{单线程 CPU 墙钟}，随机器而变，须连同上述处理器型号与线程设置一并阅读；比较时看尾部分位（p95 与 p99）而非均值。他船不在感知窗内的决策步会短路、不进入二次规划，这些步不计入耗时分布，否则大量零值会稀释尾部。
+\textbf{单步求解耗时的测量方式。}\ 我们上报的单步求解耗时是\emph{单线程 CPU 墙钟}，随机器而变，须连同上述处理器型号与线程设置一并阅读；比较时看尾部分位（p95 与 p99）而非均值。他船不在感知窗内的决策步会短路、不进入二次规划，这些步不计入耗时分布，否则大量零值会稀释尾部。
 
 \subsubsection{存档选取与报数}
-选取规则先定死、不带任何旋钮：候选 $=$ 全部 20 段；单一指标 $=$ 验证集到达率，取最高；平局取更早的段。存档选取只使用验证集，不接触测试集；所有配置一视同仁。
+选取规则先定死、不带任何可调参数：候选 $=$ 全部 20 段；单一指标 $=$ 验证集到达率，取最高；平局取更早的段。存档选取只使用验证集，不接触测试集；所有配置一视同仁。
 
 必须两版都报：验证集 $N=100$，到达率的二项标准误约 4 个点；在 20 个候选里取最大值，期望上抬约 7.5 个点，比我们专门立规矩去防的跨轮次抖动（约 1.6 个百分点）还大 4 倍多。故最佳存档一轮 $+$ 末段存档一轮，两版都报并量化交代这个偏倚。
 
@@ -919,9 +919,9 @@ L_{\mathrm{lat}}(t)=
 \label{sec:stats}
 主检验 $=$ 同种子配对符号检验。8 颗种子时双侧最小可达 $p=2/2^{8}=0.0078$，足以支撑“统计上可辨”的结论。区间用按种子重采样的自助法 95\% 区间；碰撞用 Fisher 精确检验（碰撞是稀有事件，正态近似不适用）。全部自算，不调统计库，脚本随论文给出。
 
-我们预先声明一条回退规则：若最终达标种子数降至 3--4 颗，主检验改为按测试场景配对（每种配置在每个测试场景上的逐局明细，$N=600$），逐种子那一版降级为稳健性检查；换检验的唯一理由是算力受限，且逐场景配对不能替代逐种子回答\emph{训练可靠性}这一问题，后者只能靠种子数，$n$ 小即如实报告 $n$ 小。
+我们预先声明一条回退规则：若最终收敛种子数降至 3--4 颗，主检验改为按测试场景配对（每种配置在每个测试场景上的逐局明细，$N=600$），逐种子那一版降级为稳健性检查；换检验的唯一理由是算力受限，且逐场景配对不能替代逐种子回答\emph{训练可靠性}这一问题，后者只能靠种子数，$n$ 小即如实报告 $n$ 小。
 
-“达标种子数”这一列附判据定义：达标 $=$ 严格到达率 $\ge50\%$；发散（陷入原地打转）$=$ 到达 $<50\%$ 且末段每局时长 $\ge1360$~s（$=0.8\times$ 回合上限）；训练不足 $=$ 到达 $<50\%$ 且末段每局时长 $<1360$~s。并报过渡带（1100--1600~s）的条数，该区间内的归类本身不确定。（全库 100 条低到达 run 的实证：发散组落在 $[1377,1700]$、训练不足组落在 $[567,1354]$，阈值处不重叠，$12\%$ 落在过渡带。）
+“收敛种子数”这一列附判据定义：达标 $=$ 严格到达率 $\ge50\%$；发散（陷入原地打转）$=$ 到达 $<50\%$ 且末段每局时长 $\ge1360$~s（$=0.8\times$ 回合上限）；训练不足 $=$ 到达 $<50\%$ 且末段每局时长 $<1360$~s。并报过渡带（1100--1600~s）的条数，该区间内的归类本身不确定。（全库 100 条低到达 run 的实证：发散组落在 $[1377,1700]$、训练不足组落在 $[567,1354]$，阈值处不重叠，$12\%$ 落在过渡带。）
 
 %==============================================================================
 % [结果各子节的数字为占位。数据到手前不填任何数字；每个占位的来源脚本写在紧邻的注释里。]
@@ -930,106 +930,106 @@ L_{\mathrm{lat}}(t)=
 \label{sec:results}
 \label{sec:res-main}
 
-%  ▶ 来源：Paper/正式实验/03_表/make_头条表.py → 表1_头条表_*.md
-%    区间与 p 值：Paper/正式实验/05_统计/stat_检验与区间.py
-%    前置：两趟重评产出 02_重评产物/g*.json
+% ▶ 来源：Paper/正式实验/03_表/make_头条表.py → 表1_头条表_*.md
+%  区间与 p 值：Paper/正式实验/05_统计/stat_检验与区间.py
+%  前置：两趟重评产出 02_重评产物/g*.json
 \begin{table}[t]
-  \caption{主表：九种配置在官方测试集上的同口径对照（最佳存档轮 · 全部种子）}
-  \label{tab:main}
-  \centering\footnotesize
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{@{}lcccccccc@{}}
-    \toprule
-    配置 & $n$ & 达标 & 到达\% [CI] & 碰撞\% & 违规/局 & 转艏$\Delta$ & 油门$\Delta$ & 紧急\% \\
-    \midrule
-    ① 本文方法      & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    ② 离散-有盾     & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    ③ 基线          & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    ④ 软奖励        & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    ⑤ 连续-无盾     & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    ⑥ 连续-有盾     & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    ⑦ 消融·都不改   & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    ⑧ 消融·只 Beta  & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    ⑨ 消融·只对称   & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
-    \bottomrule
-  \end{tabular}
+ \caption{主表：九种配置在官方测试集上的同条件对照（最佳存档轮 · 全部种子）}
+ \label{tab:main}
+ \centering\footnotesize
+ \setlength{\tabcolsep}{4pt}
+ \begin{tabular}{@{}lcccccccc@{}}
+  \toprule
+  配置 & $n$ & 达标 & 到达\% [CI] & 碰撞\% & 违规/局 & 转艏$\Delta$ & 油门$\Delta$ & 紧急\% \\
+  \midrule
+  ① 本文方法   & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
+  ② 离散-有盾   & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
+  ③ 基线     & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
+  ④ 软奖励    & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
+  ⑤ 连续-无盾   & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
+  ⑥ 连续-有盾   & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
+  ⑦ 消融·都不改  & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
+  ⑧ 消融·只 Beta & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
+  ⑨ 消融·只对称  & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD & \TBD \\
+  \bottomrule
+ \end{tabular}
 
-  \vspace{4pt}\footnotesize
-  \textbf{表注。}官方测试集 600 个场景（与训练集零交集）。训练预算 10{,}158{,}080 步，用 100 个验证场景选最佳存档，全部配置同一规则。到达判据 $=$ 官方 \texttt{is\_reached}（位置 $+$ 朝向 $\pm9.74^\circ$ $+$ 时限）。区间 $=$ 按种子重采样的自助法 95\% 区间；碰撞用 Fisher 精确检验。“达标”判据见 “\nameref{sec:stats}”。
-  ⑤⑥ 使用极简配方（无界高斯 / 非对称让路入口 / 零塑形）；该配方是无盾连续动作配置唯一合法的形态，故由 ⑤⑥ 得到的安全盾的收益是在连续动作最差形态下测得的。
-  转艏增量、油门增量与 jerk 三列均不可跨动作空间读作“我们更平顺”：连续动作配置训练时开着直接惩罚控制增量的罚项，且该罚项同时作用于两个轴，离散动作配置结构上没有；正确读法见图~\ref{fig:ablation}。
-  碰撞如实报，与对标的差异按 Fisher 检验陈述，不写“零碰撞”。
+ \vspace{4pt}\footnotesize
+ \textbf{表注。}官方测试集 600 个场景（与训练集零交集）。训练预算 10{,}158{,}080 步，用 100 个验证场景选最佳存档，全部配置同一规则。到达判据 $=$ 官方 \texttt{is\_reached}（位置 $+$ 朝向 $\pm9.74^\circ$ $+$ 时限）。区间 $=$ 按种子重采样的自助法 95\% 区间；碰撞用 Fisher 精确检验。“达标”判据见 “\nameref{sec:stats}”。
+ ⑤⑥ 使用极简配置（无界高斯 / 非对称让路入口 / 零塑形）；该配置是无盾连续动作配置唯一合法的形态，故由 ⑤⑥ 得到的安全盾的收益是在连续动作最差形态下测得的。
+ 转艏增量、油门增量与 jerk 三列均不可跨动作空间读作“我们更平顺”：连续动作配置训练时开着直接惩罚控制增量的罚项，且该罚项同时作用于两个轴，离散动作配置结构上没有；相关比较见图~\ref{fig:ablation}。
+ 碰撞如实报，与对标的差异按 Fisher 检验陈述，不写“零碰撞”。
 \end{table}
 
-表~\ref{tab:main} 另报“仅计达标种子”的版本：发散种子会污染逐局平均，且污染方向因配置而异，故两版并报，关键差值为 \TBD。逐种子原始值随表给出。
+表~\ref{tab:main} 另报“仅计收敛种子”的版本：发散种子会污染逐局平均，且污染方向因配置而异，故两版并报，关键差值为 \TBD。逐种子原始值随表给出。
 
 \begin{figure}[t]
-  \centering
-  \figplaceholder{图 2（安全—效率权衡图：到达率 $\times$ 违规，内嵌到达率 $\times$ 碰撞率）}
-  \caption{安全—效率权衡。横轴为到达率，纵轴为每局 COLREGs 违规数（对数轴），每个标记为一种配置，误差棒为按种子重采样的自助法 95\% 区间；左上角为理想区。内嵌小图纵轴换为碰撞率。形状编码：圆 $=$ 连续动作、三角 $=$ 离散动作、方块 $=$ 外部几何基线；实心为带盾（投影盾或动作屏蔽），空心为无盾。核心读法：离散动作屏蔽为拿到合规性付出的代价，与连续投影所付代价之比为 \TBD。外部基线的到达率须按 “\nameref{sec:res-ext}” 的限定阅读。}
-  \label{fig:tradeoff}
+ \centering
+ \figplaceholder{图 2（安全—效率权衡图：到达率 $\times$ 违规，内嵌到达率 $\times$ 碰撞率）}
+ \caption{安全—效率权衡。横轴为到达率，纵轴为每局 COLREGs 违规数（对数轴），每个标记为一种配置，误差棒为按种子重采样的自助法 95\% 区间；左上角为理想区。内嵌小图纵轴换为碰撞率。形状编码：圆 $=$ 连续动作、三角 $=$ 离散动作、方块 $=$ 外部几何基线；实心为带盾（投影盾或动作屏蔽），空心为无盾。读图要点：离散动作屏蔽为拿到合规性付出的代价，与连续投影所付代价之比为 \TBD。外部基线的到达率须按 “\nameref{sec:res-ext}” 的限定阅读。}
+ \label{fig:tradeoff}
 \end{figure}
-%  ▶ 来源：同上 → Fig3_tradeoff.*   ⚠️ 该格目前会抛 ValueError
+% ▶ 来源：同上 → Fig3_tradeoff.*  ⚠️ 该格目前会抛 ValueError
 
 \subsection{消融实验}
 \label{sec:res-ablation}
 
-%  ▶ 消融的定量数据（转艏Δ / 让路违规 / 到达率 / 练成种子数 / 配对 p）随图 3 的原始产物一并给出；
-%    消融的定量数值随图 3 一并给出；user 2026-07-29 明示：先不为图表数量做删减。
-%    来源：make_头条表.py --ablation ；配对检验来自 stat_检验与区间.py
-四条消融配置构成完整的 $2\times2$（有界分布 $\times$ 让路入口），其余配方逐字相同、同种子配对。
+% ▶ 消融的定量数据（转艏Δ / 让路违规 / 到达率 / 练成种子数 / 配对 p）随图 3 的原始产物一并给出；
+%  消融的定量数值随图 3 一并给出；user 2026-07-29 明示：先不为图表数量做删减。
+%  来源：make_头条表.py --ablation ；配对检验来自 stat_检验与区间.py
+四条消融配置构成完整的 $2\times2$（有界分布 $\times$ 让路入口），其余配置逐字相同、同种子配对。
 定量结果见图~\ref{fig:ablation}：换有界分布把转艏增量降到 \TBD（配对符号检验 $p=$\TBD），
 换让路入口把每局让路违规降到 \TBD（$p=$\TBD），两项改进同开为 \TBD。
 转艏平顺度唯一站得住的读法就在这组对照里：四种配置开着同一个动作增量惩罚，
 因此“⑧ 比 ⑦ 平顺 $N$ 倍”只能归因于有界动作分布，而不是额外的奖励项；
 跨配置与离散基线比较结构上不成立（我们罚了那个量、离散动作配置拿不到）。
 ⑦$\to$⑧ 这一级的不可分割伴随（初始探索尺度在加速度轴上差约 2.5 倍）见表~\ref{tab:arms} 表注 (3)。
-按 “\nameref{sec:stats}”，本组同样给出“仅达标种子”一版。
+按 “\nameref{sec:stats}”，本组同样给出“仅收敛种子”一版。
 
 \begin{figure}[t]
-  \centering
-  \figplaceholder{图 3（1$\times$3：转艏增量 / 让路违规 / 到达率，同种子配对连线）}
-  \caption{两项改进的贡献拆解（$2\times2$ 消融，同种子配对）。横轴为四条消融配置，纵轴分别为转艏增量、每局让路违规与到达率。每个点为一颗种子，细线为同种子配对连线，粗线为中位数，误差棒为按种子重采样的自助法 95\% 区间。转艏增量的改善应归因于有界动作分布，而非奖励塑形，四种配置开着同一个动作增量惩罚（不可分割的伴随见表~\ref{tab:arms} 表注 (3)）。}
-  \label{fig:ablation}
+ \centering
+ \figplaceholder{图 3（1$\times$3：转艏增量 / 让路违规 / 到达率，同种子配对连线）}
+ \caption{两项改进的贡献拆解（$2\times2$ 消融，同种子配对）。横轴为四条消融配置，纵轴分别为转艏增量、每局让路违规与到达率。每个点为一颗种子，细线为同种子配对连线，粗线为中位数，误差棒为按种子重采样的自助法 95\% 区间。转艏增量的改善应归因于有界动作分布，而非奖励塑形，四种配置开着同一个动作增量惩罚（不可分割的伴随见表~\ref{tab:arms} 表注 (3)）。}
+ \label{fig:ablation}
 \end{figure}
-%  ▶ 来源：同上 → Fig2_ablation.*   ⚠️ 该格目前在缺臂时会静默跳过
+% ▶ 来源：同上 → Fig2_ablation.*  ⚠️ 该格目前在缺臂时会静默跳过
 
 \subsection{训练可靠性与样本效率}
 \begin{figure}[t]
-  \centering
-  \figplaceholder{图 4（2$\times$2：学习曲线 / 同种子配对差 / 达标种子数 / 值函数健康度）}
-  \caption{样本效率与训练可靠性。（a）九种配置在 100 个验证场景上的到达率学习曲线（每 507{,}904 步一个点，共 20 个点），实线为跨种子中位数、阴影为四分位距。（b）同种子配对的到达率差值（本文方法 $-$ 对标离散动作配置），每条折线一颗种子；折线全部位于零线同侧即为一致优势。（c）“达标种子数”随训练步数的变化（判据见 “\nameref{sec:stats}”）。（d）值函数可解释方差随训练的变化，用于区分“还在爬”与“已经崩”。全部曲线取自训练期落盘的原始数值，未做任何平滑。}
-  \label{fig:curves}
+ \centering
+ \figplaceholder{图 4（2$\times$2：学习曲线 / 同种子配对差 / 收敛种子数 / 值函数健康度）}
+ \caption{样本效率与训练可靠性。（a）九种配置在 100 个验证场景上的到达率学习曲线（每 507{,}904 步一个点，共 20 个点），实线为跨种子中位数、阴影为四分位距。（b）同种子配对的到达率差值（本文方法 $-$ 对标离散动作配置），每条折线一颗种子；折线全部位于零线同侧即为一致优势。（c）“收敛种子数”随训练步数的变化（判据见 “\nameref{sec:stats}”）。（d）值函数可解释方差随训练的变化，用于区分“还在爬”与“已经崩”。全部曲线取自训练期记录的原始数值，未做任何平滑。}
+ \label{fig:curves}
 \end{figure}
-%  ▶ 来源：Paper/正式实验/04_图/make_figures.py → Fig1_sample_efficiency.*
-%    数据：各 run 的 progress.json / jsonl 的 trend 与 curves 字段
-%  ⚠️ 起飞后待办：该脚本 Fig.1 的 (a)/(c) 两格混了两代实验产物、缺臂时会除零，须先修
-%  🔴 不要画"训练期违规曲线"——训练期没采违规量（§4.4），只有那 20 个评估点
+% ▶ 来源：Paper/正式实验/04_图/make_figures.py → Fig1_sample_efficiency.*
+%  数据：各 run 的 progress.json / jsonl 的 trend 与 curves 字段
+% ⚠️ 起飞后待办：该脚本 Fig.1 的 (a)/(c) 两格混了两代实验产物、缺臂时会除零，须先修
+% 🔴 不要画"训练期违规曲线"——训练期没采违规量（§4.4），只有那 20 个评估点
 
 \subsection{安全盾行为}
 \label{sec:res-shield}
 \begin{figure}[t]
-  \centering
-  \figplaceholder{图 5（2$\times$2：盾介入率 / 动作饱和率两轴 / 盾改写量 / 态势占比）}
-  \caption{盾的行为随训练演化（连续动作特有的证据）。（a）盾介入率随训练步数的变化（\TBD）。若该曲线下降，则表明策略在带盾训练下逐步学会自行产生落在安全动作集内的动作；本图只呈现曲线，该解读须由曲线本身支持。（b）动作饱和率随训练的变化，转艏轴与加速度轴分开画，并把有界分布配置、无界高斯配置与离散动作配置叠在同一张图上。离散网格的 $|\omega|$ 与 $|a|$ 上界恰好等于连续动作箱的半宽，因此两种动作空间共用同一条打满判据、可直接叠图；这是“有界连续动作 vs.\ 离散 $7\times7$ 网格”这一主张的直接证据。（c）投影修正量（按箱半宽归一化）的中位数与 p95 随训练收敛。（d）相遇态势占比随训练的变化，其中紧急态占比是性质 2 作用域的关键数字。}
-  \label{fig:shield}
+ \centering
+ \figplaceholder{图 5（2$\times$2：盾介入率 / 动作饱和率两轴 / 盾改写量 / 态势占比）}
+ \caption{盾的行为随训练演化（连续动作特有的证据）。（a）盾介入率随训练步数的变化（\TBD）。若该曲线下降，则表明策略在带盾训练下逐步学会自行产生落在安全动作集内的动作；该解读以曲线本身为准。（b）动作饱和率随训练的变化，转艏轴与加速度轴分开画，并把有界分布配置、无界高斯配置与离散动作配置叠在同一张图上。离散网格的 $|\omega|$ 与 $|a|$ 上界恰好等于连续动作箱的半宽，因此两种动作空间共用同一条打满判据、可直接叠图；这是“有界连续动作 vs.\ 离散 $7\times7$ 网格”这一主张的直接证据。（c）投影修正量（按箱半宽归一化）的中位数与 p95 随训练收敛。（d）会遇态势占比随训练的变化，其中紧急态占比是性质 2 作用域的关键数字。}
+ \label{fig:shield}
 \end{figure}
-%  ▶ 🔴 本图需在 Paper/正式实验/04_图/ 新写脚本（现有 make_figures.py 没有这一张）
-%    数据：curves 的 roll_* 15 项（盾介入 / 打满舵两轴 / 改写量两轴 / 态势分布）
-%    ⚠️ 新写脚本会改掉 BASE_PAPER 树指纹 ⟹ 排到训练跑完再做，做完重算并写回 preflight_formal.sh
+% ▶ 🔴 本图需在 Paper/正式实验/04_图/ 新写脚本（现有 make_figures.py 没有这一张）
+%  数据：curves 的 roll_* 15 项（盾介入 / 打满舵两轴 / 改写量两轴 / 态势分布）
+%  ⚠️ 新写脚本会改掉 BASE_PAPER 树指纹 ⟹ 排到训练跑完再做，做完重算并写回 preflight_formal.sh
 
 紧急通道是本方法唯一不提供保证的一支，因此需要单独刻画它被用到的频率与后果。紧急控制步占全部决策步的 \TBD；$\rho_0$--$\rho_4$ 上的三支兜底（放松、碰撞风险最小化、退化）合计触发率为 \TBD。碰撞按控制来源分类的分布为 \TBD：若碰撞全部落在紧急控制一类，则说明碰撞发生在“最后手段已被启用并失败”的步上，而这些步按定义落在性质 1 的适用域（远场、非紧急、单步）之外，这不构成对性质 1 的反例，但坐实了紧急态只是经验兜底。投影修正量的分布（均值 / 第 $95$ 百分位 / 最大值 / 零修正比例）为 \TBD，它度量策略输出与规则要求之间的差距。
-%  ▶ 来源：重评产物的盾行为字段（source/rho/emergency_mode）+ 逐局明细 g*_per.json
+% ▶ 来源：重评产物的盾行为字段（source/rho/emergency_mode）+ 逐局明细 g*_per.json
 
 %==============================================================================
 \begin{figure}[t]
-  \centering
-  \figplaceholder{图 6（同一场景 $\times$ 四种方法的轨迹）}
-  \caption{同一场景下四种方法的轨迹对比（场景 T-\TBD，种子 s\TBD）。本船轨迹按相遇态势着色（无冲突 / 直航 / 让路 / 紧急），他船轨迹为灰色，圆点间隔 10~s（一个决策步）；虚线圆为性质 1 的远场阈值（约 780~m）。按各方法的实际轨迹标注其在让路段的转向方向与幅度（\TBD）；选图时以能同时呈现“合规让路”与“无碰撞但方向违规”两类结果为准，具体场景与轨迹形态待数据到手后确定。本图是定性插图，不承担任何定量声明；场景为人工挑选，种子集合（s0/s1/s2）在跑之前已声明。}
-  \label{fig:traj}
+ \centering
+ \figplaceholder{图 6（同一场景 $\times$ 四种方法的轨迹）}
+ \caption{同一场景下四种方法的轨迹对比（场景 T-\TBD，种子 s\TBD）。本船轨迹按会遇态势着色（无冲突 / 直航 / 让路 / 紧急），他船轨迹为灰色，圆点间隔 10~s（一个决策步）；虚线圆为性质 1 的远场阈值（约 780~m）。按各方法的实际轨迹标注其在让路段的转向方向与幅度（\TBD）；选图时以能同时呈现“合规让路”与“无碰撞但方向违规”两类结果为准，具体场景与轨迹形态待数据到手后确定。本图是定性插图，不承担任何定量声明；场景为人工挑选，种子集合（s0/s1/s2）在跑之前已声明。}
+ \label{fig:traj}
 \end{figure}
-%  ▶ 来源：同上 → Fig4_trajectories.*；轨迹原始数据来自全 600 场景 × 9 臂 × 3 种子的 *_traj.json
-%    ⚠️ 该格目前会抛 StopIteration
+% ▶ 来源：同上 → Fig4_trajectories.*；轨迹原始数据来自全 600 场景 × 9 臂 × 3 种子的 *_traj.json
+%  ⚠️ 该格目前会抛 StopIteration
 
 \subsection{外部基线对照}
 \label{sec:res-ext}
@@ -1038,55 +1038,55 @@ L_{\mathrm{lat}}(t)=
 
 结果把可辩护的主张收窄到一个维度。控制障碍函数滤波器在本测试集上的碰撞率为 $0.00\%$，即在碰撞这一维度上它与本文方法打平；因此碰撞率不是能区分两类方法的指标。到达率一列同样不能直接使用：几何控制器的标称控制律不含终端对准环节，其位置命中率达 $96.8\%$--$99.7\%$，却卡在终端朝向门之外，这一列反映的是终端约束的类型差异。平顺度一列则明确不利于本文：物理满量程档的转艏增量低至 $0.00032$--$0.00058$，这是手工调参的几何控制器所能达到的量级；本文与之的比值待数据到手后填入（\TBD），且无论结果如何都不作平顺度优势的主张。
 
-真正的差别在 COLREGs 违规，且集中在一个具体成因上。三条基线的违规几乎全部是直航违规，控制障碍函数 $4.49$ 次中的 $4.04$ 次、PD 控制器 $9.79$ 次中的 $9.35$ 次、速度障碍 $8.20$ 次中的 $7.70$ 次（表~\ref{tab:ext}）。这些控制器只以“不碰”为目标，因此在规则要求保向保速的时段里仍在持续机动。这与 “\nameref{sec:metrics}”一节给出的计数口径一致：违规由独立评分器按裸态势谓词判定，与是否装有安全盾无关，因此这一比较是同口径的。本文的对照结论只能落在这一维度上：\TBD。
+真正的差别在 COLREGs 违规，且集中在一个具体成因上。三条基线的违规几乎全部是直航违规，控制障碍函数 $4.49$ 次中的 $4.04$ 次、PD 控制器 $9.79$ 次中的 $9.35$ 次、速度障碍 $8.20$ 次中的 $7.70$ 次（表~\ref{tab:ext}）。这些控制器只以“不碰”为目标，因此在规则要求保向保速的时段里仍在持续机动。这与 “\nameref{sec:metrics}”一节给出的计数规则一致：违规由独立评分器按裸态势谓词判定，与是否装有安全盾无关，因此这一比较是同条件的。本文的对照结论只能落在这一维度上：\TBD。
 
-%  ▶ 来源：结果/结果0729-外部几何基线-官方600/（baselines_cbf.json / baselines_pd.json + README）
-%    脚本 代码/m1_dock_wip/run_baselines_official.py（复用同一套评估代码与同一分母 600）
-%    🟢 2026-07-31 全量跑完（VO/CBF/PD × 两档 · 官方 strict 600 · 扫参报各自最佳配置）：
-%       产物 结果/结果0731-外部几何基线-官方600-全量/baselines_official_new.json
+% ▶ 来源：结果/结果0729-外部几何基线-官方600/（baselines_cbf.json / baselines_pd.json + README）
+%  脚本 代码/m1_dock_wip/run_baselines_official.py（复用同一套评估代码与同一分母 600）
+%  🟢 2026-07-31 全量跑完（VO/CBF/PD × 两档 · 官方 strict 600 · 扫参报各自最佳配置）：
+%    产物 结果/结果0731-外部几何基线-官方600-全量/baselines_official_new.json
 \begin{table}[t]
-  \caption{外部几何基线对照（不训练、无种子；官方测试集 $N=600$）}
-  \label{tab:ext}
-  \centering\footnotesize
-  \setlength{\tabcolsep}{4pt}
-  \begin{tabular}{@{}llccccccc@{}}
-    \toprule
-    \multirow{2}{*}{方法} & \multirow{2}{*}{控制量程} & \multirow{2}{*}{到达\%} & \multirow{2}{*}{碰撞\%}
-      & \multicolumn{3}{c}{COLREGs 违规 / 局} & \multirow{2}{*}{转艏$\Delta$} & \multirow{2}{*}{jerk} \\
-    \cmidrule(lr){5-7}
-      & & & & 合计 & 让路 & 直航 & & \\
-    \midrule
-    \multirow{3}{*}{控制障碍函数}
-      & 策略量程       & 70.17 & 0.00 & 4.95 & 0.47 & 4.48 & 0.00242 & 0.171 \\
-      & 同上 $+$ 裕度  & 69.83 & 0.00 & 4.49 & 0.45 & 4.04 & 0.00235 & 0.167 \\
-      & 物理满量程     & 69.33 & 0.00 & 6.48 & 0.52 & 5.97 & 0.00058 & 0.050 \\
-    \addlinespace
-    \multirow{2}{*}{PD 控制器}
-      & 策略量程   & 58.83 & 18.00 & 9.79 & 0.44 & 9.35 & 0.00492 & 0.310 \\
-      & 物理满量程 & 57.67 & 16.67 & 8.10 & 0.63 & 7.47 & 0.00032 & 0.040 \\
-    \addlinespace
-    \multirow{2}{*}{速度障碍}
-      & 策略量程 $+$ 裕度 & 57.00 & 0.00 & 8.20 & 0.50 & 7.70 & 0.00425 & 0.279 \\
-      & 物理满量程        & 42.67 & 0.00 & 8.06 & 0.68 & 7.38 & 0.00128 & 0.071 \\
-    \addlinespace
-    ① 本文方法 & 策略量程 & \multicolumn{7}{c}{（引表~\ref{tab:main}）} \\
-    \bottomrule
-  \end{tabular}
+ \caption{外部几何基线对照（不训练、无种子；官方测试集 $N=600$）}
+ \label{tab:ext}
+ \centering\footnotesize
+ \setlength{\tabcolsep}{4pt}
+ \begin{tabular}{@{}llccccccc@{}}
+  \toprule
+  \multirow{2}{*}{方法} & \multirow{2}{*}{控制量程} & \multirow{2}{*}{到达\%} & \multirow{2}{*}{碰撞\%}
+   & \multicolumn{3}{c}{COLREGs 违规 / 局} & \multirow{2}{*}{转艏$\Delta$} & \multirow{2}{*}{jerk} \\
+  \cmidrule(lr){5-7}
+   & & & & 合计 & 让路 & 直航 & & \\
+  \midrule
+  \multirow{3}{*}{控制障碍函数}
+   & 策略量程    & 70.17 & 0.00 & 4.95 & 0.47 & 4.48 & 0.00242 & 0.171 \\
+   & 同上 $+$ 裕度 & 69.83 & 0.00 & 4.49 & 0.45 & 4.04 & 0.00235 & 0.167 \\
+   & 物理满量程   & 69.33 & 0.00 & 6.48 & 0.52 & 5.97 & 0.00058 & 0.050 \\
+  \addlinespace
+  \multirow{2}{*}{PD 控制器}
+   & 策略量程  & 58.83 & 18.00 & 9.79 & 0.44 & 9.35 & 0.00492 & 0.310 \\
+   & 物理满量程 & 57.67 & 16.67 & 8.10 & 0.63 & 7.47 & 0.00032 & 0.040 \\
+  \addlinespace
+  \multirow{2}{*}{速度障碍}
+   & 策略量程 $+$ 裕度 & 57.00 & 0.00 & 8.20 & 0.50 & 7.70 & 0.00425 & 0.279 \\
+   & 物理满量程    & 42.67 & 0.00 & 8.06 & 0.68 & 7.38 & 0.00128 & 0.071 \\
+  \addlinespace
+  ① 本文方法 & 策略量程 & \multicolumn{7}{c}{（引表~\ref{tab:main}）} \\
+  \bottomrule
+ \end{tabular}
 
-  \vspace{4pt}\footnotesize
-  \textbf{表注。}（1）三条基线不训练、无随机种子，故不列种子统计；参数按各自最好的配置报，调参用官方训练集另抽的
-  100 例，与本表的报数池零交集。控制量程两档：“策略量程”$=$ 与本文策略同权限的 $\pm0.048/\pm0.018$，
-  “物理满量程”$=\pm0.24/\pm0.03$；同时报两档是为了排除“权限差异”这一混淆。
-  （2）\emph{到达率不能直接读作避碰能力}：几何控制器的标称律不含终端对准环节，它们的位置命中率达 $96.8\%$--$99.7\%$，
-  却卡在终端朝向门之外，因此该列反映的是终端约束类型的差异。
-  （3）违规数中\textbf{直航违规占绝大多数}（控制障碍函数 $4.49$ 中的 $4.04$、PD $9.79$ 中的 $9.35$）：
-  几何控制器“不撞”的代价是在规则要求保向保速时仍在机动。这是本文相对它们的差别所在，也说明碰撞率不是有效的区分维度
-  ，控制障碍函数在本基准上碰撞率为零。
-  （4）平顺度一列不支持任何有利于本文的主张：物理满量程档的转艏增量低至 $0.00032$--$0.00058$。与本文的比值待正式实验数据到手后填入（\TBD）；无论结果如何，本文都不作平顺度优势的主张。
-  可辩护的写法只有“平顺度相当，而违规更低”。
-  （5）单局评估耗时（单线程墙钟）：控制障碍函数 $0.15$~s、PD $0.15$~s、速度障碍 $0.86$~s。
-  （6）三条基线走无盾路径、不推状态机，全部决策步都归在“无冲突”态势下，故本表不给出按态势拆分的转艏增量（让路步 / 其他步的拆分对它们无意义），只报合计；
-  它们的违规数由离线态势评分器给出，与安全盾的态势判定无关，口径见 “\nameref{sec:metrics}”一节。
+ \vspace{4pt}\footnotesize
+ \textbf{表注。}（1）三条基线不训练、无随机种子，故不列种子统计；参数按各自最好的配置报，调参用官方训练集另抽的
+ 100 例，与本表的评估集零交集。控制量程两档：“策略量程”$=$ 与本文策略同权限的 $\pm0.048/\pm0.018$，
+ “物理满量程”$=\pm0.24/\pm0.03$；同时报两档是为了排除“权限差异”这一混淆。
+ （2）\emph{到达率不能直接读作避碰能力}：几何控制器的标称律不含终端对准环节，它们的位置命中率达 $96.8\%$--$99.7\%$，
+ 却卡在终端朝向门之外，因此该列反映的是终端约束类型的差异。
+ （3）违规数中\textbf{直航违规占绝大多数}（控制障碍函数 $4.49$ 中的 $4.04$、PD $9.79$ 中的 $9.35$）：
+ 几何控制器“不撞”的代价是在规则要求保向保速时仍在机动。这是本文相对它们的差别所在，也说明碰撞率不是有效的区分维度
+ ，控制障碍函数在本基准上碰撞率为零。
+ （4）平顺度一列不支持任何有利于本文的主张：物理满量程档的转艏增量低至 $0.00032$--$0.00058$。与本文的比值待正式实验数据到手后填入（\TBD）；无论结果如何，本文都不作平顺度优势的主张。
+ 可辩护的写法只有“平顺度相当，而违规更低”。
+ （5）单局评估耗时（单线程墙钟）：控制障碍函数 $0.15$~s、PD $0.15$~s、速度障碍 $0.86$~s。
+ （6）三条基线走无盾路径、不推状态机，全部决策步都归在“无冲突”态势下，故本表不给出按态势拆分的转艏增量（让路步 / 其他步的拆分对它们无意义），只报合计；
+ 它们的违规数由离线态势评分器给出，与安全盾的态势判定无关，其计数规则见 “\nameref{sec:metrics}”一节。
 \end{table}
 
 \section{Discussion}
@@ -1111,20 +1111,20 @@ L_{\mathrm{lat}}(t)=
 
 \subsection{与控制理论侧安全滤波器的关系}
 
-反应式控制障碍函数滤波器在 10~s 零阶保持下没有递归可行性证明。本文的可清障集给出了一条路径（性质 4），但该结论仍为暂定，闭环接线与官方口径复算尚未完成，故本文只把它作为设计方向陈述，不作为已兑现的保证。
+反应式控制障碍函数滤波器在 10~s 零阶保持下没有递归可行性证明。本文的可清障集给出了一条路径（性质 4），但该结论仍为暂定，闭环集成与官方评估流程复算尚未完成，故本文只把它作为设计方向陈述，不作为已兑现的保证。
 
 %==============================================================================
 \subsection{局限}
 \begin{enumerate}\itemsep2pt
-  \item \textbf{可证明档 $=$ 中。}性质 3 的判据已被验证可靠，但覆盖不完整；性质 4 仍\emph{暂定}。碰撞率按实测报告（\TBD）；本文的保证陈述不包含无碰撞，安全盾亦不等同于无碰撞保证。
-  \item \textbf{合规是“每让路步”，不是“每步”。}让路态势约占相遇的 $13\text{--}16\%$（探索期场景池实测）；紧急态在结构上旁路合规约束；实测每局违规数非零（\TBD）。
-  \item \textbf{到达率不列为卖点。}\TBD。若无统计上可辨的优势，如实写“与离散基线相当”。
-  \item \textbf{平顺度优势是有条件的。}动作分辨率的差异是结构性的，但转艏增量、油门增量与 jerk 三项指标都受只在连续配置中启用的动作增量惩罚影响，因此跨动作空间的平顺度差异不可归因；可归因的比较只在同样启用该惩罚的配置之间成立，此时有界动作分布的贡献可由消融对照读出；本文不主张相对手工调参的几何控制器具有平顺度优势（表~\ref{tab:ext}）。
-  \item 少数种子的训练不稳定（\TBD）。这是训练不稳定，不是场景难度；奖励塑形对该问题是一条高置信度的经验死路（就我们试过的塑形族与系数而言），但不构成对约束型 MDP 或非 PBRS 终端目标的不可能性证明。
-  \item \textbf{COLREGs 覆盖边界与基准局限。}本文实现的是《国际海上避碰规则》\citp{IMO}{1972} 第 13--15 条（追越、对遇、交叉）与第 16 条（让路船的行动）的方向要求，以及第 17 条 (a)(i) 的直航保向保速。未实现的条款包括：第 17 条 (a)(ii)/(b)/(c)（直航船在让路船不采取行动时的自行避碰义务及其时机判定）、第 18 条（船舶间的责任等级）、第 19 条（能见度受限时的行动，本基准无能见度建模）、第 9 条（狭水道）与第 10 条（分道通航制），后两条需要航道几何，而本基准是开阔水域。官方场景库中没有追越场景，追越合规性在本基准上无法验证；基准是双船场景，多他船的方向冲突拿不到实测数据。
-  \item \textbf{他船模型与速度上界。}性质 1、3、4 都建立在他船恒速外推上，机动他船会使保证失效；他船速度上界是经验验证的（本基准全池最大 $7.10$~m/s），真实 AIS 数据更快时阈值须相应抬高。
-  \item \textbf{报数口径的两个已知偏倚。}最佳存档选择偏倚（期望上抬约 7.5 点，故两版并报）与跨机器跨轮次抖动（连续动作配置约 1.6 个百分点，故强制同一机器、同一轮次评估）。实时性数字随机器而变，只能同机同口径比较。
-  \item 离散基线是本文对 \citp{Krasowski and Althoff}{2024} 的重新实现（其海事评估代码未公开），故离散动作配置的种子脆弱性归因于我们的复现，不归因于原作者；软奖励项相对原文有一处数值稳定性偏离，已在方法节声明。
+ \item \textbf{可证明档 $=$ 中。}性质 3 的判据已被验证可靠，但覆盖不完整；性质 4 仍\emph{暂定}。碰撞率按实测报告（\TBD）；本文的保证陈述不包含无碰撞，安全盾亦不等同于无碰撞保证。
+ \item \textbf{合规是“每让路步”，不是“每步”。}让路态势约占相遇的 $13\text{--}16\%$（探索期场景池实测）；紧急态在结构上旁路合规约束；实测每局违规数非零（\TBD）。
+ \item \textbf{到达率不列为卖点。}\TBD。若无统计上可辨的优势，如实写“与离散基线相当”。
+ \item \textbf{平顺度优势是有条件的。}动作分辨率的差异是结构性的，但转艏增量、油门增量与 jerk 三项指标都受只在连续配置中启用的动作增量惩罚影响，因此跨动作空间的平顺度差异不可归因；可归因的比较只在同样启用该惩罚的配置之间成立，此时有界动作分布的贡献可由消融对照读出；本文不主张相对手工调参的几何控制器具有平顺度优势（表~\ref{tab:ext}）。
+ \item 少数种子的训练不稳定（\TBD）。这是训练不稳定，不是场景难度；奖励塑形对该问题是一条高置信度的经验死路（就我们试过的塑形族与系数而言），但不构成对约束型 MDP 或非 PBRS 终端目标的不可能性证明。
+ \item \textbf{COLREGs 覆盖边界与基准局限。}本文实现的是《国际海上避碰规则》\citp{IMO}{1972} 第 13--15 条（追越、对遇、交叉）与第 16 条（让路船的行动）的方向要求，以及第 17 条 (a)(i) 的直航保向保速。未实现的条款包括：第 17 条 (a)(ii)/(b)/(c)（直航船在让路船不采取行动时的自行避碰义务及其时机判定）、第 18 条（船舶间的责任等级）、第 19 条（能见度受限时的行动，本基准无能见度建模）、第 9 条（狭水道）与第 10 条（分道通航制），后两条需要航道几何，而本基准是开阔水域。官方场景库中没有追越场景，追越合规性在本基准上无法验证；基准是双船场景，多他船的方向冲突拿不到实测数据。
+ \item \textbf{他船模型与速度上界。}性质 1、3、4 都建立在他船恒速外推上，机动他船会使保证失效；他船速度上界是经验验证的（本基准全池最大 $7.10$~m/s），真实 AIS 数据更快时阈值须相应抬高。
+ \item \textbf{统计上的两个已知偏倚。}最佳存档选择偏倚（期望上抬约 7.5 点，故两版并报）与跨机器跨轮次抖动（连续动作配置约 1.6 个百分点，故强制同一机器、同一轮次评估）。实时性数字随机器而变，只能在同一机器、同一测量方式下比较。
+ \item 离散基线是本文对 \citp{Krasowski and Althoff}{2024} 的重新实现（其海事评估代码未公开），故离散动作配置的种子脆弱性归因于我们的复现，不归因于原作者；软奖励项相对原文有一处数值稳定性偏离，已在方法节声明。
 \end{enumerate}
 
 %==============================================================================
@@ -1140,13 +1140,13 @@ COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法
 作者感谢 CommonOcean 基准与 \citp{Krasowski and Althoff}{2024} 公开的场景库与规则形式化，
 它们构成本文实验的基础。
 % 🔴 投稿前须按当年投稿系统的措辞要求补：生成式模型使用声明。
-%    本项目的实情（据实填写，不夸大也不隐瞒）：生成式模型用于代码实现、文档整理与稿件起草；
-%    全部方法设计、实验口径与数据结论由作者核定，作者对全文内容负责。
+%  本项目的实情（据实填写，不夸大也不隐瞒）：生成式模型用于代码实现、文档整理与稿件起草；
+%  全部方法设计、实验口径与数据结论由作者核定，作者对全文内容负责。
 本文在代码实现、文档整理、参考文献格式整理与稿件起草环节使用了生成式语言模型 Claude（Anthropic）。
-全部方法设计、实验口径与数据结论均由作者核定并复核，作者对全文内容的准确性负全部责任。
-%  ▶ 须按投稿要求声明生成式模型的使用：用了哪个模型、用于何处（本项目用于代码实现、
-%    文档整理与稿件起草，全部方法设计与数据结论由作者核定）。定稿前按投稿系统当年的
-%    措辞要求填写。
+全部方法设计、评价方式与数据结论均由作者核定并复核，作者对全文内容的准确性负全部责任。
+% ▶ 须按投稿要求声明生成式模型的使用：用了哪个模型、用于何处（本项目用于代码实现、
+%  文档整理与稿件起草，全部方法设计与数据结论由作者核定）。定稿前按投稿系统当年的
+%  措辞要求填写。
 
 \section*{Author Contributions}
 % 🔴 待作者确认：以下按 CRediT 分工拟稿，请核对后定稿。
@@ -1165,10 +1165,10 @@ COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法
 %==============================================================================
 \section*{References}
 % [最后一轮补齐。量级约 40 条。**体例 = 官方规范的作者-年份制（Chicago author-date）**：
-%  正文用 (Author, Year)，References 按第一作者姓氏字母序、悬挂缩进、不编号、不用上标。
-%  锚点：对标工作（动力学 / 状态机 / 指标口径）· 安全盾在环强化学习与 zonotope 投影 · COLREGs 软奖励 ·
-%  深度强化学习报告规范（种子敏感性 / 稳健指标）· CommonOcean 场景库 · COLREGs 公约原文 ·
-%  控制障碍函数与预测式安全滤波 · 速度障碍。]
+% 正文用 (Author, Year)，References 按第一作者姓氏字母序、悬挂缩进、不编号、不用上标。
+% 锚点：对标工作（动力学 / 状态机 / 指标口径）· 安全盾在环强化学习与 zonotope 投影 · COLREGs 软奖励 ·
+% 深度强化学习报告规范（种子敏感性 / 稳健指标）· CommonOcean 场景库 · COLREGs 公约原文 ·
+% 控制障碍函数与预测式安全滤波 · 速度障碍。]
 
 \refitem{Alshiekh, Mohammed, Roderick Bloem, Rüdiger Ehlers, Bettina Könighofer, Scott Niekum, and Ufuk Topcu. 2018. “Safe Reinforcement Learning via Shielding.” In \textit{Proceedings of the AAAI Conference on Artificial Intelligence}.}
 
