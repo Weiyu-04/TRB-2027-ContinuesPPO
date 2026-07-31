@@ -44,14 +44,19 @@
   %    ⟹ 改成按存在性挑，第一个存在的就用。**macOS 上行为与原来逐字相同**（Times/Songti 排在最前）。
   %    投稿定稿前若要锁死字体，把下面各自的第一候选留下、其余删掉即可。
   \IfFontExistsTF{Times New Roman}{\setmainfont{Times New Roman}}{%
-    \IfFontExistsTF{Nimbus Roman}{\setmainfont{Nimbus Roman}}{%
+    \IfFontExistsTF{TeX Gyre Termes}{\setmainfont{TeX Gyre Termes}}{%
       \IfFontExistsTF{Liberation Serif}{\setmainfont{Liberation Serif}}{%
-        \setmainfont{FreeSerif}}}}
+        \IfFontExistsTF{Nimbus Roman}{\setmainfont{Nimbus Roman}}{%
+          \setmainfont{FreeSerif}}}}}
+  % 🔴 优先级修正（2026-07-31）：原来把 Noto Sans（黑体/无衬线）排在 Fandol Song（宋体）前面，
+  %   有黑体没衬线宋体的机器会渲染成黑体 ⟹ user 反馈"字体不对、之前是宋体"。
+  %   改为把所有【宋体/衬线】候选排在【黑体/无衬线】之前，只有全都没有才退到文泉驿黑体。
   \IfFontExistsTF{Songti SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Songti SC}}{%
     \IfFontExistsTF{Noto Serif CJK SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Noto Serif CJK SC}}{%
-      \IfFontExistsTF{Noto Sans CJK SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Noto Sans CJK SC}}{%
+      \IfFontExistsTF{Source Han Serif SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Source Han Serif SC}}{%
         \IfFontExistsTF{Fandol Song}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Fandol Song}}{%
-          \setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{WenQuanYi Zen Hei}}}}}
+          \IfFontExistsTF{Noto Sans CJK SC}{\setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{Noto Sans CJK SC}}{%
+            \setCJKmainfont[AutoFakeBold=2.5,AutoFakeSlant=0.2]{WenQuanYi Zen Hei}}}}}}
   % 🆕 圈号 ①–⑳ 与全角括号等落在 xeCJK 默认的"西文"类里 ⟹ 会被送给拉丁字体、
   %   而拉丁字体没有这些字形（编译日志报 Missing character）。它们是**九条臂的编号 = 内容**，
   %   ⟹ 显式声明为 CJK 类，走中文字体。
@@ -81,13 +86,16 @@
 
 %--- 标题层级样式 --------------------------------------------------------------
 \usepackage{titlesec}
-\setcounter{secnumdepth}{0}                                   % 标题不编号
-\titleformat{\section}{\normalfont\bfseries}{}{0pt}{\MakeUppercase}
-\titlespacing*{\section}{0pt}{14pt}{0pt}       % 官方模板用空段落分隔 ⟹ 段前约一整行、段后 0
-\titleformat{\subsection}{\normalfont\bfseries}{}{0pt}{}
-\titlespacing*{\subsection}{0pt}{14pt}{0pt}
-\titleformat{\subsubsection}{\normalfont\itshape}{}{0pt}{}
-\titlespacing*{\subsubsection}{0pt}{14pt}{0pt}
+% 🔴 工作稿可读性设置（user 2026-07-31 要求：加 1/1.1 编号 + 一级标题放大）。
+%   ⚠️ 偏离官方 TAD 模板（实测其 Heading1 = 12pt 加粗、不编号）——英文投稿定稿前须复原：
+%   把 secnumdepth 改回 0、各级字号改回 \normalfont\bfseries / \normalfont\itshape。
+\setcounter{secnumdepth}{3}                                   % 一/二/三级标题编号
+\titleformat{\section}{\normalfont\Large\bfseries}{\thesection}{0.7em}{\MakeUppercase}
+\titlespacing*{\section}{0pt}{16pt}{6pt}
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection}{0.7em}{}
+\titlespacing*{\subsection}{0pt}{14pt}{4pt}
+\titleformat{\subsubsection}{\normalfont\bfseries}{\thesubsubsection}{0.7em}{}
+\titlespacing*{\subsubsection}{0pt}{12pt}{3pt}
 
 %--- 图表标题 ------------------------------------------------------------------
 \usepackage{graphicx}
@@ -175,7 +183,7 @@ Email: yangpeijie21@sjtu.edu.cn\par
 Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
 School of Naval Architecture, Ocean \& Civil Engineering\par
 Shanghai Jiao Tong University, Shanghai, 200240, China\par
-Email: \TBD\par
+Email: qianbing\_li@sjtu.edu.cn\par
 \vspace{12pt}
 
 Total Number of Pages: \TBD\par
@@ -188,7 +196,7 @@ Submitted [Submission Date]\par
 \newpage   % 封面信息独占一页（user 指定）
 
 %------------------------------------------------------------------------------
-\section{Abstract}
+\section*{Abstract}
 % 官方规范：≤300 词 · 独占一页且**不含其他内容** · 五个必需标题（粗体、按序）· 每节一段 ·
 %   **不得含图表、公式或未定义缩写** · 须能独立成文。数字待结果回填，以【待填】标出。
 %   ⚠️ 篇幅：中文 478 字符 ⟹ 按 1.6--1.8 汉字/词折算 = 266--299 词（官方硬上限 300）。
@@ -217,9 +225,9 @@ Submitted [Submission Date]\par
 
 这一点使 COLREGs 合规无法用“最终有没有撞上”来验证，也使它成为安全强化学习中一个不太常见的问题类型：需要保证的不是一个状态量的界，而是每一步动作落在哪个方向的半平面里。现有工作沿两条路推进，各自让掉了一样关键的东西。
 
-第一条路走离散动作加动作屏蔽。它把动作空间离散成有限网格，每一步先用规则状态机算出合规的动作子集，再屏蔽掉其余动作 \citp{Krasowski and Althoff}{2024}，合规性因此可以证明：被屏蔽的动作根本不可能被选中，而这个保证既不依赖训练结果，也不受随机种子影响。它的代价是放弃了连续控制。真实的舵机与推进器本是连续量，离散网格一方面引入量化抖动，一方面把控制精度锁死在网格分辨率上。对本文的任务还有一处更具体的损失：COLREGs 要求让路转向足够明显，这在数学上是一个下确界，而网格往往取不到它，只能退到最近的档位，于是每一次合规让路都要比规则所需多转一些。
+第一条路是离散动作加动作屏蔽。它把动作空间离散成有限网格，每一步先用规则状态机算出合规的动作子集，再屏蔽掉其余动作 \citp{Krasowski and Althoff}{2024}，合规性因此可以证明：被屏蔽的动作根本不可能被选中，而这个保证既不依赖训练结果，也不受随机种子影响。它的代价是放弃了连续控制。真实的舵机与推进器本是连续量，离散网格一方面引入量化抖动，一方面把控制精度锁死在网格分辨率上。对本文的任务还有一处更具体的损失：COLREGs 要求让路转向足够明显，这在数学上是一个下确界，而网格往往取不到它，只能退到最近的档位，于是每一次合规让路都要比规则所需多转一些。
 
-第二条路走连续动作加软性奖励。它保留连续控制，把 COLREGs 写成奖励函数里的一项惩罚 \cit{Meyer et al., 2020; Heiberg et al., 2022; Müller et al., 2026}。控制虽然连续了，保证却随之消失：奖励只能塑造策略的期望行为，并不能排除任何一个具体的违规动作，合规率因而随种子起伏，也随训练进程起伏。
+第二条路是连续动作加软性奖励。它保留连续控制，把 COLREGs 写成奖励函数里的一项惩罚 \cit{Meyer et al., 2020; Heiberg et al., 2022; Müller et al., 2026}。控制虽然连续了，保证却随之消失：奖励只能塑造策略的期望行为，并不能排除任何一个具体的违规动作，合规率因而随种子起伏，也随训练进程起伏。
 
 于是连续动作 $\cap$ 可证明方向合规 $\cap$ COLREGs 这个三重交集是空的。本文用投影式安全盾把它填上：规则状态机给出合规方向的半平面，与单步无碰约束、动作箱一起构成安全动作集，二次规划把策略的连续指令投影到该集合上最近的点。关键在于\emph{可枚举}这个前提可以被\emph{可投影}替代。合规方向恰好是一个半平面，投影到半平面与箱的交集上是一个小规模二次规划，而投影解满足硬约束这件事是构造式的，与训练无关。策略以安全盾在环的方式训练，因而会观察并适应投影带来的修正。
 
