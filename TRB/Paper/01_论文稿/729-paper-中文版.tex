@@ -460,6 +460,13 @@ Submitted [Submission Date]\par
 \end{equation}
 其余情形归入 $\rho_0$。$\rho_4$ 与 $\rho_1$ 的第二支都要交换两船参数，因为追越要求本船位于他船的后扇区，而“本船被追越”是他船对本船成立追越。四个谓词在几何上可能同时成立，状态机按 $\rho_2\succ\rho_4\succ\rho_3$ 的确定性次序取其一，以保证判定唯一。让路态势（$\rho_2,\rho_3,\rho_4$）同时确定规则要求的转向一侧。
 
+状态机的转移由三条规则给出。其一，从无冲突态进入让路态由\emph{持续性}条件触发，对让路谓词 $X\in\{\rho_2,\rho_3,\rho_4\}$ 定义
+\begin{equation}
+  \mathrm{Pers}_X(s_e,s_m)\ \Leftrightarrow\ \neg X(s_e,s_m)\ \wedge\ \bigl(\forall\,t\in\{\Delta t,2\Delta t,\dots,T_{\mathrm{react}}\}:\ X(\hat s_e(t),\hat s_m(t))\bigr),
+  \label{eq:persistent}
+\end{equation}
+其中 $\hat s(\cdot)$ 为恒速外推，$T_{\mathrm{react}}=60$~s。合取项 $\neg X(s_e,s_m)$ 是必要的，它把“现在尚未成立、但在反应窗内将持续成立”与“现在已经成立”区分开，使该条件只负责\emph{提前}进入。其二，让路态一旦进入即维持，直到碰撞可能性谓词不再成立，即 $\neg\mathrm{CP}$，以免义务在单步判据的抖动中反复通断。其三，紧急态优先于其余一切态势，其进入与解除见下。
+
 \textbf{紧急态的进入与解除。}\ 上述扇区与航向判据，连同 $420$~s 时域内的碰撞可能性，决定 $\rho_0$–$\rho_4$ 的归属；紧急态 $\rho_5$ 的进入则另用一个更强的\emph{集合预测}判据，二者机制不同。取预测时域 $T_{\mathrm{pred}}=180$~s，以决策步长 $\Delta t$ 采样区间。在每个区间上，他船以点质量可达集外近似为一个圆盘：圆心取其恒速外推 $p_m+v_m t$，半径为随时间增长的可达半径加他船外接圆；本船取\emph{保向保速}动作 $u_{\mathrm{keep}}=(0,0)$ 下的占据，并以其在区间两端位形的凸包保守覆盖整段。只要存在一个采样区间使这两个占据集相交，当前相遇即判为紧急。该判据对两侧占据集都作外近似，因而是单侧保守的：它可能偏早进入紧急，却不会漏掉时域内真正会发生的紧急。进入 $\rho_5$ 后，状态机将其维持到\emph{解除}判据成立——他船落到本船后方、两船航向相互背离、且中心距足够大三者同时满足（该解除判据的精确形式及其对原文一处笔误的更正，见后文对既有设定的偏离声明）——因此 $\rho_5$ 会贯穿整个紧急机动，不随单步预测的起伏反复切换。
 
 \textbf{合规动作集。}\ 每一类态势对应一个显式的控制约束集：
@@ -534,7 +541,20 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 
 安全动作集为空时投影无解，此时须由一条不提供保证的替代规则给出控制，本文称之为兜底。兜底的处置按态势分支，而非按一条固定优先级依次尝试，可分为两条互斥的通道。
 \begin{itemize}\setlength{\itemsep}{2pt}
-  \item \emph{紧急态通道}。紧急态 $\rho_5$ 自成一路，该态不构造无碰撞约束、也不求解式~\eqref{eq:qp}，而是直接交给紧急控制器（一个基于位置跟踪的三模式几何律）。
+  \item \emph{紧急态通道}。紧急态 $\rho_5$ 自成一路，该态不构造无碰撞约束、也不求解式~\eqref{eq:qp}，而是直接交给紧急控制器。该控制器是一个有状态的三模式几何律，其生命周期对应一次完整的紧急事件。进入 $\rho_5$ 的首步选定模式并记录初始快照，此后模式不再重选（$\mathrm{ahead}$ 模式可单向切换到 $\mathrm{base}$）。模式判据互斥，
+\begin{equation}
+\begin{aligned}
+\mathrm{ahead}&:\ |\beta|\le\Delta_{\mathrm{ah}}\ \wedge\ \text{两船航向近反向（带宽 }\Delta_{\mathrm{ah}}\text{）},\\
+\mathrm{stern}&:\ \text{他船位于本船后方扇区（偏移 }\Delta_{\mathrm{st}}\text{）}\ \wedge\ \text{沿 }u_{\mathrm{acc}}\text{ 加速可确定解除紧急},\\
+\mathrm{base}&:\ \text{其余情形},
+\end{aligned}
+\end{equation}
+其中 $\Delta_{\mathrm{ah}}=45^\circ$、$\Delta_{\mathrm{st}}=20^\circ$。三种模式的控制律如下。$\mathrm{ahead}$ 模式跟踪一个由初始快照确定的\emph{固定}目标点，该点位于初始位置沿规定转向一侧 $90^\circ$ 方向、距离 $d_{\mathrm{ah}}=3\ell_m$ 处；当本船自初始位置起的行驶距离超过该阈值而紧急仍未解除时，单向切换到 $\mathrm{base}$。$\mathrm{stern}$ 模式取
+\begin{equation}
+  u=\begin{cases}(a_{\mathrm{st}},\,0), & t<T_{\mathrm{react}},\\[2pt] (0,\,0), & t\ge T_{\mathrm{react}},\end{cases}
+  \qquad a_{\mathrm{st}}=0.2\,a_{\max},
+\end{equation}
+即在反应窗内直线加速脱离、其后停止施控。$\mathrm{base}$ 模式跟踪一个随他船当前位置移动的目标点。三种模式都经同一个位置跟踪律换算为 $(a,\omega)$。该控制器不提供任何保证，它的作用范围由 “\nameref{sec:guarantee}”一节的迫近不可避判据界定。
   \item \emph{其余态势的降级}。$\rho_0$--$\rho_4$ 只在 $\mathcal{P}=\varnothing$ 时降级，且先判一种退化情形。若线性化给不出可用的分离方向，即本船标称落点与他船膨胀占据的圆心重合、或本船在该分离方向上没有控制权限（近零速时落点对转艏率的雅可比降秩），则直接返回箱内投影占位（记为“退化”），不再求解任何二次规划。否则先放松方向约束、只保留动作箱与无碰撞约束求解（记为“放松”），仍不可行才改解一个最小化最坏碰撞侵入量的软约束二次规划（记为“碰撞风险最小化”）。
 \end{itemize}
 
