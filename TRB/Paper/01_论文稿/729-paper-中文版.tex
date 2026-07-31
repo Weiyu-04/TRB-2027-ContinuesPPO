@@ -237,7 +237,7 @@ Submitted [Submission Date]\par
 
 第一条路是离散动作加动作屏蔽。它把动作空间离散成有限网格，每一步先用规则状态机算出合规的动作子集，再屏蔽掉其余动作 \citp{Krasowski and Althoff}{2024}，合规性因此可以证明，被屏蔽的动作根本不可能被选中，而这个保证既不依赖训练结果，也不受随机种子影响。它的代价是放弃了连续控制。真实的舵机与推进器本是连续量，离散网格一方面引入量化抖动，一方面把控制精度锁死在网格分辨率上。对本文的任务还有一处更具体的损失。COLREGs 要求让路转向足够明显，这在数学上是一个下确界，而网格往往取不到它，只能退到最近的档位，于是每一次合规让路都要比规则所需多转一些。
 
-第二条路是连续动作加软性奖励。它保留连续控制，把 COLREGs 写成奖励函数里的一项惩罚 \cit{Meyer et al., 2020; Heiberg et al., 2022; Müller et al., 2026}。控制虽然连续了，保证却随之消失。奖励只能塑造策略的期望行为，并不能排除任何一个具体的违规动作，合规率因而随种子起伏，也随训练进程起伏。
+第二条路是连续动作加软性奖励。它保留连续控制，把 COLREGs 写成奖励函数里的一项惩罚 \cit{Meyer et al. 2020; Heiberg et al. 2022; Müller et al. 2026}。控制虽然连续了，保证却随之消失。奖励只能塑造策略的期望行为，并不能排除任何一个具体的违规动作，合规率因而随种子起伏，也随训练进程起伏。
 
 于是连续动作 $\cap$ 可证明方向合规 $\cap$ COLREGs 这个三重交集是空的。本文用投影式安全盾把它填上。规则状态机给出合规方向的半平面，与单步无碰约束、动作箱一起构成安全动作集，二次规划把策略的连续指令投影到该集合上最近的点。关键在于\emph{可枚举}这个前提可以被\emph{可投影}替代。合规方向恰好是一个半平面，投影到半平面与箱的交集上是一个小规模二次规划，而投影解满足硬约束这件事是构造式的，与训练无关。策略以安全盾在环的方式训练，因而会观察并适应投影带来的修正。
 
@@ -259,11 +259,11 @@ Submitted [Submission Date]\par
 
 避碰规则合规的研究最早集中在模型驱动的方法上。速度障碍法用相对速度锥判断碰撞危险并选出规避速度，后被纳入 COLREGs 的让路语义 \citp{Kuwata et al.}{2014}，并推广到更一般的船舶会遇 \citp{Huang et al.}{2019}。模型预测控制是另一条主线，它在有限预测时域上评估各候选机动的碰撞危险与 COLREGs 合规度并择优执行 \citp{Johansen et al.}{2016}，其分支航向变体经过了海上实测 \citp{Eriksen et al.}{2019}，并在具挑战性的会遇场景中完成了全尺度验证 \citp{Kufoalor et al.}{2020}；更早的协议式方法把规则写成船间可协商的行为约定 \citp{Benjamin et al.}{2006}。近期这条线转向控制障碍函数与凸优化，用转向圆控制障碍函数表达让路机动 \citp{Lee et al.}{2025}，或用凸优化同时处理规则合规与防搁浅 \citp{Patil et al.}{2026}。这些方法多建立在标准船舶操纵模型之上 \citp{Fossen}{2011}，其保证来自显式约束或规则编码，但控制律由手工设计，不含从数据中学到的策略。
 
-随着深度强化学习的发展，避碰策略开始从数据中学习 \citp{Sarhadi et al.}{2022}。这条线上的多数工作把操纵指令离散化，例如以有限档舵角为动作、用深度 Q 学习在受限水域完成多船避碰 \citp{Shen et al.}{2019}，或面向多船生成合规的规避时机与路径 \cit{Zhao and Roh, 2019; Chun et al., 2021}。离散化便于优化，也贴近值函数方法的适用范围，代价是控制精度受网格分辨率限制。另一类工作保留连续控制，把 COLREGs 写成随方位与距离衰减的软性惩罚 \citp{Meyer et al.}{2020}，或用碰撞风险度量把惩罚做成可调的风险门控 \citp{Heiberg et al.}{2022}，也有工作在欠驱动无人艇上验证简洁的强化学习避障 \citp{Cheng and Zhang}{2018}。这类工作多以近端策略优化 \citp{Schulman et al.}{2017} 为策略主干，可用有界的 Beta 分布 \citp{Chou et al.}{2017} 参数化连续动作，以避开高斯策略在动作边界处的截断偏差。它们保住了连续控制的精细度，但合规只由奖励诱导，奖励改变的是策略的期望行为，无法排除任何一个具体的违规动作，合规率因而随种子和训练进程波动。
+随着深度强化学习的发展，避碰策略开始从数据中学习 \citp{Sarhadi et al.}{2022}。这条线上的多数工作把操纵指令离散化，例如以有限档舵角为动作、用深度 Q 学习在受限水域完成多船避碰 \citp{Shen et al.}{2019}，或面向多船生成合规的规避时机与路径 \cit{Zhao and Roh 2019; Chun et al. 2021}。离散化便于优化，也贴近值函数方法的适用范围，代价是控制精度受网格分辨率限制。另一类工作保留连续控制，把 COLREGs 写成随方位与距离衰减的软性惩罚 \citp{Meyer et al.}{2020}，或用碰撞风险度量把惩罚做成可调的风险门控 \citp{Heiberg et al.}{2022}，也有工作在欠驱动无人艇上验证简洁的强化学习避障 \citp{Cheng and Zhang}{2018}。这类工作多以近端策略优化 \citp{Schulman et al.}{2017} 为策略主干，可用有界的 Beta 分布 \citp{Chou et al.}{2017} 参数化连续动作，以避开高斯策略在动作边界处的截断偏差。它们保住了连续控制的精细度，但合规只由奖励诱导，奖励改变的是策略的期望行为，无法排除任何一个具体的违规动作，合规率因而随种子和训练进程波动。
 
 \subsection{安全强化学习与可证明合规}
 
-在软奖励之外，安全强化学习 \citp{García and Fernández}{2015} 研究如何为学习策略附加硬性保证。动作屏蔽在离散动作上按时序逻辑规范剔除不安全动作 \citp{Alshiekh et al.}{2018}，其可实现的形式已被推广到连续动作空间，但针对通用任务、未涉及海事规则 \citp{Kim et al.}{2024}。在连续控制上，控制障碍函数的二次规划 \citp{Ames et al.}{2019} 与预测式安全滤波 \citp{Wabersich and Zeilinger}{2021} 以最小干预修正动作；后者也被接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向条款 \citp{Vaaler et al.}{2024}。动作投影则借助可达性分析构造安全动作集，一种实现以多项式 zonotope（带状凸集）保证投影的安全性 \citp{Kochdumper et al.}{2023}，另一项工作比较了把投影盾并入环境转移与嵌入可微策略两种做法，并证明在策略梯度族（以广义优势估计一类算法为前提，\citp{Schulman et al.}{2016}）下两者的学习目标相同 \citp{Markgraf et al.}{2026}。这条线在连续动作上给出了对碰撞或状态约束的硬保证，但据我们检索到的文献，没有一项把 COLREGs 让路条款的方向性写进安全集。
+在软奖励之外，安全强化学习 \citp{García and Fernández}{2015} 研究如何为学习策略附加硬性保证，其中以形式化方法给出保证的一支已有系统的梳理与基准比较 \citp{Krasowski et al.}{2023}。另一条常见路线是把安全写成约束马尔可夫决策过程并以拉格朗日方法求解，但它保证的是期望意义下的约束满足，仍不能排除任何一个具体的违规动作，与本文所需的逐步硬约束不是同一类保证。动作屏蔽在离散动作上按时序逻辑规范剔除不安全动作 \citp{Alshiekh et al.}{2018}，其可实现的形式已被推广到连续动作空间，但针对通用任务、未涉及海事规则 \citp{Kim et al.}{2024}。在连续控制上，控制障碍函数的二次规划 \citp{Ames et al.}{2019} 与预测式安全滤波 \citp{Wabersich and Zeilinger}{2021} 以最小干预修正动作；后者也被接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向条款 \citp{Vaaler et al.}{2024}。与本文机制最接近的是安全层方法，它把约束在当前状态处线性化，再把策略动作解析地投影到由此得到的线性半空间上 \citp{Dalal et al.}{2018}；本文的投影与之同源，新增的部分是把 COLREGs 让路条款的方向性编码为动作平面上的半平面，使被强制的对象由状态约束变为规则合规。动作投影的另一条路线借助可达性分析构造安全动作集，一种实现以多项式 zonotope（带状凸集）保证投影的安全性 \citp{Kochdumper et al.}{2023}，另一项工作比较了把投影盾并入环境转移与嵌入可微策略两种做法，并证明在策略梯度族（以广义优势估计一类算法为前提，\citp{Schulman et al.}{2016}）下两者的学习目标相同 \citp{Markgraf et al.}{2026}。这条线在连续动作上给出了对碰撞或状态约束的硬保证，但据我们检索到的文献，没有一项把 COLREGs 让路条款的方向性写进安全集。
 
 由此形成一处结构性的空缺。在海事场景中，规则合规的硬保证此前只在离散动作空间上实现过，其代表是把 COLREGs 形式化为时序逻辑谓词与状态机、并在 $49$ 个离散动作上施加动作屏蔽的工作 \citp{Krasowski and Althoff}{2024}；该工作同时提供了本文使用的场景库与状态机阈值，也是本文复现的离散基线。作者在文中把连续动作空间下的动作投影列为未来方向，并指向基于可达性的投影 \citp{Kochdumper et al.}{2023}。沿这一方向的后续工作转入连续动作，却以软性奖励结合证伪式训练来逼近合规，没有给出硬保证 \citp{Müller et al.}{2026}。本文在连续控制上给出方向合规的构造式保证，并以更轻的 zonotope 加二次规划投影 \citp{Markgraf et al.}{2026} 替代较重的多项式 zonotope。
 
@@ -415,6 +415,8 @@ Submitted [Submission Date]\par
 \label{sec:rulesets}
 
 \subsubsection{相遇态势的谓词化}
+
+本小节的谓词结构、阈值取值与状态机的判定优先序沿用 \citp{Krasowski and Althoff}{2021} 的时序逻辑形式化及其在 \citp{Krasowski and Althoff}{2024} 中的实现。本文在此之上的新增部分为三项：碰撞可能性谓词中膨胀半径与速度集半宽的显式取值、让路态入口的对称化（第~\ref{sec:rl} 节），以及把式~\eqref{eq:ucolregs} 由离散动作屏蔽改写为连续控制上的半平面约束。
 
 我们用一个规则状态机把当前相遇归入六类，
 \begin{equation*}
@@ -588,7 +590,7 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 
 观测为 $27$ 维实向量，含受控船状态 $4$ 维（航速、艏向、纵向加速度、转艏率）；目标相关 $5$ 维（距离、剩余步数、艏向与目标朝向区间之差、纵向偏差、横向偏差）加 $1$ 维“是否已在目标框外”的指示位；交通态势 $12$ 维，即前 / 左 / 右 / 后四个方位扇区各取该扇区内最近他船的三个量（距离、相对方位、相邻两个决策步之间的距离增量；该增量以米为单位、未除以 $\Delta t$）；终止相关 $5$ 维（超时、出界、停住、碰撞、到达）。观测层输出原始物理量，归一化在训练包装层完成。以扇区为单位组织交通信息，使观测维数不随他船数目改变。须说明的是，这只解决了观测的维数问题。本文部署的安全盾按单他船实现，遇到多于一艘他船时显式报错而非降级运行，因此多他船既未训练也未评估。
 
-回报由五项相加而成，
+回报结构沿用 \citp{Krasowski and Althoff}{2024} 的设定，除本节末声明的三处偏离外逐项相同。回报由五项相加而成，
 \begin{equation}
   r=r_{\mathrm{sparse}}+r_{\mathrm{goal}}+r_{\mathrm{velocity}}+r_{\mathrm{deviate}}+r_{\mathrm{colregs}},
   \label{eq:reward}
@@ -1168,6 +1170,8 @@ COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法
 
 \refitem{Chun, D.-H., M.-I. Roh, H.-W. Lee, J. Ha, and D. Yu. 2021. “Deep Reinforcement Learning-Based Collision Avoidance for an Autonomous Ship.” \textit{Ocean Engineering} 234: 109216.}
 
+\refitem{Dalal, Gal, Krishnamurthy Dvijotham, Matej Vecerik, Todd Hester, Cosmin Paduraru, and Yuval Tassa. 2018. “Safe exploration in continuous action spaces.” arXiv:1801.08757.}
+
 \refitem{De Lellis, Francesco, Marco Coraggio, Giovanni Russo, Mirco Musolesi, and Mario di Bernardo. 2024. “Guaranteeing Control Requirements via Reward Shaping in Reinforcement Learning.” \textit{IEEE Transactions on Control Systems Technology}. arXiv:2311.10026.}
 
 \refitem{Eriksen, Bjørn-Olav H., Morten Breivik, Erik F. Wilthil, Andreas L. Flåten, and Edmund F. Brekke. 2019. “The Branching-Course Model Predictive Control Algorithm for Maritime Collision Avoidance.” \textit{Journal of Field Robotics} 36.}
@@ -1190,9 +1194,13 @@ COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法
 
 \refitem{Kochdumper, Niklas, Hanna Krasowski, Xiao Wang, Stanley Bak, and Matthias Althoff. 2023. “Provably Safe Reinforcement Learning via Action Projection Using Reachability Analysis and Polynomial Zonotopes.” \textit{IEEE Open Journal of Control Systems} 2.}
 
+\refitem{Krasowski, Hanna, and Matthias Althoff. 2021. “Temporal logic formalization of marine traffic rules.” In \textit{Proceedings of the IEEE Intelligent Vehicles Symposium (IV)}, 186--192. DOI: 10.1109/IV48863.2021.9575685.}
+
 \refitem{Krasowski, Hanna, and Matthias Althoff. 2022. “CommonOcean: Composable benchmarks for motion planning on oceans.” In \textit{Proceedings of the IEEE International Conference on Intelligent Transportation Systems (ITSC)}, 1676--1682. DOI: 10.1109/ITSC55140.2022.9921925.}
 
 \refitem{Krasowski, Hanna, and Matthias Althoff. 2024. “Provable Traffic Rule Compliance in Safe Reinforcement Learning on the Open Sea.” \textit{IEEE Transactions on Intelligent Vehicles} 9 (12): 7617--7634. arXiv:2402.08502.}
+
+\refitem{Krasowski, Hanna, Jakob Thumm, Marlon Müller, Lukas Schäfer, Xiao Wang, and Matthias Althoff. 2023. “Provably safe reinforcement learning: Conceptual analysis, survey, and benchmarking.” \textit{Transactions on Machine Learning Research}. arXiv:2205.06750.}
 
 \refitem{Kufoalor, D. K. M., Tor A. Johansen, Edmund F. Brekke, A. Hepsø, and K. Trnka. 2020. “Autonomous Maritime Collision Avoidance: Field Verification of Autonomous Surface Vehicle Behavior in Challenging Scenarios.” \textit{Journal of Field Robotics} 37.}
 
@@ -1214,9 +1222,9 @@ COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法
 
 \refitem{Patil, Mayur S., Nataraj Sudharsan, Veneela Ammula, Jude Tomdio, Jin Wang, Michael Kei, Sivakumar Rathinam, and Prabhakar R. Pagilla. 2026. “COLREGs Compliant Collision Avoidance and Grounding Prevention for Autonomous Marine Navigation.” arXiv:2603.02484.}
 
-\refitem{Raffin, Antonin, Ashley Hill, Adam Gleave, Anssi Kanervisto, Maximilian Ernestus, and Noah Dormann. 2021. “Stable-Baselines3: Reliable reinforcement learning implementations.” \textit{Journal of Machine Learning Research} 22 (268): 1--8.}
-
 \refitem{Pizarro Bejarano, Federico, Lukas Brunke, and Angela P. Schoellig. 2025. “Safety Filtering While Training: Improving the Performance and Sample Efficiency of Reinforcement Learning Agents.” \textit{IEEE Robotics and Automation Letters}. arXiv:2410.11671.}
+
+\refitem{Raffin, Antonin, Ashley Hill, Adam Gleave, Anssi Kanervisto, Maximilian Ernestus, and Noah Dormann. 2021. “Stable-Baselines3: Reliable reinforcement learning implementations.” \textit{Journal of Machine Learning Research} 22 (268): 1--8.}
 
 \refitem{Sarhadi, Pouria, Wasif Naeem, and Nikolaos Athanasopoulos. 2022. “A Survey of Recent Machine Learning Solutions for Ship Collision Avoidance and Mission Planning.” \textit{IFAC-PapersOnLine}. arXiv:2207.02767.}
 
