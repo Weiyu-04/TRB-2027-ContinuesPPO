@@ -259,13 +259,46 @@ Submitted [Submission Date]\par
 方向约束会在紧急与近域收紧可行动作集、可能损失终端效率，本文因此用势函数型塑形帮助策略追回效率。势函数型塑形不改变最优策略集 \citp{Ng et al.}{1999}，但朴素的距离型塑形容易停在目标附近 \citp{Trott et al.}{2019}，单一连续势也难以根治这一问题 \citp{Müller and Kudenko}{2025}，故本文改用线性核并把“真正到达”设为终端条件，与把控制指标编入塑形并给出保证的做法一致 \citp{De Lellis et al.}{2024}。安全盾对性能与终端行为的影响另有专门研究：训练中纳入滤波并惩罚修正量可提升样本效率 \citp{Pizarro Bejarano et al.}{2025}，足够宽松的滤波不损渐近最优 \citp{Oh et al.}{2025}，而安全项与目标项对冲会造成目标前停滞 \citp{Grover et al.}{2023}。本文据此设置与投影修正量成正比的动作混叠惩罚，并保留反向证据：预测式安全滤波在某些海事设置下并不损失性能 \citp{Vaaler et al.}{2024}。
 
 %==============================================================================
-\section{Preliminaries}
-\label{sec:prelim}
+\section{Problem Formulation}
+\label{sec:problem-setup}
 
 \subsection{系统建模与记号}
 \label{sec:model}
 
-\textbf{记号。}\ $\mathcal{Y}_1\oplus\mathcal{Y}_2=\{y_1+y_2\mid y_i\in\mathcal{Y}_i\}$ 表示 Minkowski 和，$\mathrm{disk}(r)$ 表示半径 $r$ 的闭圆盘。角度一律 wrap 到 $(-\pi,\pi]$，并约定\emph{右舷为正、左舷为负}；相应地转艏率 $\omega<0$ 表示右转，$\omega>0$ 表示左转。
+全文所用记号汇总于表~\ref{tab:notation}。角度一律折算到 $(-\pi,\pi]$。本文约定右舷为正、左舷为负，故转艏率 $\omega<0$ 表示右转，$\omega>0$ 表示左转。
+
+%------------------------------------------------------------------------------
+\begin{table}[t]
+  \caption{符号表}
+  \label{tab:notation}
+  \centering\footnotesize
+  \setlength{\tabcolsep}{6pt}
+  \begin{tabular}{@{}llll@{}}
+    \toprule
+    符号 & 含义 & 符号 & 含义 \\
+    \midrule
+    $s$                       & 本船状态向量            & $\rho$                          & 相遇态势（$\rho_0$--$\rho_5$）\\
+    $\theta,\,v$              & 艏向、航速              & $\mathcal{U}_{\mathrm{colregs}}(\rho)$ & 规则允许的控制集 \\
+    $u=(a,\omega)$            & 控制（加速度、转艏率）  & $\mathcal{U}_{\mathrm{cf}}(s)$   & 无碰撞约束集 \\
+    $a,\,\omega$              & 纵向加速度、转艏率      & $\mathcal{U}_{\mathrm{box}}$     & 执行器物理量程箱 \\
+    $\Delta t$                & 决策周期（零阶保持）    & $\mathcal{P}(s,\rho)$            & 安全动作集 \\
+    $a_{\max},\omega_{\max}$  & 执行器量程上限          & $\Pi_{\mathcal{P}}$             & 向 $\mathcal{P}$ 的欧氏投影 \\
+    $a_{\mathrm{op}},\omega_{\mathrm{op}}$ & 策略动作箱半宽 & $u_{\mathrm{policy}},u_{\mathrm{safe}}$ & 策略输出、实际执行控制 \\
+    $v_{\max}$                & 航速上限                & $\Delta_{\mathrm{lt}}$          & 明显转向阈值（航向）\\
+    $v_{\mathrm{bnd}}$        & 步内航速上界            & $\Delta_{\mathrm{nt}}$          & 直航容差角 \\
+    $\oplus$                  & Minkowski 和            & $T_M$                           & 机动段时长 \\
+    $\mathrm{disk}(r)$        & 半径 $r$ 的闭圆盘       & $\omega_{\mathrm{turn}}$        & 合规转艏率下确界 \\
+    $R_{\mathrm{circ}},r_{\mathrm{insc}}$ & 外接圆、内切圆半径 & $\varepsilon_a,\varepsilon_\omega$ & 直航保速、保向容差 \\
+    $\mathcal{O}$             & 他船占据                & $T_h,T_{\mathrm{pred}}$         & 碰撞可能、紧急预测时域 \\
+    $d$                       & 两船中心距              & $R_{\mathrm{box}}(t)$           & 本船可达中心过近似集 \\
+    $p_e,p_m$                 & 本船、他船中心位置      & $A$                             & 可清障集 \\
+    $v_{\mathrm{obs,max}}$    & 他船速度上界（假设）    & $\gamma$                        & 折扣因子 \\
+    $K$                       & 回合步数上限            & $\alpha,\beta$                  & Beta 分布形状参数 \\
+    $\Phi$                    & 势函数（奖励塑形）      & $r$                             & 单步回报 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+%------------------------------------------------------------------------------
 
 \textbf{本船运动学模型。}\ 我们把受控船舶建模为受偏航约束的质点，状态 $s=[p_x,p_y,\theta,v]^{\!\top}\in\mathbb{R}^4$，以纵向加速度 $a$ 与转艏率 $\omega$ 为控制输入：
 \begin{equation}
@@ -337,7 +370,7 @@ Submitted [Submission Date]\par
 
 \textbf{他船与感知。}\ 他船以其船体矩形占据表示。除特别声明外，在需要外推的场合我们对他船取恒速外推；这一假设的代价在 “\nameref{sec:guarantee}”一节逐条标注。他船的当前状态视为可观测。
 
-\section{Problem Formulation}
+\subsection{问题表述}
 \label{sec:problem}
 
 我们考虑开阔水域的双船相遇，并作如下假设：
