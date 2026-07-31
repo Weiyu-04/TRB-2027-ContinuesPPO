@@ -73,19 +73,29 @@ def panel(ax, title=None):
 
 
 def save(fig, name, outdirs, also_png=True):
-    """存 PDF（投稿用）+ PNG（预览用）+ SVG（转 Word 可编辑），并同步到多个目录。"""
+    """存 PDF（投稿用）+ PNG（预览用）+ SVG（转 Word 可编辑），并同步到多个目录。
+
+    🔴 第一个目录（`04_图/`）用原名 `FigN_xxx`；其余目录（`01_论文稿/figs/`）**一律小写**，
+       因为 .tex 里写的是 `figs/fig2_tradeoff.pdf`。
+       2026-08-01 踩过：新图存成 `Fig4_...pdf`，而 figs/ 里还留着上一版的 `fig4_...pdf`，
+       .tex 引的是小写那个 ⟹ **论文里嵌的一直是旧图，编译还不报错**
+       （kpathsea 对大小写有回退查找，fig2/fig3 反而找对了，更难发现）。
+       统一小写并在此处删掉同名异壳的旧文件，杜绝再出现两份。
+    """
     import os
     import shutil
-    first = None
-    for d in outdirs:
+    exts = ("pdf", "svg") + (("png",) if also_png else ())
+    first = outdirs[0]
+    os.makedirs(first, exist_ok=True)
+    for ext in exts:
+        fig.savefig(os.path.join(first, f"{name}.{ext}"), bbox_inches="tight",
+                    dpi=(600 if ext == "png" else None))
+    low = name.lower()
+    for d in outdirs[1:]:
         os.makedirs(d, exist_ok=True)
-        if first is None:
-            first = d
-            exts = ("pdf", "svg") + (("png",) if also_png else ())
-            for ext in exts:
-                fig.savefig(os.path.join(d, f"{name}.{ext}"), bbox_inches="tight",
-                            dpi=(600 if ext == "png" else None))
-        else:
-            shutil.copy2(os.path.join(first, f"{name}.pdf"),
-                         os.path.join(d, f"{name}.pdf"))
-    print(f"  [出图] {name}  → {len(outdirs)} 处")
+        for stale in (f"{name}.pdf",):                 # 同名异壳的旧文件，清掉
+            p = os.path.join(d, stale)
+            if os.path.exists(p) and stale != f"{low}.pdf":
+                os.remove(p)
+        shutil.copy2(os.path.join(first, f"{name}.pdf"), os.path.join(d, f"{low}.pdf"))
+    print(f"  [出图] {name}  → {first.split('/')[-1]}/  +  {len(outdirs)-1} 处（小写 {low}.pdf）")

@@ -109,40 +109,66 @@ def fig2(D):
 
 
 def fig3(D):
-    """两项改进的贡献拆解：2×2 消融，三个指标，同种子配对连线。"""
+    """两项改进的贡献拆解：$2\\times2$ 消融，三个指标。
+
+    🔴 画法（user 2026-08-01：「我想要的是合理搭配柱状图」）：
+       柱子给中位数（读者一眼比高低），柱上叠**逐种子散点 + 同种子配对灰线**（不藏分散度），
+       误差棒为按种子重采样的自助法 $95\\%$ 区间。
+       柱状图单独用会把 8 颗种子压成一根柱，配对信息全丢——所以是柱 + 点，不是只有柱。
+    """
     ORDER = ["ab0", "abB", "abG", "ours"]
     XTICK = ["neither", "bounded\nonly", "sym. entry\nonly", "both\n(ours)"]
-    PANELS = [("yaw", "(a) Yaw increment", "Yaw increment (norm.)"),
-              ("违规次数/局", "(b) COLREGs violations", "Violations per episode"),
-              ("到达率%", "(c) Arrival rate", "Arrival rate (%)")]
+    PANELS = [("yaw", "(a) Yaw increment", "Yaw increment (norm.)", True),
+              ("违规次数/局", "(b) COLREGs violations", "Violations per episode", True),
+              ("到达率%", "(c) Arrival rate", "Arrival rate (%)", False)]
 
-    fig, AX = plt.subplots(1, 3, figsize=(PS.COL2, PS.COL2 * 0.30))
-    for ax, (key, title, ylab) in zip(AX, PANELS):
+    fig, AX = plt.subplots(1, 3, figsize=(PS.COL2, PS.COL2 * 0.32))
+    rng = np.random.default_rng(3)                       # 散点横向抖动写死
+    for ax, (key, title, ylab, annot) in zip(AX, PANELS):
         vals = [(R.yaw_incr(D, t) if key == "yaw" else R.final(D, t, key)) for t in ORDER]
         seeds = sorted(set.intersection(*[set(v) for v in vals]))
-        # 同种子配对连线：一颗种子一条细灰线，四个配置串起来
-        for sd in seeds:
-            ax.plot(range(4), [v[sd] for v in vals], color=PS.PALETTE["neutral_light"],
-                    linewidth=0.6, zorder=1)
+        med = [float(np.median([v[sd] for sd in seeds])) for v in vals]
+
+        # 柱：中位数
         for i, t in enumerate(ORDER):
-            col = R.ARMS[t][1]
+            ax.bar(i, med[i], width=0.62, color=R.ARMS[t][1], alpha=0.30,
+                   edgecolor=R.ARMS[t][1], linewidth=0.9, zorder=1)
+
+        # 同种子配对灰线 + 逐种子散点（叠在柱面上）
+        jit = {sd: rng.uniform(-0.13, 0.13) for sd in seeds}
+        for sd in seeds:
+            ax.plot([i + jit[sd] for i in range(4)], [v[sd] for v in vals],
+                    color=PS.PALETTE["neutral_mid"], linewidth=0.45, alpha=0.45, zorder=2)
+        top = []
+        for i, t in enumerate(ORDER):
             y = [vals[i][sd] for sd in seeds]
-            ax.scatter([i] * len(y), y, s=11, color=col, linewidths=0, alpha=0.75, zorder=2)
-            m = np.median(y)
+            ax.scatter([i + jit[sd] for sd in seeds], y, s=9,
+                       facecolor="white", edgecolor=R.ARMS[t][1], linewidths=0.7, zorder=3)
             lo, hi = R.boot_ci(y)
-            ax.errorbar(i, m, yerr=[[m - lo], [hi - m]], fmt="none", ecolor=col,
-                        elinewidth=0.9, capsize=2.0, capthick=0.9, zorder=3)
-            ax.plot([i - 0.22, i + 0.22], [m, m], color=col, linewidth=1.8, zorder=4)
+            top.append(max(hi, max(y)))
+            ax.errorbar(i, med[i], yerr=[[med[i] - lo], [hi - med[i]]], fmt="none",
+                        ecolor=PS.PALETTE["neutral_black"], elinewidth=0.9,
+                        capsize=2.2, capthick=0.9, zorder=4)
+
+        # 相对基准配置的变化量，直接标在柱顶
+        if annot:
+            for i in (1, 2, 3):
+                d = (med[i] / med[0] - 1) * 100
+                ax.annotate(f"{d:+.0f}%", (i, top[i]), xytext=(0, 4),
+                            textcoords="offset points", ha="center", fontsize=6.4,
+                            color=PS.PALETTE["neutral_black"])
+            ax.margins(y=0.14)
         ax.set_xticks(range(4))
         ax.set_xticklabels(XTICK, fontsize=6.4)
-        ax.set_xlim(-0.5, 3.5)
+        ax.set_xlim(-0.62, 3.62)
+        ax.set_ylim(bottom=0)
         ax.set_title(title)
         ax.set_ylabel(ylab)
+        ax.grid(axis="x", visible=False)
         if key == "yaw":
-            ax.annotate("n=%d seeds, paired" % len(seeds), (0.97, 0.95),
-                        xycoords="axes fraction", ha="right", va="top",
-                        fontsize=6.2, color=PS.PALETTE["neutral_mid"])
-    AX[1].set_ylim(bottom=0)
+            ax.annotate("bar: median   dot: one seed   line: same seed",
+                        (0.5, -0.36), xycoords="axes fraction", ha="center",
+                        fontsize=6.0, color=PS.PALETTE["neutral_mid"])
     fig.tight_layout(w_pad=1.8)
     PS.save(fig, "Fig3_ablation", R.OUT_DIRS)
     plt.close(fig)
