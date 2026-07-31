@@ -39,6 +39,7 @@
  \usepackage{mathptmx}    % 先载（提供 Times 数学）；其文本字体族随后被 fontspec 覆盖
  \usepackage{fontspec}
  \usepackage{xeCJK}
+ \usepackage{indentfirst}   % 节标题后的首段也缩进（user 2026-08-01）
  % 🔴 字体按机器自适应（2026-07-29）：原来写死 `Times New Roman` + `Songti SC` 是 **macOS 专有**，
  %  在 Linux（本项目的云端容器、以及多数服务器）上 fontspec 会 **fail-hard、根本编译不出来**。
  %  ⟹ 改成按存在性挑，第一个存在的就用。**macOS 上行为与原来逐字相同**（Times/Songti 排在最前）。
@@ -285,40 +286,31 @@ Submitted [Submission Date]\par
  \label{tab:notation}
  \centering\footnotesize
  \setlength{\tabcolsep}{6pt}
- \begin{tabular}{@{}llll@{}}
+ \setlength{\tabcolsep}{3.2pt}\begin{tabular}{@{}llllll@{}}
   \toprule
-  符号 & 含义 & 符号 & 含义 \\
+  符号 & 含义 & 符号 & 含义 & 符号 & 含义 \\
   \midrule
-  $s$            & 本船状态向量      & $\rho$             & 会遇态势（$\rho_0$--$\rho_5$）\\
-  $\theta,\,v$       & 艏向、航速       & $\mathcal{U}_{\mathrm{colregs}}(\rho)$ & 规则允许的控制集 \\
-  $u=(a,\omega)$      & 控制（加速度、转艏率） & $\mathcal{U}_{\mathrm{cf}}(s)$  & 无碰撞约束集 \\
-  $a,\,\omega$       & 纵向加速度、转艏率   & $\mathcal{U}_{\mathrm{box}}$   & 执行器物理量程箱 \\
-  $\Delta t$        & 决策周期（零阶保持）  & $\mathcal{P}(s,\rho)$      & 安全动作集 \\
-  $a_{\max},\omega_{\max}$ & 执行器量程上限     & $\Pi_{\mathcal{P}}$       & 向 $\mathcal{P}$ 的欧氏投影 \\
-  $a_{\mathrm{op}},\omega_{\mathrm{op}}$ & 策略动作箱半宽 & $u_{\mathrm{policy}},u_{\mathrm{safe}}$ & 策略输出、实际执行控制 \\
-  $v_{\max}$        & 航速上限        & $\Delta_{\mathrm{lt}}$     & 明显转向阈值（航向）\\
-  $v_{\mathrm{bnd}}$    & 步内航速上界      & $\Delta_{\mathrm{nt}}$     & 直航容差角 \\
-  $\oplus$         & Minkowski 和      & $T_M$              & 机动段时长 \\
-  $\mathrm{disk}(r)$    & 半径 $r$ 的闭圆盘    & $\omega_{\mathrm{turn}}$    & 合规转艏率下确界 \\
-  $R_{\mathrm{circ}},r_{\mathrm{insc}}$ & 外接圆、内切圆半径 & $\varepsilon_a,\varepsilon_\omega$ & 直航保速、保向容差 \\
-  $\mathcal{O}$       & 他船占据        & $T_h,T_{\mathrm{pred}}$     & 碰撞可能、紧急预测时域 \\
-  $d$            & 两船中心距       & $R_{\mathrm{box}}(t)$      & 本船可达中心过近似集 \\
-  $p_e,p_m$         & 本船、他船中心位置   & $A$               & 可清障集 \\
-  $v_{\mathrm{obs,max}}$  & 他船速度上界（假设）  & $\gamma$            & 折扣因子 \\
-  $K$            & 回合步数上限      & $\alpha,\beta$         & Beta 分布形状参数 \\
-  $\Phi$          & 势函数（奖励塑形）   & $r$               & 单步回报 \\
-  \addlinespace
-  $\Delta_{\mathrm{ho}}$   & 前扇区半角 / 对遇航向带 & $\Delta_{\mathrm{sd}}$     & 舷侧扇区外边界 \\
-  $\Delta_{\mathrm{ot}}$   & 追越航向带半角     & $T_{\mathrm{react}}$      & 反应时域（状态机转移）\\
-  $r_m$           & 他船膨胀半径（态势判定）& $v_\varepsilon$         & 速度集半宽 \\
-  $\mathcal{C}_m$      & 碰撞锥         & $\mathcal{V}_e$         & 本船速度集 \\
-  $R_m$           & 他船占据圆半径（含裕度）& $d_{\mathrm{safe}}$       & 无碰撞所需中心距 \\
-  $u_{\mathrm{nom}}$     & 线性化基点       & $p_{\mathrm{nom}}$       & 标称落点 \\
-  $J$            & 落点对控制的雅可比   & $n,\ \delta$          & 分离方向、分离距离 \\
-  $g,\ h$          & 无碰撞约束的系数与右端 & $A,\ b$             & 安全动作集的约束矩阵与右端 \\
-  $a_{\mathrm{eff}}$     & 速度矢量变化率上界   & $B_{\mathrm{lon}},L_{\mathrm{lat}}$ & 可达集纵向 / 横向半轴 \\
-  $a_{\mathrm{st}}$     & 紧急 stern 模式加速度  & $d_{\mathrm{ah}}$        & 紧急 ahead 模式目标距离 \\
-  $\Delta_{\mathrm{ah}},\Delta_{\mathrm{st}}$ & 紧急 ahead / stern 判据角 & $\ell_m$     & 他船船长（逐场景真实值）\\
+  $s$ & 本船状态向量 & $\rho$ & 会遇态势（$\rho_0$--$\rho_5$） & $\theta,\,v$ & 艏向、航速 \\
+  $\mathcal{U}_{\mathrm{colregs}}(\rho)$ & 规则允许的控制集 & $u=(a,\omega)$ & 控制（加速度,转艏率） & $\mathcal{U}_{\mathrm{cf}}(s)$ & 无碰撞约束集 \\
+  $a,\,\omega$ & 纵向加速度、转艏率 & $\mathcal{U}_{\mathrm{box}}$ & 执行器物理量程箱 & $\Delta t$ & 决策周期 \\
+  $\mathcal{P}(s,\rho)$ & 安全动作集 & $a_{\max},\omega_{\max}$ & 执行器量程上限 & $\Pi_{\mathcal{P}}$ & 向 $\mathcal{P}$ 的欧氏投影 \\
+  $a_{\mathrm{op}},\omega_{\mathrm{op}}$ & 策略动作箱半宽 & $u_{\mathrm{policy}},u_{\mathrm{safe}}$ & 策略输出、执行控制 & $v_{\max}$ & 航速上限 \\
+  $\Delta_{\mathrm{lt}}$ & 明显转向阈值 & $v_{\mathrm{bnd}}$ & 步内航速上界 & $\Delta_{\mathrm{nt}}$ & 直航容差角 \\
+  $\oplus$ & Minkowski 和 & $T_M$ & 机动段时长 & $\mathrm{disk}(r)$ & 半径 $r$ 的闭圆盘 \\
+  $\omega_{\mathrm{turn}}$ & 合规转艏率下确界 & $R_{\mathrm{circ}},r_{\mathrm{insc}}$ & 外接圆、内切圆半径 & $\varepsilon_a,\varepsilon_\omega$ & 直航保速、保向容差 \\
+  $\mathcal{O}$ & 他船占据 & $T_h,T_{\mathrm{pred}}$ & 碰撞可能、紧急预测时域 & $d$ & 两船中心距 \\
+  $R_{\mathrm{box}}(t)$ & 可达中心过近似集 & $p_e,p_m$ & 本船/他船中心位置 & $A$ & 可清障集 \\
+  $v_{\mathrm{obs,max}}$ & 他船速度上界(设) & $\gamma$ & 折扣因子 & $K$ & 回合步数上限 \\
+  $\alpha,\beta$ & Beta 分布形状参数 & $\Phi$ & 势函数（塑形） & $r$ & 单步回报 \\
+  $\Delta_{\mathrm{ho}}$ & 前扇区半角/对遇带 & $\Delta_{\mathrm{sd}}$ & 舷侧扇区外边界 & $\Delta_{\mathrm{ot}}$ & 追越带半角 \\
+  $T_{\mathrm{react}}$ & 反应时域（状态机） & $r_m$ & 他船膨胀半径（判态势） & $v_\varepsilon$ & 速度集半宽 \\
+  $\mathcal{C}_m$ & 碰撞锥 & $\mathcal{V}_e$ & 本船速度集 & $R_m$ & 他船占据圆半径(含裕) \\
+  $d_{\mathrm{safe}}$ & 无碰撞所需中心距 & $u_{\mathrm{nom}}$ & 线性化基点 & $p_{\mathrm{nom}}$ & 标称落点 \\
+  $J$ & 落点对控制的雅可比 & $n,\ \delta$ & 分离方向、分离距离 & $g,\ h$ & 无碰撞约束系数与右端 \\
+  $A,\ b$ & 安全集约束矩阵与右端 & $a_{\mathrm{eff}}$ & 速度矢量变化率上界 & $B_{\mathrm{lon}},L_{\mathrm{lat}}$ & 可达集纵/横向半轴 \\
+  $a_{\mathrm{st}}$ & 紧急 stern 模式加速度 & $d_{\mathrm{ah}}$ & 紧急 ahead 目标距离 & $\Delta_{\mathrm{ah}},\Delta_{\mathrm{st}}$ & 紧急 ahead/stern 判角 \\
+  $\ell_m$ & 他船船长（逐场景） &  &  &  &  \\
+
   \bottomrule
  \end{tabular}
 \end{table}
@@ -358,14 +350,15 @@ Submitted [Submission Date]\par
    & $r_{\mathrm{insc}}$& 内切圆半径（欠近似）  & $12.7$~m \\
    & $v_{\mathrm{bnd}}$ & 步内航速上界      & $v_{\max}+a_{\max}\Delta t=11.9~\mathrm{m/s}$ \\
   \addlinespace
-  \multirow{8}{*}{安全盾}
+  \multirow{9}{*}{安全盾}
    & $a_{\mathrm{op}},\omega_{\mathrm{op}}$ & 常规操作动作箱半宽 & $0.048~\mathrm{m/s^2}$,\ \ $0.018~\mathrm{rad/s}$ \\
    & $\Delta_{\mathrm{lt}}$ & 明显转向的航向阈值  & $20^\circ$ \\
    & $T_M$       & 机动段时长       & $40$~s \\
    & $\omega_{\mathrm{turn}}$ & 合规转艏率下确界  & $\Delta_{\mathrm{lt}}/T_M=0.008727~\mathrm{rad/s}$ \\
    & $\varepsilon_a,\varepsilon_\omega$ & 直航态保速/保向容差 & $0.016~\mathrm{m/s^2}$,\ \ $0.004363~\mathrm{rad/s}$ \\
-   & ---        & 舷侧扇区半角      & $112.5^\circ$ \\
-   & ---        & 对遇航向带 / 追越判定角 & $\pm5^\circ$ / $67.5^\circ$ \\
+   & $\Delta_{\mathrm{sd}}$ & 舷侧扇区外边界     & $112.5^\circ$ \\
+   & $\Delta_{\mathrm{ho}}$ & 前扇区半角 / 对遇航向带 & $5^\circ$ \\
+   & $\Delta_{\mathrm{ot}}$ & 追越航向带半角     & $67.5^\circ$ \\
    & $T_h$       & 碰撞可能性检查时域   & $420$~s \\
   \bottomrule
  \end{tabular}
@@ -664,20 +657,14 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
    & ---         & 塑形权重（进门/进带/保速/动作增量） & $200,\ 200,\ 20,\ 1.0$ \\
    & ---         & 塑形半径（进门/进带/保速）     & $500 / 80 / 400$~m \\
   \addlinespace
-  \multirow{13}{*}{强化学习}
+  \multirow{7}{*}{强化学习}
    & ---        & 策略/价值网络      & 多层感知机，2 层 $\times$ 64 \\
-   & ---        & 并行环境数       & $8$ \\
    & $\gamma$      & 折扣因子        & $0.99$ \\
    & ---        & 熵正则系数（常数）   & $0.01$ \\
    & ---        & 学习率         & $3\times10^{-4}$ \\
    & ---        & 采样步数 / 批大小    & $2048$ / $64$ \\
-   & ---        & 更新迭代轮数      & $10$ \\
    & ---        & GAE 折扣 $\lambda$   & $0.95$ \\
    & ---        & 裁剪范围        & $0.2$ \\
-   & ---        & 价值损失系数      & $0.5$ \\
-   & ---        & 梯度裁剪范数上限    & $0.5$ \\
-   & ---        & 优势归一化       & 是 \\
-   & ---        & 观测/回报归一化     & 滑动归一化，观测裁剪至 $\pm10\sigma$ \\
   \bottomrule
  \end{tabular}
 
