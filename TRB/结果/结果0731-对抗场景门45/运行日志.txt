@@ -1,0 +1,19 @@
+【池 A】官方场景（对照）
+  官方场景                                   回合 50 步 3975 碰撞  0 让路步  34 | {'projection': 83.22, 'emergency': 16.6, 'collision_min': 0.18}
+
+【池 B】对抗·紧急密集（T_c 80–240s）
+  对抗·紧急密集                                回合 50 步 2914 碰撞 14 让路步   0 | {'projection': 73.85, 'emergency': 24.54, 'collision_min': 1.58, 'relaxed': 0.03}
+
+【池 C】对抗·让路（T_c 250–400s，超出紧急视界）
+   可用 246 个，取 50 个
+
+  ② 让路入口对照（对标原设定 vs 本文改进）
+  让路入口=paper                             回合 50 步 3919 碰撞  0 让路步   0 | {'projection': 56.9, 'emergency': 42.49, 'collision_min': 0.61}
+  让路入口=symmetric                         回合 50 步 3869 碰撞  0 让路步 201 | {'projection': 59.5, 'emergency': 40.35, 'collision_min': 0.16}
+
+  ③ 门 4：终端约束三档（gw_entry=symmetric）
+  终端约束=None                              回合 50 步 3869 碰撞  0 让路步 201 | {'projection': 59.5, 'emergency': 40.35, 'collision_min': 0.16}
+  终端约束=discrete                          回合 50 步 3869 碰撞  0 让路步 201 | {'projection': 59.5, 'emergency': 40.35, 'collision_min': 0.16}
+  终端约束=certv2                            回合 50 步 3869 碰撞  0 让路步 234 | {'projection': 57.3, 'emergency': 41.02, 'relaxed': 1.52, 'collision_min': 0.16}
+
+产物 → /tmp/claude-0/-home-user-TRB-2027-ContinuesPPO/00e9a1f5-ba72-594c-be98-5076bac94454/scratchpad/gate45/gate45_final.json

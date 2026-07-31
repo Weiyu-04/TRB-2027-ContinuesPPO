@@ -1,0 +1,135 @@
+{
+ "A_official": {
+  "episodes": 50,
+  "steps": 3975,
+  "collisions": 0,
+  "giveway_steps": 34,
+  "source": {
+   "projection": 3308,
+   "emergency": 660,
+   "collision_min": 7
+  },
+  "rho": {
+   "0": 3094,
+   "1": 187,
+   "5": 660,
+   "2": 1,
+   "3": 33
+  },
+  "gw_entry": "paper",
+  "terminal_mode": null
+ },
+ "B_adversarial_emergency": {
+  "episodes": 50,
+  "steps": 2914,
+  "collisions": 14,
+  "giveway_steps": 0,
+  "source": {
+   "emergency": 715,
+   "collision_min": 46,
+   "projection": 2152,
+   "relaxed": 1
+  },
+  "rho": {
+   "5": 715,
+   "0": 2190,
+   "1": 9
+  },
+  "gw_entry": "paper",
+  "terminal_mode": null
+ },
+ "C_entry_paper": {
+  "episodes": 50,
+  "steps": 3919,
+  "collisions": 0,
+  "giveway_steps": 0,
+  "source": {
+   "projection": 2230,
+   "emergency": 1665,
+   "collision_min": 24
+  },
+  "rho": {
+   "0": 2254,
+   "5": 1665
+  },
+  "gw_entry": "paper",
+  "terminal_mode": null
+ },
+ "C_entry_symmetric": {
+  "episodes": 50,
+  "steps": 3869,
+  "collisions": 0,
+  "giveway_steps": 201,
+  "source": {
+   "projection": 2302,
+   "emergency": 1561,
+   "collision_min": 6
+  },
+  "rho": {
+   "3": 170,
+   "5": 1561,
+   "0": 2107,
+   "2": 31
+  },
+  "gw_entry": "symmetric",
+  "terminal_mode": null
+ },
+ "C_term_None": {
+  "episodes": 50,
+  "steps": 3869,
+  "collisions": 0,
+  "giveway_steps": 201,
+  "source": {
+   "projection": 2302,
+   "emergency": 1561,
+   "collision_min": 6
+  },
+  "rho": {
+   "3": 170,
+   "5": 1561,
+   "0": 2107,
+   "2": 31
+  },
+  "gw_entry": "symmetric",
+  "terminal_mode": null
+ },
+ "C_term_discrete": {
+  "episodes": 50,
+  "steps": 3869,
+  "collisions": 0,
+  "giveway_steps": 201,
+  "source": {
+   "projection": 2302,
+   "emergency": 1561,
+   "collision_min": 6
+  },
+  "rho": {
+   "3": 170,
+   "5": 1561,
+   "0": 2107,
+   "2": 31
+  },
+  "gw_entry": "symmetric",
+  "terminal_mode": "discrete"
+ },
+ "C_term_certv2": {
+  "episodes": 50,
+  "steps": 3869,
+  "collisions": 0,
+  "giveway_steps": 234,
+  "source": {
+   "projection": 2217,
+   "emergency": 1587,
+   "collision_min": 6,
+   "relaxed": 59
+  },
+  "rho": {
+   "3": 194,
+   "5": 1587,
+   "0": 2048,
+   "2": 40
+  },
+  "gw_entry": "symmetric",
+  "terminal_mode": "certv2"
+ }
+}
