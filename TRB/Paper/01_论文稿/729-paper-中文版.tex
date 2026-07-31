@@ -416,8 +416,8 @@ Submitted [Submission Date]\par
 %------------------------------------------------------------------------------
 \begin{figure}[t]
  \centering
- \figplaceholder{图 1（两格：a 系统框图 · b 动作平面几何）}
- \caption{\textbf{方法总览。}（a）系统框图。$27$ 维观测经策略网络给出期望控制 $u_{\mathrm{policy}}=(a,\omega)$；策略的输出分布是支撑为闭区间的 Beta 分布，故采样动作按构造落在动作箱内（对比：无界高斯须裁剪，裁剪切断策略梯度；且高斯的微分熵无上界，与常数熵系数配合会持续推大标准差，这两条缺陷 Beta 分布同时封闭）。规则状态机把当前相遇判入六类态势 $\rho_0$--$\rho_5$，让路三类另给出规则要求的转向一侧。安全动作集 $\mathcal{P}$ 由执行器量程、合规方向半平面与单步无碰约束求交而成，二次规划把 $u_{\mathrm{policy}}$ 投影为 $u_{\mathrm{safe}}$ 后送入环境。\emph{该投影并入环境转移}，即安全盾在训练回路之内（图中回流箭头），策略因而在训练过程中即适应投影的存在，而非训练结束后再与滤波器磨合。安全动作集为空或不构造的处置\emph{按态势分支}：紧急态 $\rho_5$ 走独立通道，直接交紧急控制器（该态不构造无碰约束、不求解二次规划）；$\rho_0$--$\rho_4$ 仅在安全动作集为空时降级，先判占据几何退化（返回箱内投影），否则依次尝试放松方向约束与最小化碰撞风险。两条通道互斥。实线深色框为可严格保证的模块，虚线浅色框为经验模块。（b）动作平面 $(a,\omega)$ 上的几何，按策略动作箱的尺度绘制（安全盾的二次规划实际求解于更大的执行器物理量程箱）。横线为合规方向约束的边界 $\omega=-\omega_{\mathrm{turn}}$，其下方为合规半平面；斜线为单步无碰的线性约束；两者与动作箱之交即 $\mathcal{P}$（深色填充）。空心点为 $7\times7$ 量化网格。期望控制落在 $\mathcal{P}$ 外时被投影到最近的可行点，箭头长度即投影修正量。连续动作能精确取到 $\omega_{\mathrm{turn}}$ 这一合规下确界；量化网格上最近的合规档位为 $0.012~\mathrm{rad/s}$，比该下确界高出 $37.5\%$。}
+ \includegraphics[width=\linewidth]{figs/fig1_overview.pdf}
+ \caption{\textbf{方法总览。}$27$ 维观测经策略网络给出期望控制 $u_{\mathrm{policy}}=(a,\omega)$，其输出分布为支撑有界的 Beta 分布。规则状态机把当前会遇判入六类态势 $\rho_0$--$\rho_5$。安全动作集 $\mathcal{P}=\mathcal{U}_{\mathrm{box}}\cap\mathcal{U}_{\mathrm{colregs}}(\rho)\cap\mathcal{U}_{\mathrm{cf}}(s)$ 由执行器量程、合规方向半平面与单步无碰约束求交而成；二次规划把 $u_{\mathrm{policy}}$ 投影到 $\mathcal{P}$ 内最近的可行点 $u_{\mathrm{safe}}$ 后送入环境。该投影并入环境转移，即安全盾位于训练回路之内，策略在训练过程中即适应投影的存在。两条旁路互斥：紧急态 $\rho_5$ 直接交紧急控制器（$u_{\mathrm{em}}$，该态不构造无碰约束、不求解二次规划）；$\rho_0$--$\rho_4$ 仅在 $\mathcal{P}=\varnothing$ 时降级（$u_{\mathrm{fb}}$）。右下角为动作平面 $(a,\omega)$ 上三个约束集的示意。}
  \label{fig:overview}
 \end{figure}
 % ▶ 来源：Paper/01_论文稿/figs/make_fig1_overview.py（手绘示意·遵 nature-figure 规范）
