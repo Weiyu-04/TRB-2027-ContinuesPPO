@@ -402,12 +402,58 @@ Submitted [Submission Date]\par
 \subsection{COLREGs 让路条款在动作空间中的形式化}
 \label{sec:rulesets}
 
-\textbf{相遇态势。}\ 我们用一个规则状态机把当前相遇归入六类：
+\subsubsection{相遇态势的谓词化}
 
+我们用一个规则状态机把当前相遇归入六类，
 \begin{equation*}
-\rho\in\{\rho_0\ \text{无冲突},\ \ \rho_1\ \text{直航},\ \ \rho_2\ \text{对遇},\ \ \rho_3\ \text{交叉},\ \ \rho_4\ \text{追越},\ \ \rho_5\ \text{紧急}\}.
+\rho\in\{\rho_0\ \text{无冲突},\ \ \rho_1\ \text{直航},\ \ \rho_2\ \text{对遇},\ \ \rho_3\ \text{交叉},\ \ \rho_4\ \text{追越},\ \ \rho_5\ \text{紧急}\},
 \end{equation*}
-判定依据是相对方位所落的扇区（舷侧扇区各 $112.5^\circ$）、两船航向之差（对遇带 $\pm5^\circ$，追越判定 $67.5^\circ$）以及在 $420$~s 时域内是否存在碰撞可能。让路态势（$\rho_2,\rho_3,\rho_4$）同时确定规则要求的转向一侧。
+判定由三组谓词合取而成，下面逐一给出其形式。记本船与他船状态为 $s_e,s_m$，$\beta\in(-\pi,\pi]$ 为他船相对本船的方位角（右舷为正），$\Delta\theta=\mathrm{mod}_{2\pi}(\theta_m-\theta_e)$ 为两船航向差，$d=\lVert p_e-p_m\rVert$。
+
+第一组是方位扇区，按公约的舷灯分界定义为
+\begin{equation}
+\begin{aligned}
+\mathrm{Fr}(s_e,s_m)&\Leftrightarrow |\beta|\le\Delta_{\mathrm{ho}}, &\qquad
+\mathrm{Ri}(s_e,s_m)&\Leftrightarrow \Delta_{\mathrm{ho}}<\beta\le\Delta_{\mathrm{sd}},\\
+\mathrm{Le}(s_e,s_m)&\Leftrightarrow -\Delta_{\mathrm{sd}}\le\beta<-\Delta_{\mathrm{ho}}, &\qquad
+\mathrm{Be}(s_e,s_m)&\Leftrightarrow |\beta|>\Delta_{\mathrm{sd}},
+\end{aligned}
+\label{eq:sectors}
+\end{equation}
+其中 $\Delta_{\mathrm{ho}}=5^\circ$ 为前扇区半角，$\Delta_{\mathrm{sd}}=112.5^\circ$ 为舷侧扇区外边界。
+
+第二组是航向关系，
+\begin{equation}
+\begin{aligned}
+\mathrm{Ap}&\Leftrightarrow \mathrm{mod}_{2\pi}(\Delta\theta+\pi)\notin[\Delta_{\mathrm{ho}},\,2\pi-\Delta_{\mathrm{ho}}]
+ &&\text{（航向近反平行）},\\
+\mathrm{Sd}&\Leftrightarrow \mathrm{mod}_{2\pi}(\Delta\theta)\notin[\Delta_{\mathrm{ot}},\,2\pi-\Delta_{\mathrm{ot}}]
+ &&\text{（航向近同向）},\\
+\mathrm{Tl}&\Leftrightarrow \Delta\theta\in[\Delta_{\mathrm{ho}},\,\pi-\Delta_{\mathrm{ho}}],\qquad
+\mathrm{Tr}\Leftrightarrow \Delta\theta\in[\pi+\Delta_{\mathrm{ho}},\,2\pi-\Delta_{\mathrm{ho}}],
+\end{aligned}
+\label{eq:headings}
+\end{equation}
+其中 $\Delta_{\mathrm{ot}}=67.5^\circ$ 为追越航向带半角，$\mathrm{Tl}$ 与 $\mathrm{Tr}$ 分别表示他船朝向偏左与偏右。
+
+第三组是碰撞可能性，
+\begin{equation}
+  \mathrm{CP}(s_e,s_m)\ \Leftrightarrow\ \bigl(\mathcal{V}_e\cap\mathcal{C}_m\neq\varnothing\bigr)\ \wedge\ \Bigl(\lVert v_e-v_m\rVert\ \ge\ d/T_h\Bigr),
+  \label{eq:cp}
+\end{equation}
+其中 $\mathcal{C}_m$ 为以本船位置为顶点、对按膨胀半径 $r_m$ 放大的他船占据作外切、再沿他船速度平移 $v_m$ 所得的碰撞锥，$\mathcal{V}_e=\{\lambda\,[\cos\theta_e,\ \sin\theta_e]^{\!\top}:\lambda\in[\max(0,v_e-v_\varepsilon),\ v_e+v_\varepsilon]\}$ 为本船的速度集。两个参数此前未在文献中明确给出，此处一并写明：膨胀半径按他船真实船长取 $r_m=3\ell_m$，本场景库中 $\ell_m\in[200,300]$~m，故 $r_m\in[600,900]$~m；速度集半宽 $v_\varepsilon=1$~m/s；检查时域 $T_h=420$~s。式~\eqref{eq:cp} 的第二项要求相对速度足以在 $T_h$ 内闭合当前距离。
+
+三组谓词合成四类有义务的态势，
+\begin{equation}
+\begin{aligned}
+\rho_2\ \text{对遇}&:\quad \mathrm{CP}\wedge\mathrm{Fr}(s_e,s_m)\wedge\mathrm{Ap},\\
+\rho_3\ \text{交叉}&:\quad \mathrm{CP}\wedge\mathrm{Ri}(s_e,s_m)\wedge\mathrm{Tl},\\
+\rho_4\ \text{追越}&:\quad \mathrm{CP}\wedge\mathrm{Be}(s_m,s_e)\wedge(v_e>v_m)\wedge\mathrm{Sd},\\
+\rho_1\ \text{直航}&:\quad \bigl[\mathrm{CP}\wedge\mathrm{Le}(s_e,s_m)\wedge\mathrm{Tr}\bigr]\ \vee\ \rho_4(s_m,s_e),
+\end{aligned}
+\label{eq:situations}
+\end{equation}
+其余情形归入 $\rho_0$。$\rho_4$ 与 $\rho_1$ 的第二支都要交换两船参数，因为追越要求本船位于他船的后扇区，而“本船被追越”是他船对本船成立追越。四个谓词在几何上可能同时成立，状态机按 $\rho_2\succ\rho_4\succ\rho_3$ 的确定性次序取其一，以保证判定唯一。让路态势（$\rho_2,\rho_3,\rho_4$）同时确定规则要求的转向一侧。
 
 \textbf{紧急态的进入与解除。}\ 上述扇区与航向判据，连同 $420$~s 时域内的碰撞可能性，决定 $\rho_0$–$\rho_4$ 的归属；紧急态 $\rho_5$ 的进入则另用一个更强的\emph{集合预测}判据，二者机制不同。取预测时域 $T_{\mathrm{pred}}=180$~s，以决策步长 $\Delta t$ 采样区间。在每个区间上，他船以点质量可达集外近似为一个圆盘：圆心取其恒速外推 $p_m+v_m t$，半径为随时间增长的可达半径加他船外接圆；本船取\emph{保向保速}动作 $u_{\mathrm{keep}}=(0,0)$ 下的占据，并以其在区间两端位形的凸包保守覆盖整段。只要存在一个采样区间使这两个占据集相交，当前相遇即判为紧急。该判据对两侧占据集都作外近似，因而是单侧保守的：它可能偏早进入紧急，却不会漏掉时域内真正会发生的紧急。进入 $\rho_5$ 后，状态机将其维持到\emph{解除}判据成立——他船落到本船后方、两船航向相互背离、且中心距足够大三者同时满足（该解除判据的精确形式及其对原文一处笔误的更正，见后文对既有设定的偏离声明）——因此 $\rho_5$ 会贯穿整个紧急机动，不随单步预测的起伏反复切换。
 
@@ -439,7 +485,24 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 
 \subsubsection{单步无碰撞约束}
 
-对当前状态 $s$ 与他船占据 $\mathcal{O}$，我们要求施加的控制在下一个决策步末不致使两船体相交。直接写出该条件是非凸的，故取一个保守的凸内近似，即在本船与他船占据之间取分离超平面，把“下一步落点位于该超平面安全侧”作为约束，并对落点关于 $u$ 做一阶展开，得到线性不等式集 $\mathcal{U}_{\mathrm{cf}}(s)$。保守性的方向是单侧的，$\mathcal{U}_{\mathrm{cf}}$ 内的控制一定满足原条件，反之不然。
+对当前状态 $s$ 与他船占据 $\mathcal{O}$，我们要求施加的控制在下一个决策步末不致使两船体相交。直接写出该条件是非凸的，故取一个保守的凸内近似，其构造分三步。
+
+把他船在一个决策步之后的占据外近似为圆盘，圆心 $p_m^{+}$ 取恒速外推、半径 $R_m$ 已含安全裕度，本船以外接圆过近似，于是“两船体不交”的一个充分条件是两圆心距不小于
+\begin{equation}
+  d_{\mathrm{safe}}=R_{\mathrm{circ}}+R_m .
+\end{equation}
+记 $p_e(u)$ 为本船在控制 $u$ 下一个决策步之后的位置，$u_{\mathrm{nom}}$ 为线性化基点（取裁剪进动作箱的策略输出），$p_{\mathrm{nom}}=p_e(u_{\mathrm{nom}})$。取分离方向为由他船指向本船标称落点的单位向量
+\begin{equation}
+  n=\frac{p_{\mathrm{nom}}-p_m^{+}}{\lVert p_{\mathrm{nom}}-p_m^{+}\rVert},\qquad
+  \delta=\lVert p_{\mathrm{nom}}-p_m^{+}\rVert .
+\end{equation}
+把落点沿控制作一阶展开，$p_e(u)\approx p_{\mathrm{nom}}+J\,(u-u_{\mathrm{nom}})$，其中 $J=\partial p_e/\partial u\in\mathbb{R}^{2\times2}$ 为落点对控制的雅可比。将“落点位于分离超平面的安全侧”写成 $n^{\!\top}\bigl(p_e(u)-p_m^{+}\bigr)\ge d_{\mathrm{safe}}$，代入展开式即得对 $u$ 的一条线性不等式
+\begin{equation}
+  \underbrace{-\,n^{\!\top}\!J}_{\textstyle g^{\!\top}}\,u\ \le\ \underbrace{-\bigl(d_{\mathrm{safe}}-\delta+n^{\!\top}\!J\,u_{\mathrm{nom}}\bigr)}_{\textstyle h},
+  \qquad \mathcal{U}_{\mathrm{cf}}(s)=\{u: g^{\!\top}u\le h\}.
+  \label{eq:ucf}
+\end{equation}
+保守性的方向是单侧的，$\mathcal{U}_{\mathrm{cf}}$ 内的控制一定满足原条件，反之不然。两种情形下该线性化不成立，须转入降级控制，其一是 $\delta\to0$（标称落点与他船占据圆心重合，分离方向无定义），其二是 $\lVert n^{\!\top}\!J\rVert\approx0$ 且该约束处于紧约束状态（本船在该分离方向上没有控制权限，例如近零速时落点对转艏率的雅可比降秩），此时式~\eqref{eq:ucf} 退化为 $0\le h<0$，对一切 $u$ 不可行。
 
 \subsubsection{安全动作集与投影算子}
 
@@ -453,7 +516,14 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
   u_{\mathrm{safe}}=\Pi_{\mathcal{P}}(u_{\mathrm{policy}})=\arg\min_{u\in\mathcal{P}}\lVert u-u_{\mathrm{policy}}\rVert_2^2 .
   \label{eq:qp}
 \end{equation}
-式~\eqref{eq:qp} 是一个两变量、约束数为个位数的二次规划，其解存在且唯一。我们把 $\lVert u_{\mathrm{safe}}-u_{\mathrm{policy}}\rVert$ 记为投影修正量，它度量策略输出与规则要求之间的差距，并在实验中作为一项诊断指标上报。
+式~\eqref{eq:qp} 的可行集是若干半平面之交，可统一写成 $\mathcal{P}=\{u:Au\le b\}$，其中
+\begin{equation}
+  A=\begin{bmatrix} I_2\\ -I_2\\ c^{\!\top}\\ g^{\!\top}\end{bmatrix}\in\mathbb{R}^{6\times2},
+  \qquad
+  b=\begin{bmatrix} u_{\mathrm{hi}}\\ -u_{\mathrm{lo}}\\ c_0\\ h\end{bmatrix},
+  \label{eq:Ab}
+\end{equation}
+前四行为动作箱 $u_{\mathrm{lo}}\le u\le u_{\mathrm{hi}}$，第五行 $c^{\!\top}u\le c_0$ 为式~\eqref{eq:ucolregs} 给出的合规方向半平面（如让路态的 $\omega\le-\omega_{\mathrm{turn}}$ 对应 $c=[0,1]^{\!\top}$、$c_0=-\omega_{\mathrm{turn}}$；$\rho_0$ 与 $\rho_5$ 无此行，$\rho_1$ 则为两条逐轴区间），第六行为式~\eqref{eq:ucf} 的无碰撞约束。因此这是一个两变量、至多六条约束的二次规划，其解存在且唯一。我们把 $\lVert u_{\mathrm{safe}}-u_{\mathrm{policy}}\rVert$ 记为投影修正量，它度量策略输出与规则要求之间的差距，并在实验中作为一项诊断指标上报。
 
 \subsubsection{安全动作集为空时的降级控制}
 
@@ -470,7 +540,13 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 
 \subsubsection{带盾的马尔可夫决策过程}
 
-我们不把安全盾放在策略之后作为事后纠正，而是把式~\eqref{eq:qp} 并入环境的转移，即策略输出 $u_{\mathrm{policy}}$，环境施加 $u_{\mathrm{safe}}$ 并返回相应的后继状态与回报。这样策略学习到的是经过投影之后的转移，因而会主动适应投影的存在，而不必在训练结束后再与一个陌生的滤波器磨合。
+我们不把安全盾放在策略之后作为事后纠正，而是把式~\eqref{eq:qp} 并入环境的转移。策略输出 $u_{\mathrm{policy}}$，环境施加 $u_{\mathrm{safe}}$ 并返回相应的后继状态与回报，即策略面对的是复合转移
+\begin{equation}
+  s_{t+1}\ \sim\ P\bigl(\,\cdot\,\bigm|\, s_t,\ \Pi_{\mathcal{P}(s_t,\rho_t)}(u_t)\bigr),
+  \qquad u_t\sim\pi(\cdot\mid s_t),
+  \label{eq:shielded-mdp}
+\end{equation}
+而非事后滤波所对应的 $P(\cdot\mid s_t,u_t)$。这样策略学习到的是经过投影之后的转移，因而会主动适应投影的存在，而不必在训练结束后再与一个陌生的滤波器磨合。
 
 \subsubsection{观测与回报}
 
@@ -502,7 +578,13 @@ $\omega_{\mathrm{turn}}$ 是合规转艏率的\emph{下确界}：任何 $|\omega
 
 连续策略通常输出无界高斯分布并在送入环境前裁剪到动作箱。这一组合与式~\eqref{eq:qp} 相冲突，原因有两点，都与“裁剪”这一操作本身有关。其一，常见实现把裁剪后的动作用于环境、却把裁剪前的动作用于策略梯度，于是一旦分布的均值移出动作箱，再往外移动不改变任何回报，梯度进入平高原，任何以动作平顺性为目标的惩罚项都失去着力点。其二，高斯分布的微分熵为 $\sum_i\log\sigma_i+\mathrm{const}$，\emph{没有上界}，而熵正则项的系数是常数，于是标准差存在一条“只涨不跌”的通道，把越来越多的采样推到箱外，加剧前一个问题。
 
-我们改用支撑为闭区间的 Beta 分布。动作因此按构造不可能越箱，裁剪退化为恒等映射，上述两条通道同时封闭；平顺性惩罚处处可微，且 Beta 的熵有上界（在均匀分布处取得）。我们额外要求两个形状参数均\emph{严格大于} $1$（由网络输出经 softplus 再加一得到，故恒大于 $1$）。这一约束不可省。当形状参数小于 $1$ 时 Beta 呈 U 形，密度在两端发散，等价于一个数学形式的 bang-bang 控制；更关键的是此时分布的众数落在\emph{区间端点}，而区间内部的驻点是密度的极小值，由于评估一律使用确定性动作（取众数），这会静默地污染每一个上报数字，且在聚合指标上无从察觉。需要说明的是，该约束只保证分布单峰且端点密度有限，\emph{并不}阻止策略选择接近饱和的动作；真正起作用的是“支撑落在箱内”与“熵有上界”这两条。
+我们改用支撑为闭区间的 Beta 分布。动作因此按构造不可能越箱，裁剪退化为恒等映射，上述两条通道同时封闭；平顺性惩罚处处可微，且 Beta 的熵有上界（在均匀分布处取得）。具体地，网络对每个控制轴输出两个实数 $(\tilde\alpha,\tilde\beta)$，形状参数与执行动作由
+\begin{equation}
+  \alpha=\mathrm{softplus}(\tilde\alpha)+1,\quad \beta=\mathrm{softplus}(\tilde\beta)+1,\qquad
+  u=u_{\mathrm{lo}}+(u_{\mathrm{hi}}-u_{\mathrm{lo}})\,z,\quad z\sim\mathrm{Beta}(\alpha,\beta)
+  \label{eq:beta}
+\end{equation}
+给出，评估时取确定性动作，即以众数 $z^\ast=(\alpha-1)/(\alpha+\beta-2)$ 代替采样。这一参数化使两个形状参数严格大于 $1$。这一约束不可省。当形状参数小于 $1$ 时 Beta 呈 U 形，密度在两端发散，等价于一个数学形式的 bang-bang 控制；更关键的是此时分布的众数落在\emph{区间端点}，而区间内部的驻点是密度的极小值，由于评估一律使用确定性动作（取众数），这会静默地污染每一个上报数字，且在聚合指标上无从察觉。需要说明的是，该约束只保证分布单峰且端点密度有限，\emph{并不}阻止策略选择接近饱和的动作；真正起作用的是“支撑落在箱内”与“熵有上界”这两条。
 
 \subsubsection{让路态入口的对称化}
 
