@@ -79,6 +79,19 @@ REDLINE = [
 #: 挂靠句式（弱化对标论文；文献综述节除外，故只报提醒）
 LEANING = [r"following \\cit", r"\bas in \\cit", r"consistent with \\cit", r"in line with \\cit"]
 
+#: 🔴 自夸措辞（user 2026-08-01：表达尽量谦虚，不要引起读者不适）
+#   只查【自夸的搭配】，不查裸的 significant —— 统计意义上的 significant 是合法的。
+BOAST = [
+    r"significantly (out)?perform", r"significantly better", r"significantly superior",
+    r"far superior", r"vastly", r"dramatically", r"remarkabl", r"outstanding",
+    r"impressive", r"excellent (result|performance)", r"state[- ]of[- ]the[- ]art",
+    r"clearly demonstrat", r"proves? that (our|the proposed)", r"we solve the problem",
+    r"\bsuperior to\b", r"greatly (improv|reduc|enhanc)",
+]
+#: 对标论文的引用键；只准出现在这些节里
+ANCHOR_KEY = "krasowski2024"
+ANCHOR_OK_SECTIONS = ("Related Work", "Experiments")
+
 
 def strip_tex(s):
     """把 LaTeX 命令与数学环境剥掉，只留下自然语言，避免误报。"""
@@ -154,6 +167,42 @@ def main():
     lean = [x for pat in LEANING for x in re.findall(pat, doc)]
     if lean:
         warn(f"{len(lean)} 处挂靠句式（following/as in/consistent with + 引用）—— 文献综述节可以，正文要改")
+
+    print("\n③·五 语气（谦虚，不自夸）")
+    boast = []
+    for pat in BOAST:
+        for m in re.finditer(pat, low):
+            boast.append(text[max(0, m.start()-45):m.start()+45])
+    if boast:
+        hard(f"{len(boast)} 处自夸措辞 —— 让数字说话，形容词删掉：")
+        for b in boast[:5]:
+            print(f"        · …{b.strip()}…")
+    else:
+        ok(f"{len(BOAST)} 类自夸措辞一个都没有")
+    n_novel = len(re.findall(r"\bnovel\b", low))
+    if n_novel > 1:
+        warn(f"novel 出现 {n_novel} 次 —— 只该在 Novelty 那一段出现一次")
+    if re.search(r"(?<!knowledge, )this is the first|we are the first", low):
+        hard("无 hedge 的 'the first' —— 写成 'To the best of the authors\' knowledge, this is the first…'")
+
+    print("\n③·六 弱化对标论文（只准出现在 Related Work / Experiments）")
+    secs = [(m.start(), m.group(1)) for m in re.finditer(r"\\section\*?\{([^}]*)\}", doc)]
+    def sec_of(pos):
+        cur = "(标题页/摘要)"
+        for pp, nn in secs:
+            if pp <= pos:
+                cur = nn
+            else:
+                break
+        return cur
+    hits = [(m.start(), sec_of(m.start())) for m in re.finditer(ANCHOR_KEY, doc)]
+    outside = [(p_, s_) for p_, s_ in hits if not any(a in s_ for a in ANCHOR_OK_SECTIONS)]
+    print(f"     对标论文共引 {len(hits)} 处")
+    if outside:
+        warn(f"{len(outside)} 处在允许之外的节：{sorted(set(s_ for _, s_ in outside))} —— 逐处确认是否确有借用；"
+             "确有就留引用但改成事实性归属，没有就删")
+    elif hits:
+        ok("全部落在 Related Work / Experiments 内")
 
     print("\n④ 摘要（≤300 词 · 零第一人称）")
     if abstract:
