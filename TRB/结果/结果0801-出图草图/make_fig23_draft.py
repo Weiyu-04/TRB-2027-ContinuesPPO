@@ -50,54 +50,24 @@ def fig2(D):
         a.scatter(mx, my, marker=("o" if space == "cont" else "^"), s=30,
                   facecolor=(col if shield else "white"), edgecolor=col,
                   linewidths=1.0, zorder=3)
-    #: 🔴 2026-08-01 later-11：**手工排偏移已作废**。user 实测四处压叠——
-    #:    `Continuous, shield` 左边被裁、`Discrete, masking` 冲出右框、
-    #:    `Ablation, bounded only` 压住 `Ours` 的点与误差棒、`Continuous, no shield` 跑到框外。
-    #:    病根是偏移量写死：改了高宽比或换了数据，手排的位置就全废。
-    #:    改成**确定性自动避让**：每个点试 8 个方位，取第一个既落在坐标区内、
-    #:    又不与已放标签 / 任何数据点相撞的位置。无随机性 ⟹ 重跑出图一模一样。
-    #:    标签文字仍只从 R.ARMS 取（`03` L243-续51：臂名单一真相源）。
+    #: 🔴 2026-08-01 later-11（user 第二轮）：**点边标注全部撤掉，改图例**。
+    #  标注即使做了自动避让，仍然占着数据区、挡视野，而九条配置的名字又长。
+    #  图例放右上空白处，**文字一律黑色**（颜色由图例的记号承载，不再给文字上色）。
+    #  记号形状/填充与散点一致：圆=连续动作、三角=离散；实心=带盾。
     a.set_yscale("log")
-    a.set_ylim(0.34, 6.4)
-    a.set_xlim(67, 104)
-    fig.canvas.draw()
-    PTS = {t: (np.median(list(R.final_re(D, t, "到达率%").values())),
-               np.median(list(R.final_re(D, t, "违规次数/局").values())))
-           for t in R.ARMS if R.final_re(D, t, "到达率%")}
-    #: 8 个候选方位（dx, dy, ha, va），单位是点
-    CAND = [(0, 9, "center", "bottom"), (0, -9, "center", "top"),
-            (9, 0, "left", "center"), (-9, 0, "right", "center"),
-            (7, 7, "left", "bottom"), (-7, 7, "right", "bottom"),
-            (7, -7, "left", "top"), (-7, -7, "right", "top")]
-    placed = []                                   # 已放标签的像素 bbox
-    marks = [a.transData.transform(p) for p in PTS.values()]
-    rend = fig.canvas.get_renderer()
-    axbb = a.get_window_extent(rend)
-    for tag in R.ARMS:                            # 顺序固定 ⟹ 结果可复现
-        if tag not in PTS:
-            continue
-        xy = PTS[tag]
-        best = None
-        for dx, dy, ha, va in CAND:
-            tx = a.annotate(R.ARMS[tag][0], xy, xytext=(dx, dy),
-                            textcoords="offset points", fontsize=6.3,
-                            color=R.ARMS[tag][1], ha=ha, va=va, zorder=5)
-            bb = tx.get_window_extent(rend).expanded(1.06, 1.35)
-            inside = axbb.contains(bb.x0, bb.y0) and axbb.contains(bb.x1, bb.y1)
-            clash = any(bb.overlaps(q) for q in placed) or \
-                    any(bb.x0 - 3 < mx < bb.x1 + 3 and bb.y0 - 3 < my < bb.y1 + 3
-                        for mx, my in marks)
-            if inside and not clash:
-                best = (tx, bb)
-                break
-            tx.remove()
-        if best is None:                          # 8 个方位都不行 ⟹ 退回正上方，至少不出框
-            tx = a.annotate(R.ARMS[tag][0], xy, xytext=(0, 9),
-                            textcoords="offset points", fontsize=6.3,
-                            color=R.ARMS[tag][1], ha="center", va="bottom", zorder=5)
-            best = (tx, tx.get_window_extent(rend))
-            print(f"    ⚠️ {R.ARMS[tag][0]} 八个方位都放不下，已退回正上方，检查一下")
-        placed.append(best[1])
+    a.set_ylim(0.34, 9.0)
+    a.set_xlim(67, 101)
+    from matplotlib.lines import Line2D
+    hs = [Line2D([], [], linestyle="none",
+                 marker=("o" if R.ARMS[t][2] == "cont" else "^"), markersize=4.0,
+                 markerfacecolor=(R.ARMS[t][1] if R.ARMS[t][3] else "white"),
+                 markeredgecolor=R.ARMS[t][1], markeredgewidth=1.0,
+                 label=R.ARMS[t][0]) for t in R.ARMS]
+    lg = a.legend(handles=hs, loc="upper left", frameon=False, fontsize=5.3,
+                  handletextpad=0.3, labelspacing=0.2, borderpad=0.15, ncol=2,
+                  columnspacing=0.7)
+    for txt in lg.get_texts():
+        txt.set_color(PS.PALETTE["neutral_black"])
     a.yaxis.set_major_locator(mt.FixedLocator([0.4, 0.6, 1, 2, 4]))
     a.yaxis.set_major_formatter(mt.FixedFormatter(["0.4", "0.6", "1", "2", "4"]))
     a.yaxis.set_minor_locator(mt.NullLocator())
@@ -150,9 +120,9 @@ def fig3(D):
 
     fig, AX = plt.subplots(1, 3, figsize=(PS.COL2, PS.COL2 * 0.28))
     rng = np.random.default_rng(3)
-    PANELS = [("yaw", "(a) Yaw increment", "Yaw increment (norm.)", "bar"),
-              ("违规次数/局", "(b) COLREGs violations", "Violations per episode", "bar"),
-              ("到达率%", "(c) Arrival rate", "Arrival rate (%)", "box")]
+    PANELS = [("yaw", "(c) Yaw increment", "Yaw increment (norm.)", "bar"),
+              ("违规次数/局", "(d) COLREGs violations", "Violations per episode", "bar"),
+              ("到达率%", "(e) Arrival rate", "Arrival rate (%)", "box")]
 
     for ax, (key, title, ylab, kind) in zip(AX, PANELS):
         vals = [R.final_re(D, t, key) for t in ORDER]

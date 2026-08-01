@@ -1063,39 +1063,37 @@ Section~\ref{sec:res-shield}. The reward function differs across configurations,
 episode return is never compared across them.
 
 \noindent\textbf{How violations are counted.}\ Violations do not come from the situation
-decision of the shield. An offline scorer that sees only the trajectory re-decides at each step, from the bare
-situation predicates, whether the own vessel is under a stand-on or a give-way
-obligation. A stand-on violation is counted per step, once the signed heading change
-accumulated over the obligation period exceeds the tolerance, and the accumulator resets
-when the obligation ends. A give-way violation is counted per encounter, and only when
-no turn in the required direction reaches the readily apparent threshold. The scorer applies one rule to this method and to every baseline, including the
-geometric controllers that have no state machine, so the comparison is made under one
-condition.
+decision of the shield. An offline scorer that sees only the trajectory re-decides at
+each step, from the bare situation predicates, whether the own vessel is under a
+stand-on or a give-way obligation. A stand-on violation is counted per step once the
+signed heading change accumulated over the obligation period exceeds the tolerance, and
+the accumulator resets when the obligation ends. A give-way violation is counted per
+encounter, and only when no turn in the required direction reaches the readily apparent
+threshold. One scorer is applied to every method here, including the geometric
+controllers that have no state machine.
 
 \noindent\textbf{The counting window and the shield do not coincide.}\ The scorer
-accumulates the heading change over a whole obligation period, while the shield constrains
-the change inside a single maneuver window. The two windows differ in length. Emergency situations and fallback steps also bypass
-the constraint by design. The shield therefore does not guarantee a violation count of zero, and this paper
-does not claim one. In particular, Proposition~\ref{prop:comply} guarantees the turn
-direction on every give-way step. It does \textbf{not} imply a give-way violation count of
-zero. How often the mismatch occurs was not measured. The violation counts below are therefore
-an empirical trajectory-level measure, and not a direct test of
-Proposition~\ref{prop:comply}.
+accumulates the heading change over a whole obligation period, while the shield
+constrains the change inside a single maneuver window of a different length. Emergency
+and fallback steps also bypass the constraint by design. The shield therefore does not guarantee a violation count of zero, and this paper does
+not claim one. Proposition~\ref{prop:comply} guarantees the turn direction on every
+covered give-way step. That does \textbf{not} imply a give-way violation count of zero. How often the
+mismatch occurs was not measured, so the counts below are an empirical trajectory-level
+measure rather than a direct test of that proposition.
 
-\noindent\textbf{Training budget.}\ Each configuration is trained with $8$ random seeds, one
-run per seed. The $72$ runs together cover about $730$ million environment steps. The
-scenario split is fixed by a separate seed, so every run sees the same scenarios. Every configuration inside one
-table is evaluated on one machine in one pass, so that machine differences do not enter the
-evaluation. Training itself was spread over several machines, which run the same software image and
-the same training code, verified by a checksum, with the thread count locked to one.
+\noindent\textbf{Training budget.}\ Each configuration is trained with $8$ random seeds,
+one run per seed, and the $72$ runs together cover about $730$ million environment
+steps. A separate seed fixes the scenario split, so every run sees the same scenarios.
+Every configuration inside one table is evaluated on one machine in one pass. Training
+itself was spread over several machines running the same software image and training
+code, verified by a checksum, with the thread count locked to one.
 \textbf{No bit-level cross-machine check was run on this batch, so machine differences are
 not excluded. This is listed as a limitation.}
 
 \noindent\textbf{Checkpoint selection.}\ Twenty checkpoints are saved per run at even
-intervals, and each is evaluated once on the validation set. The selection rule was fixed in
-advance and has no tunable part. The twenty saved checkpoints are the candidates. The criterion is the highest arrival
-rate on the validation set. Ties go to the earlier checkpoint. The test set is never
-accessed.
+intervals and each is evaluated once on the validation set. The rule was fixed in advance and has no tunable part. The criterion is the highest
+arrival rate on the validation set, and ties go to the earlier checkpoint. The test set
+is never accessed.
 \textbf{The rule is itself biased.} The validation set holds only $100$ scenarios, and the binomial standard error of the
 arrival rate is about $4$ points. Taking the maximum over $20$ candidates therefore
 lifts the figure on that set. On the held-out test set the
@@ -1103,19 +1101,17 @@ effect is small. Across the $72$ runs the arrival rate at the selected checkpoin
 last checkpoint by a median of $0.2$ points. It is lower for $31$ of them. The ordering of the configurations and the outcome of the paired tests are
 the same under both rules.
 
-\noindent\textbf{Reading the figures.}\ Figures~\ref{fig:tradeoff} and~\ref{fig:ablation}
-are computed on the same test set as Table~\ref{tab:main}. Figures~\ref{fig:curves}
+\noindent\textbf{Reading the figures.}\ Figure~\ref{fig:tradeoff} is computed on the same test set as Table~\ref{tab:main}. Figures~\ref{fig:curves}
 and~\ref{fig:shield} are recorded during training and are labeled as such. Violation counts
 in the figures are the sum of stand-on and give-way violations.
 
 \noindent\textbf{Statistics.}\ The nine-configuration comparisons use a per-seed paired
 sign test, whose smallest two-sided value with $8$ seeds is $p=2/2^{8}=0.0078$. The
-$2\times2$ ablation comparisons use a per-seed paired Wilcoxon signed-rank test. Error bars are bootstrap $95\%$ intervals resampled over
-seeds. A run counts as converged when its arrival rate on the validation set reaches
-$50\%$. Diverged seeds are counted in the main table as they are. Restricting the table to
+$2\times2$ ablation comparisons use a per-seed paired Wilcoxon signed-rank test. Error bars are bootstrap $95\%$ intervals resampled over seeds. A run counts as
+converged when its arrival rate on the validation set reaches $50\%$, and the criterion
+selects the same runs when applied on the test set instead. Nonconverged runs are counted in the main table as they are. Restricting the table to
 converged runs leaves the ordering unchanged, and Ours keeps the lowest violation count
-at $0.53$ per episode. The convergence criterion selects the same runs whether it is
-applied on the validation set or on the test set.
+at $0.53$ per episode.
 
 \subsection{Main Comparison}
 \label{sec:res-main}
@@ -1166,17 +1162,6 @@ shield versus Continuous, shield pair. A nonconverged run shifts the per-episode
 averages, and the direction of the shift differs among configurations; restricting the
 table to converged runs leaves the ordering unchanged.
 
-\begin{figure}[htbp]
- \centering
- \includegraphics[width=\linewidth]{figs/fig2_tradeoff.pdf}
- \caption{Safety and efficiency. \capnote{Official test set, the same source as
- Table~\ref{tab:main}. Points are medians across seeds and error bars are bootstrap $95\%$
- intervals resampled over seeds. Circles are continuous action spaces, triangles are discrete
- ones, and filled markers carry a shield. The lower right of panel (a) is the ideal region.
- The error bars are wide because several configurations include a nonconverged run.}}
- \label{fig:tradeoff}
-\end{figure}
-
 \subsection{Ablation Study}
 \label{sec:res-ablation}
 
@@ -1205,13 +1190,17 @@ unchanged.
 
 \begin{figure}[htbp]
  \centering
+ \includegraphics[width=\linewidth]{figs/fig2_tradeoff.pdf}\\[3pt]
  \includegraphics[width=\linewidth]{figs/fig3_ablation.pdf}
- \caption{The $2\times2$ ablation. \capnote{Paired by seed. Bars are medians across seeds,
- error bars are bootstrap $95\%$ intervals, and open points are single seeds. The label above
- each bar is the change relative to the leftmost bar. The paired tests are reported in the
- text. The arrival rate is bimodal, so it is drawn as a box plot and the number of diverged
- seeds is printed below each box.}}
- \label{fig:ablation}
+ \caption{Test-set comparison and ablation. \capnote{Official test set, the same source as
+ Table~\ref{tab:main}. Points and bars are medians across seeds, error bars are bootstrap
+ $95\%$ intervals resampled over seeds, and open points are single seeds. In (a), circles are
+ continuous action spaces, triangles are discrete ones, filled markers carry a shield, and the
+ lower right is the ideal region. Panels (c) to (e) are the $2\times2$ ablation, paired by
+ seed, with the change relative to the leftmost bar printed above each bar; the paired tests
+ are in the text. The arrival rate is bimodal, so (e) is a box plot with the number of
+ nonconverged runs printed below.}}
+ \label{fig:tradeoff}
 \end{figure}
 
 \subsection{Training Reliability and Sample Efficiency}
@@ -1286,7 +1275,7 @@ emergency share of $7.00\%$ is therefore a training-wide average, not the $6.2\%
 measured at the end of training. Among the four shielded continuous configurations the correction
 is largest for the symmetric-only configuration, at $0.093$, and smallest for the
 bounded-only configuration, at $0.066$. That ordering matches the turn increments in
-Figure~\ref{fig:ablation}.
+Figure~\ref{fig:tradeoff}.
 
 \noindent\textbf{Online cost.}\ The projection is one quadratic program with two variables and at most six constraints.
 The timings below come from one thread of an AMD EPYC 9654 processor, on the Linux
@@ -1311,7 +1300,7 @@ than at evaluation.}}
  \label{fig:shield}
 \end{figure}
 
-\subsection{Comparison with External Baselines}
+\subsection{Comparison with Geometric Baselines}
 \label{sec:res-ext}
 
 Three geometric collision-avoidance controllers that need no training are run through the
@@ -1320,28 +1309,26 @@ same evaluation pipeline, on the same test set, at the same sample size
 controllers evaluated here already cover.
 
 The comparison narrows the defensible claim to one dimension. The collision rate does
-not separate the two families, since the barrier function shield also reaches $0.00\%$
-here. The arrival rate and the smoothness columns are governed by the terminal
+not separate the two families: the barrier function baseline also reaches $0.00\%$ here. The arrival rate and the smoothness columns are governed by the terminal
 constraint and by the control range, and neither supports a reading in favor of Ours.
 The largest observed difference is in COLREGs violations, and almost all of it comes
-from stand-on violations. These three controllers impose collision-avoidance constraints
-but no explicit course-and-speed constraint, so they keep maneuvering while the rules
-require course and speed to be held.
+from stand-on violations. These three controllers impose collision-avoidance constraints but no course-and-speed
+constraint, so they keep maneuvering while the rules require course and speed to be
+held.
 The claim against the three geometric baselines evaluated here rests on this dimension
-alone. Ours records $0.53$ violations per episode against $4.95$
-for the control barrier function filter at its best setting, which is a factor of $9.3$.
-Almost all of that gap is in stand-on violations, at $0.36$ against $4.48$.
+alone. Ours records $0.53$ violations per episode against $4.49$ for the control barrier
+function at its lowest-violation setting, which is a factor of $8.5$. Almost all of that
+gap is in stand-on violations, at $0.36$ against $4.04$.
 Figure~\ref{fig:traj} shows tracks from two encounters of the test set, one head-on and
 one crossing. Three seeds were declared in advance for trajectory recording, and $s_0$ is the first of
-them. Both scenarios are the tightest constant-velocity approaches of their type, so an
-avoiding action matters most there. The three configurations differ mainly in how much
-course they give up to keep clear. The unshielded discrete baseline stays within $21$
+them. Both are the tightest constant-velocity approaches of their type. The three
+configurations differ mainly in how much course they give up to keep clear. The unshielded discrete baseline stays within $21$
 and $28$ degrees of its initial heading and passes at $613$ and $718$~m. Ours turns by
 up to $53$ and $64$ degrees and passes at $1{,}150$ and $889$~m.
 
 %------------------------------------------------------------------------------
 \begin{table}[htbp]
- \caption{External geometric baselines. \capnote{Official test set, $N=600$.}}
+ \caption{Geometric baselines. \capnote{Official test set, $N=600$.}}
  \label{tab:ext}
  \centering\small
  % 表体由 9 pt 提到 10 pt（TRB 硬要求 ≥10 pt）之后这张 9 列表会超宽 6.6 pt ⟹ 列间距收到 2 pt
@@ -1353,18 +1340,9 @@ up to $53$ and $64$ degrees and passes at $1{,}150$ and $889$~m.
   \cmidrule(lr){5-7}
    & & & & Total & Give-way & Stand-on & & \\
   \midrule
-  \multirow{3}{*}{Control barrier function}
-   & Policy range        & 70.17 & 0.00 & 4.95 & 0.47 & 4.48 & 0.00242 & 0.171 \\
-   & Policy range, margin& 69.83 & 0.00 & 4.49 & 0.45 & 4.04 & 0.00235 & 0.167 \\
-   & Actuator limits     & 69.33 & 0.00 & 6.48 & 0.52 & 5.97 & 0.00058 & 0.050 \\
-  \addlinespace
-  \multirow{2}{*}{PD controller}
-   & Policy range    & 58.83 & 18.00 & 9.79 & 0.44 & 9.35 & 0.00492 & 0.310 \\
-   & Actuator limits & 57.67 & 16.67 & 8.10 & 0.63 & 7.47 & 0.00032 & 0.040 \\
-  \addlinespace
-  \multirow{2}{*}{Velocity obstacle}
-   & Policy range, margin & 57.00 & 0.00 & 8.20 & 0.50 & 7.70 & 0.00425 & 0.279 \\
-   & Actuator limits      & 42.67 & 0.00 & 8.06 & 0.68 & 7.38 & 0.00128 & 0.071 \\
+    Control barrier function & Policy range, margin & 69.83 & 0.00 & 4.49 & 0.45 & 4.04 & 0.00235 & 0.167 \\
+  PD controller            & Actuator limits      & 57.67 & 16.67 & 8.10 & 0.63 & 7.47 & 0.00032 & 0.040 \\
+  Velocity obstacle        & Actuator limits      & 42.67 & 0.00 & 8.06 & 0.68 & 7.38 & 0.00128 & 0.071 \\
   \addlinespace
   Ours                     & Policy range & \multicolumn{7}{c}{(see Table~\ref{tab:main})} \\
   \bottomrule
@@ -1372,8 +1350,10 @@ up to $53$ and $64$ degrees and passes at $1{,}150$ and $889$~m.
 
  \vspace{4pt}
  \begin{minipage}{\linewidth}\small
- \textbf{Notes.} These controllers need no training and have no seed. Each is reported at its
- own best setting, tuned on a set that is disjoint from the one used here. The policy range is $\pm0.048~\mathrm{m/s^2}$ and $\pm0.018$~rad/s, which matches the
+ \textbf{Notes.} These controllers need no training and have no seed. Each is reported at
+the setting with the fewest violations per episode, tuned on a set disjoint from the one
+used here. Each was also run at the other control range, which leaves the ordering of
+the three methods unchanged. The policy range is $\pm0.048~\mathrm{m/s^2}$ and $\pm0.018$~rad/s, which matches the
 output range of the trained policies, and the actuator limits are
 $\pm0.24~\mathrm{m/s^2}$ and $\pm0.03$~rad/s. For Ours the shield and the emergency
 controller may use the actuator limits, so the executed range is not identical. Both are reported so that a difference in
@@ -1398,11 +1378,9 @@ T-$1848$ and $2$~m for T-$76$. The seed is $s_0$ and the checkpoint is the last 
 the run rather than the one selected on the validation set. The open circle and the
 square mark the start of the own vessel and of the target vessel, and the dashed line is
 the recorded track of the target vessel. In (c) the dot marks the closest approach reached by each configuration and the dashed
-line is the closest approach under constant velocity. Panels (d) and (e) give the turn
-rate and the speed of the own vessel over the same encounter, recovered from the
-recorded states. The shaded band in (d) is the stand-on tolerance used by the shield;
-the offline scorer counts a violation from the heading change accumulated over an
-obligation period, which is a different test (Section~\ref{sec:metrics}).}}
+line is the closest approach under constant velocity. Panels (d) and (e) give the turn rate and the speed over the same encounter, recovered
+from the recorded states. The shaded band in (d) is the stand-on tolerance used by the
+shield; the offline scorer applies a different test (Section~\ref{sec:metrics}).}}
  \label{fig:traj}
 \end{figure}
 %------------------------------------------------------------------------------
@@ -1460,42 +1438,38 @@ holds only among configurations that run the same penalty.
 \label{sec:conclusions}
 
 The give-way clauses of COLREGs require a vessel to turn to a stated side, so compliance
-cannot be verified from whether contact occurred. Discrete masking and continuous reward-based formulations emphasize different
-combinations of command-level enforcement and control resolution. Under the action-space
-formulation adopted here, the implemented directional give-way requirement is a
-half-plane constraint on the control command. The premise that the safe control set must be enumerated can therefore be replaced by
+cannot be verified from whether contact occurred. Under the action-space formulation
+adopted here, the implemented directional give-way requirement is a half-plane
+constraint on the control command. The premise that the safe control set must be enumerated can therefore be replaced by
 the premise that it is convex. That step applies a projection-based safety shield to
-maritime COLREGs under continuous control.
-Directional compliance on every give-way step where the projection is feasible holds by
-construction, independently of the training outcome and of the seed. The same projection
-structure may apply to other rules that admit a convex representation in the action
-space, subject to correct classification and feasibility.
+maritime COLREGs under continuous control. Directional
+compliance on every give-way step where the projection is feasible holds by
+construction, independently of the training outcome and of the seed. The same structure
+may apply to other rules that admit a convex representation in the action space, subject
+to correct classification and feasibility.
 
 On the official test set of $600$ scenarios the median violation count of Ours is $0.53$
-per episode. The discrete shielded baseline records $1.16$ and the geometric baseline with the fewest
-violations per episode records $4.95$. It is the only shielded configuration that meets the
+per episode. The discrete shielded baseline records $1.16$ and the geometric baseline with the fewest violations per episode records $4.49$. It is the only shielded configuration that meets the
 convergence criterion on all eight seeds.
 
-The boundaries of these conclusions are as follows. The shield does not guarantee freedom
-from collision. Directional compliance holds on \textbf{every give-way step where the projection is
-feasible}, not on every step. An emergency situation bypasses the constraint by design,
-so the measured violation count is not zero. Propositions \ref{prop:farfield} and \ref{prop:imminent} both assume that the target
-vessel holds its velocity, and they do not apply when the target vessel maneuvers. Neither the arrival rate nor smoothness
-is claimed as a benefit, and smoothness cannot be attributed across action spaces because the
-action-increment penalty is active only in the continuous configurations. Two biases in the reported numbers are known, namely checkpoint selection and
-machine-to-machine variation. Both are quantified in Section~\ref{sec:metrics}, and
-every configuration in one table is evaluated on one machine in one pass. On rule coverage, the directional requirements of Rules 13 to 17 and the stand-on
-obligation to hold course and speed are implemented. The stand-on duty to act alone is
-not. The overtaking branch is implemented but the scenario library contains no overtaking
-case, so it is untested. Five further boundaries follow from the formulation. Proposition~\ref{prop:comply}
-assumes a correct decision by the state machine, and the collision-possibility predicate
-can miss a trailing encounter in which the two speeds are close. The counting windows of
-the offline scorer and of the shield differ, and the frequency of that mismatch was not
-measured. The state of the target vessel is assumed to be free of measurement error, and
-wind, current, and waves are not modeled. Equation~\eqref{eq:ucf} has no formal
-conservatism proof and relies on the safety margin. The reported runtime comes from one
-server processor and has not been checked on shipboard hardware. The discrete baseline is a reimplementation, and the cause of its observed seed
-variability is not established here.
+The boundaries are as follows. The shield does not guarantee freedom from collision, and
+directional compliance holds on \textbf{every give-way step where the projection is
+feasible}, not on every step. Emergency and fallback steps bypass the constraint by
+design, so the measured violation count is not zero. Propositions~\ref{prop:farfield} and~\ref{prop:imminent} assume a target vessel at
+constant velocity. Proposition~\ref{prop:comply} assumes a correct decision by the state
+machine, and the collision-possibility predicate can miss a trailing encounter in which
+the two speeds are close. Equation~\eqref{eq:ucf} has no formal conservatism proof and relies on the
+safety margin. Neither the arrival rate nor smoothness is claimed as a benefit, and
+smoothness cannot be compared across action spaces. The counting windows of the offline
+scorer and of the shield differ, and the frequency of that mismatch was not measured.
+Checkpoint selection and machine-to-machine variation are the two known biases, both
+quantified in Section~\ref{sec:metrics}. On rule coverage, Rules 13 to 17 and the stand-on obligation to hold course and speed
+are implemented. The stand-on duty to act alone is not. The overtaking branch is
+untested because the library holds no overtaking case. The state of the target vessel is assumed free of measurement error,
+and wind, current, and waves are not modeled. The reported runtime comes from one server
+processor and has not been checked on shipboard hardware. The discrete baseline is a
+reimplementation, and the cause of its observed seed variability is not established
+here.
 
 Three directions follow. The terminal constraint of the fallback maneuver should be
 wired into the deployed shield and verified in closed loop. Directional compliance
@@ -1531,7 +1505,7 @@ that could have appeared to influence the work reported in this paper.
 
 \section*{Funding}
 
-The authors received no specific funding for this work.
+This work was supported by the National Natural Science Foundation of China (Grant No. 52201413), the Natural Science Foundation of Science and Technology Commission of Shanghai Municipality (Grant No. 23ZR1434400), the Opening Foundation of the Key Laboratory of Safety and Risk Management on Transport Infrastructures for the Ministry of Transport (Grant No. 2023KFKT015), the Oceanic Interdisciplinary Program of Shanghai Jiao Tong University (Grant No. SL2022PT107), and the Startup Fund for Young Faculty at Shanghai Jiao Tong University (Grant No. 22X010503469).
 
 %==============================================================================
 \FloatBarrier   % 🔴 参考文献之前把所有待排浮动体清空，否则图表会插进文献表中间

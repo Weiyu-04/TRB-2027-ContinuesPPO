@@ -134,13 +134,16 @@ def main():
     #  所以转艏率与航速的时间曲线，直接把「Ours 稳住、两条离散臂来回摆」画出来，
     #  正是直航违规计数在数的那件事（本文违规量的大头）。
     #  版面：上排三格（轨迹×2 + 距离），下排两格拉通（转艏率、航速）。
-    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.56))
-    gs = fig.add_gridspec(2, 6, height_ratios=[1.0, 0.82])
-    a = fig.add_subplot(gs[0, 0:2])
-    b = fig.add_subplot(gs[0, 2:4])
-    c = fig.add_subplot(gs[0, 4:6])
-    dax = fig.add_subplot(gs[1, 0:3])
-    eax = fig.add_subplot(gs[1, 3:6])
+    #: 🔴 2026-08-01 later-11（user）：时间序列改成**三条通栏长带**，每条只放一个量，
+    #  这样每条折线的起伏都读得出来（挤在半宽格里看不清）。
+    #  上排只放两张轨迹图（比原来三张时更大）；下面三条依次是与他船的距离、转艏率、航速。
+    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.74))
+    gs = fig.add_gridspec(4, 2, height_ratios=[1.55, 0.52, 0.52, 0.52], hspace=0.62)
+    a = fig.add_subplot(gs[0, 0])
+    b = fig.add_subplot(gs[0, 1])
+    c = fig.add_subplot(gs[1, :])
+    dax = fig.add_subplot(gs[2, :], sharex=c)
+    eax = fig.add_subplot(gs[3, :], sharex=c)
 
     for ax, ty in ((a, "head-on"), (b, "crossing")):
         tid = pick[ty]
@@ -182,7 +185,7 @@ def main():
     c.axhline(cv_cpa(T[SHOW[0]][tid]) / 1000.0, color=PS.PALETTE["neutral_mid"],
               linewidth=0.8, linestyle=(0, (3, 2)), zorder=1)
     c.set_title(f"(c) Range to target vessel, T-{tid}")
-    c.set_xlabel("Time (min)")
+    c.tick_params(labelbottom=False)
     c.set_ylabel("Range (km)")
     c.set_ylim(bottom=0)
 
@@ -202,18 +205,19 @@ def main():
         v = np.array([q["ego_v"] for q in st])
         eax.plot(np.arange(len(v)) * DT / 60.0, v, color=R.ARMS[tag][1], linewidth=1.0,
                  zorder=3)
-    dax.set_title(f"(d) Turn rate, T-{tid}")
-    dax.set_xlabel("Time (min)"); dax.set_ylabel(r"$\omega$ (rad/s)")
+    dax.set_title("(d) Turn rate")
+    dax.tick_params(labelbottom=False)
+    dax.set_ylabel(r"$\omega$ (rad/s)")
     dax.annotate(r"$|\omega|\leq\varepsilon_\omega$ (shield, stand-on)", (0.985, EPS_W),
                  xycoords=("axes fraction", "data"), xytext=(0, 3),
                  textcoords="offset points", fontsize=5.0, ha="right", va="bottom",
                  color=PS.PALETTE["neutral_black"])
-    eax.set_title(f"(e) Speed, T-{tid}")
+    eax.set_title("(e) Speed")
     eax.set_xlabel("Time (min)"); eax.set_ylabel("Speed (m/s)")
     #: 图例整图只留一份（在 (c) 里），(a)(b)(d)(e) 共用同一套配色
     c.legend(loc="best", fontsize=5.6, borderpad=0.3)
 
-    fig.tight_layout(w_pad=1.6)
+    fig.tight_layout(w_pad=1.6, h_pad=0.6)
     PS.save(fig, "Fig6_trajectories", R.OUT_DIRS)
     plt.close(fig)
     print("\n🔴 图注必须写明：场景号 T-%d / T-%d · 种子 s%d · **末段存档**（轨迹专趟不读最佳存档清单）。"

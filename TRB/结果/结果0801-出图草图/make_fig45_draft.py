@@ -278,7 +278,10 @@ def fig4(D):
     #: 🔴 高宽比 0.52→0.45（2026-08-01 later-3）：论文里按 `width=\linewidth` 收，
     #  高度 = 165 mm × 高宽比 ⟹ 0.52 时 86 mm，比图 2（66）图 3（56）高出一截。
     #  格子仍是 2×3，内容一格没减，只把每格压扁一点。
-    fig, AX = plt.subplots(2, 3, figsize=(PS.COL2, PS.COL2 * 0.36))
+    #: 🔴 2026-08-01 later-11（user：「每幅子图都被拉成很长的矩形，看图不方便」）：
+    #  2×3 布局下每格宽 61 mm 高只有 30 mm，高宽比 0.49 —— 折线挤在扁条里看不出变化。
+    #  加高到 0.46 ⟹ 每格 61×38 mm，接近 0.62，折线的起伏才读得出来。
+    fig, AX = plt.subplots(2, 3, figsize=(PS.COL2, PS.COL2 * 0.46))
     (a, b, c), (d, e, f) = AX
 
     def dense_panel(ax, get, title, ylab, ylim=None, inset=None):
@@ -388,7 +391,8 @@ def fig5(D):
     #  ② ρ5 紧急不属于任何方位扇区，只能画成一整圈虚线环——形式与数据对不上；
     #  ③ 一整格版面只传达 5 个数。换条形后信息密度高得多，且极坐标那个正方形footprint
     #  不再逼着整图用 0.42 的高宽比 ⟹ 压到 0.34（论文里 165×56 mm）。
-    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.34))
+    #: 🔴 later-11（user：「也被压扁了」）：2×2 下每格 82×28 mm 太扁，加高到 0.44 ⟹ 82×36 mm。
+    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.44))
     gs = fig.add_gridspec(2, 2)
     a = fig.add_subplot(gs[0, 0]); b = fig.add_subplot(gs[0, 1])
     c = fig.add_subplot(gs[1, 0]); d = fig.add_subplot(gs[1, 1])
