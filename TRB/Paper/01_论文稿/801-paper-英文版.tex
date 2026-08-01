@@ -606,7 +606,8 @@ inside the training loop. The two bypasses are exclusive. MLP denotes a multilay
 \subsection{COLREGs Obligations as Half-Plane Constraints}
 \label{sec:rulesets}
 
-The rule state machine sorts the encounter into six situations,
+The rule state machine implements Rules 13 to 17 and the stand-on obligation to hold
+course and speed, and sorts the encounter into six situations,
 \begin{equation*}
 \rho\in\{\rho_0\ \text{conflict-free},\ \rho_1\ \text{stand-on},\ \rho_2\ \text{head-on},\
 \rho_3\ \text{crossing},\ \rho_4\ \text{overtaking},\ \rho_5\ \text{emergency}\},
@@ -997,7 +998,7 @@ of relative bearings, crossing angles, and closing speeds. Target vessels are $2
 $300$~m long, and an episode lasts at most $170$ decision steps, which is $1{,}700$~s.
 
 Classifying the library by the geometric predicates returns crossing and head-on only.
-\textbf{The library contains no overtaking scenario}, and the official test set holds $395$
+The library contains no overtaking scenario, and the official test set holds $395$
 crossing and $205$ head-on cases. The overtaking branch of Equation~\eqref{eq:ucolregs}
 therefore cannot be tested empirically here.
 
@@ -1044,8 +1045,8 @@ effects of those three steps can only be read jointly with their companion varia
 \end{table}
 %------------------------------------------------------------------------------
 
- Without a shield this
-configuration can only take the plainest form: an unbounded Gaussian, an asymmetric
+ The discrete configurations are reimplemented here from the published description.
+Without a shield the continuous configuration can only take the plainest form: an unbounded Gaussian, an asymmetric
 give-way entry, and no shaping. Giving it the continuous-only shaping would break the
 symmetry with the discrete baseline. The measured difference between the discrete baseline and this configuration can
 therefore be negative. The comparison is specific to this baseline rather than a general
@@ -1086,8 +1087,7 @@ one run per seed, and the $72$ runs together cover about $730$ million environme
 steps. A separate seed fixes the scenario split, so every run sees the same scenarios,
 and every configuration inside one table is evaluated on one machine in one pass.
 Training was spread over several machines running the same software image and code.
-\textbf{No bit-level cross-machine check was run, so machine differences are not
-excluded.}
+No bit-level cross-machine check was run, so machine differences are not excluded.
 
 \noindent\textbf{Checkpoint selection.}\ Twenty checkpoints are saved per run at even
 intervals and each is evaluated once on the validation set. The rule was fixed in advance and has no tunable part. The criterion is the highest
@@ -1148,9 +1148,7 @@ baseline and $4.44$ for the unshielded continuous configuration. A per-seed pair
 gives $8$ wins out of $8$ against every other configuration except the two shielded
 ablations, at $p=0.0078$. Ours is also the only shielded configuration that reaches the convergence
 criterion on all $8$ seeds. Its arrival rate is $88.2\%$, which is below the three
-unshielded configurations and below the discrete shielded baseline. The lower arrival
-rate is an observed cost of the full shielded configuration, and it is not claimed as a
-benefit anywhere in this paper. The isolated shield comparison is the Continuous, no
+unshielded configurations and below the discrete shielded baseline. The arrival rate is reported as measured and is not part of the claim. The isolated shield comparison is the Continuous, no
 shield versus Continuous, shield pair.
 
 \subsection{Ablation Study}
@@ -1268,8 +1266,8 @@ decision steps of the trained policy. The median solve
 time is $4.11$~ms and the $99$th percentile is $8.85$~ms. The forward pass of the policy
 adds a median of $0.44$~ms. A whole decision step, including the environment, has a
 median of $5.30$~ms and a $99$th percentile of $10.14$~ms. The decision period is
-$10$~s, so the $99$th percentile of a step is about one thousandth of the period. \textbf{These are wall-clock times on one machine and indicate an order of magnitude
-only. They are not a comparison against another method.}
+$10$~s, so the $99$th percentile of a step is about one thousandth of the period. These wall-clock times come from one machine and indicate an order of magnitude rather
+than a comparison against another method.
 
 \begin{figure}[htbp]
  \centering
@@ -1292,8 +1290,8 @@ same evaluation pipeline, on the same test set, at the same sample size
 (Table~\ref{tab:ext}).
 
 The comparison narrows the defensible claim to one dimension. The collision rate does
-not separate the two families: the barrier function baseline also reaches $0.00\%$ here. The arrival rate and the smoothness columns are governed by the terminal
-constraint and by the control range, and neither supports a reading in favor of Ours.
+not separate the two families: the barrier function baseline also reaches $0.00\%$ here. The arrival rate and the smoothness columns are governed by the terminal constraint and
+by the control range, so neither is attributable to the shield.
 The largest observed difference is in COLREGs violations, and almost all of it comes
 from stand-on violations. These three controllers impose collision-avoidance constraints but no course-and-speed
 constraint, so they keep maneuvering while the rules require course and speed to be
@@ -1403,10 +1401,10 @@ command with projection reaches the smallest admissible turn rate for any thresh
 
 The cost is in computation. Enumerating and masking $K\times K$ commands scales with
 $K^2$, whereas the projection solves a fixed two-variable quadratic program.
-\textbf{Projection is not the cheaper option at the grid sizes used here}
-(Figure~\ref{fig:grid}b). Its
-justification is capability rather than speed, since enumeration does not apply to a
-continuous set while the projection lands exactly on the boundary of the constraint. 
+At the grid sizes used here enumeration is the faster of the two
+(Figure~\ref{fig:grid}b). The case for projection is capability rather than speed:
+enumeration does not apply to a continuous set, while the projection lands exactly on
+the boundary of the constraint. 
 
 The difference in throttle resolution, where the discrete configurations have only seven
 levels, is structural in the same way. It cannot be read directly from the throttle
@@ -1442,22 +1440,14 @@ On the official test set of $600$ scenarios the median violation count of Ours i
 per episode. The discrete shielded baseline records $1.16$ and the geometric baseline with the fewest violations per episode records $4.49$. It is the only shielded configuration that meets the
 convergence criterion on all eight seeds.
 
-The boundaries are as follows. The shield does not guarantee freedom from collision, and
-directional compliance holds on \textbf{every give-way step where the projection is
-feasible}, not on every step. Emergency and fallback steps bypass the constraint by
-design, so the measured violation count is not zero. Propositions~\ref{prop:farfield} and~\ref{prop:imminent} assume a target vessel at
-constant velocity. Proposition~\ref{prop:comply} assumes a correct decision by the state
-machine, and the collision-possibility predicate can miss a trailing encounter in which
-the two speeds are close. Equation~\eqref{eq:ucf} has no formal conservatism proof and relies on the
-safety margin. Neither the arrival rate nor smoothness is claimed as a benefit. The counting windows of the offline
-scorer and of the shield differ, and the frequency of that mismatch was not measured.
-Checkpoint selection and machine-to-machine variation are the two known biases, both
-quantified in Section~\ref{sec:metrics}. On rule coverage, Rules 13 to 17 and the stand-on obligation to hold course and speed
-are implemented. The stand-on duty to act alone is not. The overtaking branch is
-untested because the library holds no overtaking case. Measurement error, wind, current, and waves are not modeled. The reported runtime comes from one server
-processor and has not been checked on shipboard hardware. The discrete baseline is a
-reimplementation, and the cause of its observed seed variability is not established
-here.
+The guarantees are scoped, and Sections~\ref{sec:method} and~\ref{sec:exp} state
+each scope where it arises. The emergency and fallback branches bypass the constraint by
+design, so the measured violation count is not zero, and freedom from collision is not
+guaranteed. Propositions~\ref{prop:farfield} and~\ref{prop:imminent}
+assume a single target vessel at constant velocity, and Proposition~\ref{prop:comply}
+assumes a correct decision by the state machine. The overtaking branch remains untested
+because the scenario library holds no overtaking case, and wind, current, and waves are
+outside the vessel model.
 
 Three directions follow. The terminal constraint of the fallback maneuver should be
 wired into the deployed shield and verified in closed loop. Directional compliance
