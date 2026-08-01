@@ -5,8 +5,8 @@ user 2026-08-01：「为什么没有类似 Fig2_ablation 的图呢？我感觉�
 ——正是因为这两格一直是占位框。它们原本排队等重评，但**训练期 `trend` 里已经有
 到达率 / 碰撞率 / 违规次数每局**，所以现在就能画，等重评出来再换官方口径的数。
 
-🔴 口径（图注必须写）：验证集 100 场景，**不是**主表的官方测试集 600；
-   违规为**合计**（直航 + 让路），训练期不回传拆分值。
+🔴 口径（图注必须写）：**官方测试集 600**、验证集挑出的最佳存档 —— 与主表逐字同源。
+   （2026-08-01 later-5 之前画的是验证集 100，主表换官方数之后必须一起换，否则图文对不上。）
 
 🔴 外部几何基线（表 6 那三条）不在本图里：它们不训练、没有训练期产物，
    必须等重评。图注按“待补”处理，不能拿别的数顶上。
@@ -37,8 +37,8 @@ def fig2(D):
 
     # ── (a) 到达率 × 每局违规 ──────────────────────────────────────────────
     for tag, (lab, col, space, shield) in R.ARMS.items():
-        xs = list(R.final(D, tag, "到达率%").values())
-        ys = list(R.final(D, tag, "违规次数/局").values())
+        xs = list(R.final_re(D, tag, "到达率%").values())
+        ys = list(R.final_re(D, tag, "违规次数/局").values())
         if not xs:
             continue
         mx, my = np.median(xs), np.median(ys)
@@ -51,16 +51,19 @@ def fig2(D):
                   facecolor=(col if shield else "white"), edgecolor=col,
                   linewidths=1.0, zorder=3)
     #: 标签相对点的偏移（点数）与对齐 —— 9 个点手工排一次，比自动避让稳
-    LAB = {"ours": ("Ours", 8, -8, "left"), "disc": ("Discrete-safe", 8, 1, "left"),
-           "base": ("Base", 0, 9, "center"), "rr": ("Rule-reward", -8, -7, "right"),
-           "uns": ("Cont., no shield", 0, 10, "center"),
-           "ush": ("Cont. + shield", 0, 15, "center"),
-           "ab0": ("abl. neither", 0, 9, "center"),
-           "abB": ("abl. bounded only", -6, -10, "right"),
-           "abG": ("abl. sym. entry only", 0, -11, "center")}
+    #: 🔴 标签文字**必须与表 1/表 2 的行名逐字相同**（`03` L243-续51）。只留偏移量与对齐方式。
+    LAB = {"ours": (R.ARMS["ours"][0], 8, -8, "left"),
+           "disc": (R.ARMS["disc"][0], 8, 1, "left"),
+           "base": (R.ARMS["base"][0], 0, 9, "center"),
+           "rr":   (R.ARMS["rr"][0], -8, -7, "right"),
+           "uns":  (R.ARMS["uns"][0], 0, 10, "center"),
+           "ush":  (R.ARMS["ush"][0], 0, 15, "center"),
+           "ab0":  (R.ARMS["ab0"][0], 0, 9, "center"),
+           "abB":  (R.ARMS["abB"][0], -6, -10, "right"),
+           "abG":  (R.ARMS["abG"][0], 0, -11, "center")}
     for tag, (txt, dx, dy, ha) in LAB.items():
-        xs = list(R.final(D, tag, "到达率%").values())
-        ys = list(R.final(D, tag, "违规次数/局").values())
+        xs = list(R.final_re(D, tag, "到达率%").values())
+        ys = list(R.final_re(D, tag, "违规次数/局").values())
         if xs:
             a.annotate(txt, (np.median(xs), np.median(ys)), xytext=(dx, dy),
                        textcoords="offset points", fontsize=6.3,
@@ -81,14 +84,14 @@ def fig2(D):
     for i, tag in enumerate(tags):
         lab, col, space, shield = R.ARMS[tag]
         y = len(tags) - 1 - i
-        v = list(R.final(D, tag, "碰撞率%").values())
+        v = list(R.final_re(D, tag, "碰撞率%").values())
         if not v:
             continue
         b.scatter(v, y + rng.uniform(-0.16, 0.16, len(v)), s=13, color=col,
                   linewidths=0, alpha=0.8, zorder=3)
         b.plot([np.median(v)] * 2, [y - 0.30, y + 0.30], color=col, linewidth=1.6, zorder=4)
     b.set_yticks(range(len(tags)))
-    b.set_yticklabels([R.ARMS[t][0].replace("Ablation: ", "abl. ").split(" (")[0]
+    b.set_yticklabels([R.ARMS[t][0]
                        for t in tags][::-1], fontsize=6.6)
     b.set_ylim(-0.7, len(tags) - 0.3)
     b.set_xlim(-0.35, 6.6)
@@ -114,7 +117,8 @@ def fig3(D):
           检验结果放正文里说，图上不挂星号。
     """
     ORDER = ["ab0", "abB", "abG", "ours"]
-    XTICK = ["neither", "bounded\nonly", "sym. entry\nonly", "both\n(ours)"]
+    #: 🔴 与表 1 / 表 2 的行名逐字相同，只在逗号处换行（`03` L243-续51）
+    XTICK = [R.ARMS[t][0].replace(", ", ",\n") for t in ORDER]
 
     fig, AX = plt.subplots(1, 3, figsize=(PS.COL2, PS.COL2 * 0.34))
     rng = np.random.default_rng(3)
@@ -123,7 +127,7 @@ def fig3(D):
               ("到达率%", "(c) Arrival rate", "Arrival rate (%)", "box")]
 
     for ax, (key, title, ylab, kind) in zip(AX, PANELS):
-        vals = [(R.yaw_incr(D, t) if key == "yaw" else R.final(D, t, key)) for t in ORDER]
+        vals = [R.final_re(D, t, key) for t in ORDER]
         seeds = sorted(set.intersection(*[set(v) for v in vals]))
         cols = [R.ARMS[t][1] for t in ORDER]
         series = [[v[sd] for sd in seeds] for v in vals]
@@ -180,12 +184,15 @@ def fig3(D):
 
 def main():
     PS.apply()
-    D = R.load()
-    R.survey(D)
+    #: 🔴 2026-08-01 later-5：改画**官方测试集 600**（与主表、§5.3–§5.7 同口径）。
+    #   此前画验证集 100，主表换成官方数之后就会「图与分析对不上」。
+    D = R.load_reeval("正式-最佳")
+    print("载入重评产物：%d 条臂 · 各 %s 颗种子"
+          % (len(D), sorted({len(v) for v in D.values()})))
     fig2(D)
     fig3(D)
-    print("\n⚠️ 口径提醒：本两图取自**验证集 100 场景**，非主表的官方测试集 600；"
-          "违规为合计值（直航+让路），拆分须等重评。外部几何基线未入图（无训练期产物）。")
+    print("\n⚠️ 口径提醒：本两图取自**官方测试集 600**（验证集挑出的最佳存档），与主表同源；"
+          "违规为合计值（直航 + 让路）。外部几何基线未入图（不训练、无种子）。")
 
 
 if __name__ == "__main__":

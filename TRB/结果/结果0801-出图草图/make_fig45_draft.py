@@ -158,7 +158,7 @@ def _bin_q(xs, ys, nbin):
     return (np.array(bx), np.array(lo), np.array(md), np.array(hi))
 
 
-def dense_band(ax, runs, get, color, nbin=80, lw=1.2):
+def dense_band(ax, runs, get, color, nbin=310, lw=0.9):
     """🔴 **每次 rollout 一个点**的密集曲线（每条 run 620 个点），中位线 + 四分位带。
 
     user 2026-08-01 later-4：「现在的线段看起来比较有清晰的棱角，如果是比较密集的步下
@@ -243,7 +243,7 @@ def rho_share(runs, k, nbin=40):
 
 
 def short(tag):
-    return R.ARMS[tag][0].replace("Ablation: ", "abl. ").split(" (")[0]
+    return R.ARMS[tag][0]   # 🔴 与表 1/表 2 的行名逐字相同，别在这里另起缩写
 
 
 def xaxis(ax):
@@ -271,7 +271,7 @@ def fig4(D):
     MAIN = ("base", "rr", "disc", "ours")
     #: 🔴 带子只统计**收敛种子**（末段到达率 ≥ 判据），发散种子会把四分位带拉到 0，
     #   那是「训练不稳」这件事，该由 (d) 格去讲，不该糊在每一条曲线上。
-    #   收敛数直接写进图例（如 Discrete-safe 6/8），一眼可查，不额外堆文字。
+    #   收敛数直接写进图例（如 Discrete, masking 6/8），一眼可查，不额外堆文字。
     #   这是论文统计一节**事先声明**的第二种报数口径，不是事后挑数据。
     OK = {t: [sd for sd, r in D[t].items()
               if r["trend"] and r["trend"][-1]["到达率%"] >= R.CRASH_ARR] for t in MAIN}
@@ -281,8 +281,13 @@ def fig4(D):
     fig, AX = plt.subplots(2, 3, figsize=(PS.COL2, PS.COL2 * 0.45))
     (a, b, c), (d, e, f) = AX
 
-    def dense_panel(ax, get, title, ylab, ylim=None):
-        """密集格：每次 rollout 一个点（620 点/run × 8 种子），80 箱中位 + 四分位带。"""
+    def dense_panel(ax, get, title, ylab, ylim=None, inset=None):
+        """密集格：每次 rollout 一个点（620 点/run × 8 种子），310 箱中位 + 四分位带。
+
+        `inset` = (左, 下, 宽, 高, x 上限, y 下限, y 上限)：在本格**空白处**放一个局部放大图。
+        放大的都是**横轴最左端那一段**——主图横轴跨 10M 步，最有信息量的爬升/瞬变全挤在
+        最左边一小条里，放大它才有意义（user 2026-08-01 later-5）。
+        """
         for tag in MAIN:
             runs = [D[tag][sd] for sd in OK[tag]]
             if runs:
@@ -291,12 +296,31 @@ def fig4(D):
         if ylim:
             ax.set_ylim(*ylim)
         ax.set_xlim(0, XMAX); ax.set_ylabel(ylab); xaxis(ax)
+        if inset:
+            L, B_, W, H, xhi, ylo, yhi = inset
+            ins = ax.inset_axes([L, B_, W, H])
+            for tag in MAIN:
+                runs = [D[tag][sd] for sd in OK[tag]]
+                if runs:
+                    dense_band(ins, runs, get, R.ARMS[tag][1], nbin=120, lw=0.8)
+            ins.set_xlim(0, xhi); ins.set_ylim(ylo, yhi)
+            ins.tick_params(labelsize=5.6, length=1.6, pad=1.0)
+            ins.set_xticks([0, xhi / 2, xhi])
+            for sp in ins.spines.values():
+                sp.set_linewidth(0.6)
+            ins.grid(color="#E8E8E8", linewidth=0.4)
+            #: 主图上用一个细框标出被放大的区间，并连到插图（matplotlib 自带，不是我画的说明线）
+            ax.indicate_inset_zoom(ins, edgecolor="#888888", linewidth=0.6, alpha=0.9)
 
     #: 🔴 (a) 各配置的奖励函数**不一样**（本方法多了连续动作专属整形、规则奖励臂多了合规项）
     #   ⟹ 纵向高低**不可跨配置比较**，这一格看的是「收没收敛」，不是「谁的奖励高」。图注写死。
-    dense_panel(a, g_num("ep_rew_mean"), "(a) Mean episode return", "Return")
+    #: (a) 曲线 0.5M 步就冲到平台，右下角一大片空白 ⟹ 插图放右下、放大最初 1M 步的爬升段
+    dense_panel(a, g_num("ep_rew_mean"), "(a) Mean episode return", "Return",
+                inset=(0.42, 0.13, 0.55, 0.45, 1.0, -7000, 6200))
     dense_panel(b, g_flag("goal"), "(b) Arrival rate (training)", "Arrival rate (%)", (-3, 103))
-    dense_panel(c, g_flag("collision"), "(c) Collision rate (training)", "Collision rate (%)", (-0.4, 12))
+    #: (c) 初始瞬变冲到 6%，之后全程贴地 ⟹ 上方一大片空白，插图放右上、放大最初 1M 步
+    dense_panel(c, g_flag("collision"), "(c) Collision rate (training)", "Collision rate (%)", (-0.4, 12),
+                inset=(0.40, 0.46, 0.57, 0.48, 1.0, -0.3, 8.0))
     dense_panel(f, g_num("explained_variance"), "(f) Value-function explained variance",
                 "Explained variance", (0.90, 1.005))
 
@@ -416,7 +440,8 @@ def fig5(D):
         c.plot([i - 0.34, i + 0.02], [np.median(v)] * 2,
                color=PS.PALETTE["neutral_black"], linewidth=1.2, zorder=5)
     c.set_xticks(range(len(ARMS_C)))
-    c.set_xticklabels(["Ours", "Cont.\n+shield", "abl.\nbounded", "abl.\nsym.entry"], fontsize=5.4)
+    #: 与表的行名逐字相同，只在空格处换行以适应格宽
+    c.set_xticklabels([R.ARMS[t][0].replace(", ", ",\n") for t in ARMS_C], fontsize=5.0)
     c.set_xlim(-0.5, len(ARMS_C) - 0.4)
     c.set_ylabel("Correction (norm.)")
     c.grid(axis="x", visible=False)

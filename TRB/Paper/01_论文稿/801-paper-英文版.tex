@@ -200,15 +200,15 @@ Submitted [Submission Date]\par
 \begingroup
 \setlength{\parindent}{0pt}
 
-\abshead{Objectives:}Autonomous surface vessels must obey the International Regulations for Preventing Collisions at Sea (COLREGs). The give-way rules are directional. A track that avoids a collision but passes on the wrong side is still a violation. This paper builds a per-step guarantee of directional compliance for continuous control commands.
+\abshead{Objectives:}Autonomous surface vessels must obey the International Regulations for Preventing Collisions at Sea (COLREGs). The give-way rules are directional. A track that avoids a collision but passes on the wrong side still violates them. This paper builds a per-step guarantee of directional compliance for continuous control.
 
-\abshead{Methods:}The give-way clause is written as a half-plane constraint on the plane of control commands. It is intersected with the actuator limits and a one-step collision-free condition, which gives a convex safe control set. A small quadratic program projects the command of the policy onto the nearest point of that set. The projection sits inside the environment transition, so the policy learns under its own corrected commands. The data are 2,000 simulated two-vessel encounters, split into 1,400 training and 600 test cases. Nine configurations form a single-variable ladder, each trained with eight fixed seeds.
+\abshead{Methods:}The give-way clause is written as a half-plane constraint on the plane of control commands. It is intersected with the actuator limits and a one-step collision-free condition, which gives a convex safe control set. A small quadratic program projects the command of the policy onto the nearest point of that set. The projection sits inside the environment transition, so the policy learns under its own corrected commands. The data are 2,000 simulated two-vessel encounters, split into 1,400 training and 600 test cases. Nine configurations form a single-variable ladder, each trained with eight seeds.
 
-\abshead{Findings:}On every give-way step where the projection is feasible, directional compliance holds by construction. It does not depend on the training outcome or the seed. Steps that switch to the fallback branch are not covered. On the test set, the violation count per episode is \TBD\ and the collision rate is \TBD. The ablation gains are significant under a paired signed-rank test. The arrival rate is not claimed as a benefit.
+\abshead{Findings:}On every give-way step where the projection is feasible, directional compliance holds by construction, independently of the training outcome and the seed. Fallback steps are not covered. On the 600 test scenarios the median violation count is 0.53 per episode, against 1.16 for a discrete shielded baseline, at a median collision rate of 0.00\%. The ablation gains are significant under a paired signed-rank test. The arrival rate is not claimed as a benefit.
 
-\abshead{Novelty:}To the best of the authors' knowledge, this is the first projection-based safety mechanism that enforces directional COLREGs compliance on continuous control commands. The paper also states what is proved and what is not.
+\abshead{Novelty:}To the best of the authors' knowledge, this is the first projection-based safety mechanism that enforces directional COLREGs compliance on continuous control. The paper also states what is proved and what is not.
 
-\abshead{Practical Applications:}The compliance check is independent of training. The mechanism can sit above an existing controller as a compliance layer for functional verification and liability assessment. The online cost is one small quadratic program per step, so it runs in real time without special hardware.
+\abshead{Practical Applications:}The compliance check is independent of training. It can sit above an existing controller as a compliance layer for functional verification and liability assessment. The online cost is one small quadratic program per step, which runs in real time without special hardware.
 
 \vspace{12pt}
 
@@ -784,7 +784,7 @@ can therefore be read on its own.
  \vspace{4pt}
  \begin{minipage}{\linewidth}\small
  \textbf{Notes.} A check mark is on, a cross is off, and a dash is not applicable. Rows run
- from the discrete baseline to the full method (Ours). Three steps of the ladder carry a companion
+ from the discrete baseline to Ours. Three steps of the ladder carry a companion
  variable that cannot be separated. The action space changes together with the policy
  distribution, the continuous-only shaping is a bundle of four items, and the bounded
  distribution also changes the initial exploration scale. Those three steps can only be
@@ -859,10 +859,10 @@ points in expectation. That is four times the drift of about $1.6$ points that t
 same-machine rule was written to prevent. The best-checkpoint version and the
 last-checkpoint version are therefore both reported.
 
-\noindent\textbf{Reading the figures.}\ Unless a caption says otherwise, every figure in
-this section is computed on the $100$ validation scenarios. That is not the test set used in
-Table~\ref{tab:main}. Violation counts in the figures are the sum of stand-on and give-way
-violations.
+\noindent\textbf{Reading the figures.}\ Figures~\ref{fig:tradeoff} and~\ref{fig:ablation}
+are computed on the same test set as Table~\ref{tab:main}. Figures~\ref{fig:curves}
+and~\ref{fig:shield} are recorded during training and are labelled as such. Violation counts
+in the figures are the sum of stand-on and give-way violations.
 
 \noindent\textbf{Statistics.}\ The paired test is a per-seed paired sign test. With $8$
 seeds the smallest two-sided value it can reach is $p=2/2^{8}=0.0078$. Error bars are
@@ -875,9 +875,8 @@ they are, and a converged-seeds-only version is also reported.
 
 %------------------------------------------------------------------------------
 \begin{table}[htbp]
- \caption{Main comparison, all seeds. \capnote{\textbf{Values are provisional and come
- from the validation set. The table is replaced after the re-evaluation on the test
- set.}}}
+ \caption{Main comparison, all seeds. \capnote{Official test set, $N=600$, at the
+ checkpoint selected on the validation set.}}
  \label{tab:main}
  \centering\small
  \setlength{\tabcolsep}{4pt}
@@ -885,15 +884,15 @@ they are, and a converged-seeds-only version is also reported.
   \toprule
   Configuration & $n$ & Conv. & Arrival \% [CI] & Coll. \% & Viol./ep. & Turn $\Delta$ & Thr. $\Delta$ & Emerg. \% \\
   \midrule
-  Discrete baseline     & \prov{8} & \prov{\textbf{8/8}} & \prov{\textbf{97.0 [96,\,98]}} & \prov{3.00} & \prov{2.52} & \prov{0.0139} & \prov{0.0210} & \prov{0.00} \\
-  Discrete, soft reward & \prov{8} & \prov{7/8} & \prov{96.5 [94,\,98]} & \prov{2.50} & \prov{2.41} & \prov{0.0139} & \prov{0.0215} & \prov{0.00} \\
-  Discrete, masking     & \prov{8} & \prov{6/8} & \prov{92.5 [11,\,94]} & \prov{\textbf{0.00}} & \prov{1.01} & \prov{0.0121} & \prov{0.0263} & \prov{4.90} \\
-  Continuous, no shield & \prov{8} & \prov{7/8} & \prov{\textbf{97.0 [94,\,98]}} & \prov{2.50} & \prov{4.06} & \prov{0.0248} & \prov{0.0134} & \prov{0.00} \\
-  Continuous, shield    & \prov{8} & \prov{5/8} & \prov{78.5 [6,\,88]} & \prov{\textbf{0.00}} & \prov{0.93} & \prov{0.0213} & \prov{0.0267} & \prov{2.49} \\
-  Ablation reference    & \prov{8} & \prov{5/8} & \prov{86.0 [3,\,88]} & \prov{\textbf{0.00}} & \prov{1.09} & \prov{0.0142} & \prov{0.0109} & \prov{3.84} \\
-  Ablation, bounded only& \prov{8} & \prov{7/8} & \prov{86.0 [50,\,91]} & \prov{\textbf{0.00}} & \prov{0.52} & \prov{0.0087} & \prov{0.0176} & \prov{1.97} \\
-  Ablation, symmetric only& \prov{8} & \prov{5/8} & \prov{75.5 [0,\,82]} & \prov{\textbf{0.00}} & \prov{0.77} & \prov{0.0150} & \prov{0.0143} & \prov{3.02} \\
-  Ours                  & \prov{8} & \prov{\textbf{8/8}} & \prov{88.5 [81,\,92]} & \prov{\textbf{0.00}} & \prov{\textbf{0.49}} & \prov{0.0085} & \prov{0.0193} & \prov{2.56} \\
+  Discrete baseline         & 8 & \textbf{8/8} & 97.8 [97,\,98] & 2.00 & 3.04 & 0.0149 & 0.0160 & 0.00 \\
+  Discrete, soft reward     & 8 & 7/8 & \textbf{98.2 [97,\,98]} & 1.58 & 2.95 & 0.0141 & 0.0169 & 0.00 \\
+  Discrete, masking         & 8 & 6/8 & 93.3 [10,\,96] & 0.08 & 1.16 & 0.0112 & 0.0205 & 4.64 \\
+  Continuous, no shield     & 8 & 7/8 & 98.0 [96,\,99] & 1.25 & 4.44 & 0.0267 & 0.0106 & 0.00 \\
+  Continuous, shield        & 8 & 5/8 & 69.0 [16,\,91] & 0.17 & 1.02 & 0.0246 & 0.0158 & 2.86 \\
+  Ablation reference        & 8 & 5/8 & 84.5 [9,\,90] & 0.33 & 1.13 & 0.0140 & 0.0059 & 3.36 \\
+  Ablation, bounded only    & 8 & 7/8 & 90.8 [66,\,92] & 0.17 & 0.67 & 0.0049 & 0.0076 & 2.27 \\
+  Ablation, symmetric only  & 8 & 6/8 & 75.5 [4,\,89] & \textbf{0.00} & 0.82 & 0.0167 & 0.0053 & 2.61 \\
+  Ours                      & 8 & \textbf{8/8} & 88.2 [84,\,90] & \textbf{0.00} & \textbf{0.53} & 0.0054 & 0.0078 & 2.42 \\
   \bottomrule
  \end{tabular*}
 
@@ -907,19 +906,26 @@ they are, and a converged-seeds-only version is also reported.
 \end{table}
 %------------------------------------------------------------------------------
 
-Table~\ref{tab:main} is also reported in a converged-seeds-only version. A diverged seed
-pollutes the per-episode averages, and the direction of that pollution differs by
-configuration, so both versions are given. The key difference is \TBD. Per-seed raw values
-accompany the table.
+Three readings follow from Table~\ref{tab:main}. First, Ours has the lowest violation count
+per episode of all nine configurations, at $0.53$, against $1.16$ for the discrete safe
+baseline and $4.44$ for the unshielded continuous configuration. A per-seed paired sign test
+gives $8$ wins out of $8$ against every other configuration except the two shielded
+ablations, at $p=0.0078$. Second, Ours is the only shielded configuration that reaches the
+convergence criterion on all $8$ seeds. Third, the arrival rate of Ours is $88.2\%$, which
+is below the three unshielded configurations and below the discrete safe baseline. That gap
+is the cost of the shield and it is not claimed as a benefit anywhere in this paper.
+Table~\ref{tab:main} is also reported in a converged-seeds-only version, because a diverged
+seed pollutes the per-episode averages and the direction of that pollution differs by
+configuration. Per-seed raw values accompany the table.
 
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig2_tradeoff.pdf}
- \caption{Safety and efficiency. \capnote{Points are medians across seeds and error bars
- are bootstrap $95\%$ intervals resampled over seeds. Circles are continuous action spaces,
- triangles are discrete ones, and filled markers carry a shield. The lower right of panel
- (a) is the ideal region. The bars are wide because every configuration contains a diverged
- seed.}}
+ \caption{Safety and efficiency. \capnote{Official test set, the same source as
+ Table~\ref{tab:main}. Points are medians across seeds and error bars are bootstrap $95\%$
+ intervals resampled over seeds. Circles are continuous action spaces, triangles are discrete
+ ones, and filled markers carry a shield. The lower right of panel (a) is the ideal region.
+ The bars are wide because several configurations contain a diverged seed.}}
  \label{fig:tradeoff}
 \end{figure}
 
@@ -928,16 +934,15 @@ accompany the table.
 
 The four ablation configurations form a complete $2\times2$ design over the bounded action
 distribution and the give-way entry. Everything else is identical, and the comparison is
-paired by seed. The bounded distribution lowers the median turn increment by
-\prov{$39\%$}, with \prov{$7$} of $8$ seeds moving in the same direction and a paired
-signed-rank value of $p=\prov{0.016}$. It lowers the violations per episode by
-\prov{$53\%$}, with $p=\prov{0.016}$. The symmetric entry alone leaves the turn increment
-unchanged, at \prov{$+5\%$} with $p=\prov{0.38}$, and it still lowers the violations per
-episode by \prov{$30\%$}. With both changes on, the turn increment and the violations fall
-by \prov{$40\%$} and \prov{$55\%$}. Neither can be separated statistically from the
-bounded distribution alone, at $p=\prov{1.0}$ and $p=\prov{0.45}$. The two changes
-therefore divide the work. Smoothness comes almost entirely from the bounded action
-distribution, and both contribute to compliance.
+paired by seed. The bounded distribution lowers the median turn increment by $65\%$, with
+all $8$ seeds moving in the same direction and a paired signed-rank value of $p=0.008$. It
+lowers the violations per episode by $41\%$, again $8$ of $8$, with $p=0.008$. The symmetric
+entry alone \textbf{raises} the turn increment by $19\%$, with $p=0.016$, and it lowers the
+violations per episode by $27\%$, with $p=0.008$. With both changes on, the turn increment
+falls by $61\%$ and the violations by $53\%$. Neither can be separated statistically from
+the bounded distribution alone, at $p=0.74$ and $p=0.11$. The two changes therefore divide
+the work. Smoothness comes entirely from the bounded action distribution, and both
+contribute to compliance.
 
 This group is the only place where the smoothness result can be read. All four
 configurations run the same action-increment penalty, so the difference can be attributed
@@ -951,10 +956,11 @@ as well.
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig3_ablation.pdf}
- \caption{The $2\times2$ ablation. \capnote{Paired by seed. Bars are medians across seeds
- and error bars are bootstrap $95\%$ intervals. Above each bar are the change relative to
- the leftmost bar, the paired signed-rank result, and the number of seeds that moved in the
- same direction. The arrival rate is bimodal, so it is drawn as a box plot.}}
+ \caption{The $2\times2$ ablation. \capnote{Paired by seed. Bars are medians across seeds,
+ error bars are bootstrap $95\%$ intervals, and open points are single seeds. The label above
+ each bar is the change relative to the leftmost bar. The paired tests are reported in the
+ text. The arrival rate is bimodal, so it is drawn as a box plot and the number of diverged
+ seeds is printed below each box.}}
  \label{fig:ablation}
 \end{figure}
 
@@ -971,25 +977,29 @@ shielded continuous configuration is at $33\%$ at that point, and it reaches $88
 end of training. The shielded discrete baseline lies between the two, at $51\%$ and $93\%$
 (Figure~\ref{fig:curves}b). Panels (c) and (d) give what is bought. The unshielded
 configurations hold a collision rate near $1.8\%$ throughout training and more than
-\prov{$2.4$} violations per episode. The shielded configurations sit at a collision rate of
-zero and near \prov{$0.5$} violations per episode. The shield removes risk from the outcome,
+$2.4$ violations per episode. The shielded configurations sit at a collision rate of zero
+and near $0.5$ violations per episode. The shield removes risk from the outcome,
 and it narrows the exploration space at the same time. Slower learning is the direct
 consequence of that narrowing.
 
 Second, reliability differs a great deal among the shielded configurations. Under the
-convergence rule declared in advance, all \prov{$8$} seeds of Ours reach a
-working policy, and it is the only shielded configuration for which this holds. The shielded
-ablation configurations reach \prov{$5$} to \prov{$7$} seeds, and the discrete safe baseline
-reaches \prov{$6$} (Figure~\ref{fig:curves}e). The two changes therefore improve more than
-the final numbers. They also lower the chance that training itself fails. Diverged seeds are
-counted as they are, and a converged-seeds-only version is given.
+convergence rule declared in advance, all $8$ seeds of Ours reach a working policy, and it
+is the only shielded configuration for which this holds. The shielded ablation
+configurations reach $5$ to $7$ seeds, and the discrete safe baseline reaches $6$
+(Figure~\ref{fig:curves}e). The two changes therefore improve more than the final numbers.
+They also lower the chance that training itself fails. Diverged seeds are counted as they
+are, and a converged-seeds-only version is given.
 
-\noindent\textbf{A counterexample that has to be stated.}\ Among the $48$ shielded runs,
-\prov{$46$} have a collision rate of exactly zero on the validation set, and \prov{$2$} do not, at
-\prov{$1\%$} and \prov{$2\%$}. This agrees with the scope statements of
+\noindent\textbf{A counterexample that has to be stated.}\ On the test set of $600$, $23$ of
+the $48$ shielded runs have a collision rate of exactly zero, and $25$ do not. The largest is
+$1.50\%$, on two seeds of the discrete safe baseline. For Ours, $6$ of the $8$ seeds have no
+collision at all and the other two have exactly one collision each, which is $0.17\%$. The
+earlier figure of zero came from the validation set of $100$ scenarios, where a single
+collision is below the resolution of the sample. This agrees with the scope statements of
 Section~\ref{sec:method}. The guarantees by construction cover one-step collision freedom in
 the far field and the turn direction on give-way steps. They do not cover emergency
-situations or the fallback. A collision rate of zero is therefore an observation and not a guarantee.
+situations or the fallback. A collision rate of zero is therefore an observation and not a
+guarantee.
 
 \begin{figure}[htbp]
  \centering
@@ -1010,27 +1020,40 @@ situations or the fallback. A collision rate of zero is therefore an observation
 
 The emergency branch is the only part of this method that offers no guarantee, so how often
 it is used and what follows from its use are reported separately. At the end of training,
-the projection produced \prov{$93.6\%$} of the control commands. The emergency controller
-produced \prov{$6.2\%$}, and the three fallback branches produced \prov{$0.22\%$} in
-total (Figure~\ref{fig:shield}a). On the evaluation side the share of
-emergency steps is \prov{$2.6\%$}, against \prov{$4.9\%$} for the discrete safe baseline.
+the projection produced $93.6\%$ of the control commands. The emergency controller produced
+$6.2\%$, and the three fallback branches produced $0.22\%$ in total
+(Figure~\ref{fig:shield}a). On the test set the share of emergency steps is $2.42\%$,
+against $4.64\%$ for the discrete safe baseline.
 The fallback is rare because it is used only when the safe control set is empty, and that
-seldom happens outside an emergency situation. The distribution of collisions by the source
-of the command is \TBD. If every collision falls under emergency control, then collisions
-occur on steps where the last resort had already been engaged and had failed. Those steps
+seldom happens outside an emergency situation. Collisions are rare enough that their source cannot be attributed with confidence. Ours
+records two collisions in $4{,}800$ test episodes. If a collision falls under emergency
+control, then it occurs on a step where the last resort had already been engaged and had
+failed. Those steps
 lie outside the scope of Proposition~\ref{prop:farfield} by definition, since that
 proposition covers the far field, non-emergency, single-step case. This is not a
 counterexample to it, but it does confirm that the emergency branch is an empirical
 fallback.
 
 The size of the projection correction is normalized by the half-width of the action box.
-At the end of training its median is \prov{$0.082$} and its interquartile range is
-\prov{$[0.065,\,0.102]$}. The gap between the command of the policy and what the rules
-require therefore stays within about a tenth of the control range. It also narrows
-monotonically during training (Figure~\ref{fig:shield}c). The correction is largest for the
-symmetric-entry-only configuration, at \prov{$0.093$}, and smallest for the
-bounded-distribution-only configuration, at \prov{$0.066$}. That ordering matches the turn
-increments in Figure~\ref{fig:ablation}. The full distribution of this quantity is \TBD.
+At the end of training its median is $0.082$ and its interquartile range is
+$[0.065,\,0.102]$. The gap between the command of the policy and what the rules require
+therefore stays within about a tenth of the control range. It also narrows during training
+(Figure~\ref{fig:shield}c). Among the four shielded continuous configurations the correction
+is largest for the symmetric-only configuration, at $0.093$, and smallest for the
+bounded-only configuration, at $0.066$. That ordering matches the turn increments in
+Figure~\ref{fig:ablation}.
+
+\noindent\textbf{Online cost.}\ The projection is one quadratic program with two variables
+and at most six constraints, so it is cheap enough to run at every step. The timings below come from a single
+thread of an Apple M4 in a $2025$ MacBook Air, over $1{,}872$ decision steps of the trained
+policy. The median solve time of the program is $4.11$~ms and the $99$th percentile is
+$8.85$~ms.
+The forward pass of the policy adds a median of $0.44$~ms. A whole decision step, including
+the environment, has a median of $5.30$~ms and a $99$th percentile of $10.14$~ms. The
+decision period is $10$~s, so the $99$th percentile of a whole step is about one thousandth
+of the period. \textbf{These are wall-clock times on one machine. They record an order
+of magnitude. They are not a comparison against any other method, which would need the same
+machine and the same protocol.}
 
 \begin{figure}[htbp]
  \centering
@@ -1058,12 +1081,14 @@ The answer narrows the defensible claim to one dimension. The collision rate doe
 separate the two families, since the control barrier function filter also reaches
 $0.00\%$ on this test set. The arrival rate and the smoothness columns are governed by the
 type of terminal constraint and by the control range, and neither supports a reading in
-favor of this paper. The real difference is in COLREGs violations, and almost all of it
+favor of Ours. The real difference is in COLREGs violations, and almost all of it
 comes from stand-on violations. These controllers aim only at avoiding contact, so they keep
 maneuvering during periods in which the rules require course and speed to be held.
 Violations are decided by the offline scorer from the bare situation predicates, so the
 comparison is made under one condition. The claim of this paper against geometric methods
-rests on this dimension alone, and the specific difference is \TBD.
+rests on this dimension alone. Ours records $0.53$ violations per episode against $4.95$
+for the control barrier function filter at its best setting, which is a factor of $9.3$.
+Almost all of that gap is in stand-on violations, at $0.36$ against $4.48$.
 
 %------------------------------------------------------------------------------
 \begin{table}[htbp]
@@ -1100,7 +1125,7 @@ rests on this dimension alone, and the specific difference is \TBD.
  \begin{minipage}{\linewidth}\small
  \textbf{Notes.} These controllers need no training and have no seed. Each is reported at its
  own best setting, tuned on a set that is disjoint from the one used here. The policy range
- is $\pm0.048$ and $\pm0.018$, the same authority as the policy of this paper, and the
+ is $\pm0.048$ and $\pm0.018$, the same authority as the trained policies, and the
  actuator limits are $\pm0.24$ and $\pm0.03$. Both are reported so that a difference in
  authority is not a confounder. \textbf{The arrival rate is not a measure of collision
  avoidance.} These controllers have no terminal alignment stage. They reach the goal
