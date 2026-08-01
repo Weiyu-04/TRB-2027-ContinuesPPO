@@ -1,0 +1,31 @@
+# 训练产物回传工具
+
+放在 `结果/` 下是有原因的：`代码/` 与 `Paper/正式实验/` 都进冻结指纹
+（`代码/tests/preflight_formal.sh` 会逐字对），训练期往里加文件会让预检当场变红。
+`结果/` 不进任何指纹（同 `结果0801-出图草图/`）。
+
+## 用法
+
+在 Mac 上：
+
+    cd ~/TRB-2027-ContinuesPPO
+    git pull origin main
+    python3 TRB/结果/结果0801-回传工具/trb_upload.py
+
+只读盘点，一个字节都不改。看清楚差异表之后再：
+
+    python3 TRB/结果/结果0801-回传工具/trb_upload.py --go
+
+在服务器上（没有仓库）：直接跑它，会自动切成只盘点模式，把表贴回来即可。
+
+    python3 trb_upload.py /root/trb/结果
+
+## 它防住的坑
+
+| 坑 | 怎么防 |
+|---|---|
+| 模型权重几百 MB 进 git | 只搬 json/jsonl/txt/log/csv，zip/pkl/pth 一律跳过 |
+| 半截存档盖掉完整存档（`03` L243-续19 C） | 同名 `progress.json` 只有段数更多才覆盖 |
+| `.gitignore` 静默吞文件（`03` L243-续43 B） | 提交前用 `git status --ignored` 单独列出被挡下的 |
+| 命令里夹中文注释被 zsh 当参数（`03` L243-续43 C） | 全部逻辑在脚本里，用户只敲三行无注释命令 |
+| 扫到仓库自己、自我复制 | 扫描时跳过仓库路径 |
