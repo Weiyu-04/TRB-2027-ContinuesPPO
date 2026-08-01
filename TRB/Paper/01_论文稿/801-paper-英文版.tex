@@ -51,10 +51,13 @@
 \renewcommand{\headrulewidth}{0pt}
 \renewcommand{\footrulewidth}{0pt}
 
-%--- 正文：左对齐、单倍行距、首行缩进 0.5 英寸、段间不额外加空 -------------------
+%--- 正文：两端对齐、单倍行距、首行缩进、段间不额外加空 -------------------------
+%  🔴 2026-08-01 订正（user 指出 + 实测官方 Word 样例坐实）：
+%     样例里唯一写了字的正文（那份结构化摘要四段）**全部是 jc=both 两端对齐**；
+%     Lorem ipsum 那些占位段没写 jc（继承为左对齐），但占位文的排版不作数。
+%     先前照 LaTeX 模板注释用了 \RaggedRight，是照抄模板作者的偏好、不是官方规定。⟹ 改回两端对齐。
+%  首行缩进：官方样例 w:ind firstLine=720 twip = 0.5 in（24 段实测）。
 \usepackage{ragged2e}
-\setlength{\RaggedRightParindent}{0.5in}
-\RaggedRight
 \setlength{\parindent}{0.5in}
 \setlength{\parskip}{0pt}
 
@@ -169,7 +172,7 @@ Submitted [Submission Date]\par
 %------------------------------------------------------------------------------
 \section*{Abstract}
 
-\justifying
+
 
 \abshead{Objectives.}Autonomous surface vessels must obey the International Regulations for Preventing Collisions at Sea (COLREGs). The give-way rules are directional. A track that avoids a collision but passes on the wrong side is still a violation. This paper builds a per-step guarantee of directional compliance for continuous control commands.
 
@@ -185,7 +188,6 @@ Submitted [Submission Date]\par
 
 \noindent\textbf{Keywords:} COLREGs compliance, safe reinforcement learning, projection-based safety shield, continuous action space, quadratic programming, unmanned surface vehicle
 
-\RaggedRight
 
 \newpage
 
@@ -225,18 +227,14 @@ The rule state machine sorts the current encounter into six situations,
 \end{equation*}
 and the decision is a conjunction of three groups of predicates.
 
-The first group is the bearing sector. The bearing of the target vessel is placed in a
-forward, port, starboard, or aft sector, along the sidelight boundaries of the convention.
-The forward sector has a half-angle of $5^\circ$. The outer boundary of the side sectors is
-$112.5^\circ$. The second group is the heading relation. It separates nearly anti-parallel
-headings, nearly parallel headings, and a target vessel that heads to port or to starboard.
-The overtaking band has a half-angle of $67.5^\circ$. The third group is collision
-possibility. The speed set of the own vessel must intersect the collision cone of the target
-vessel. The relative speed must also close the current center distance within the check
-horizon. The cone has its apex at the own vessel and is tangent to the inflated occupancy of
-the target vessel. It is then translated along the velocity of the target vessel. The
-inflation radius is three times the length of the target vessel, the half-width of the speed
-set is $1$~m/s, and the check horizon is $420$~s.
+The first group is the bearing sector, taken along the sidelight boundaries of the
+convention. The second group is the heading relation, which separates nearly anti-parallel
+from nearly parallel headings. The third group is collision possibility. It has two
+parts. The speed set of the own vessel must intersect the collision cone of the target
+vessel. The relative speed must also close the current center distance in time. The forward sector
+has a half-angle of $5^\circ$ and the side sectors end at $112.5^\circ$. The overtaking band
+has a half-angle of $67.5^\circ$. The occupancy of the target vessel is inflated by three
+times its length, and the check horizon is $420$~s.
 
 Four situations carry an obligation,
 \begin{equation}
