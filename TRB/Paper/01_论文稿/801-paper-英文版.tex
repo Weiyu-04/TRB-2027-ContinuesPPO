@@ -63,13 +63,30 @@
 
 %--- 标题层级：**复原官方 TAD 模板**（中文工作稿为可读性加了编号与放大，投稿版不留）--
 \usepackage{titlesec}
-\setcounter{secnumdepth}{0}                                   % 官方样例：标题不编号
-% 一级标题 = 12 pt 加粗全大写（官方 Heading1 实测值）
-\titleformat{\section}{\normalfont\fontsize{12}{14}\selectfont\bfseries}{}{0pt}{\MakeUppercase}
+%  🔴 编号开关（user 2026-08-01：「你先听我的这样做，我这样能看得清楚你的文章结构」）
+%     \SECNUM = 1 ⟹ 一二三级标题带编号（当前，写作期用，方便对结构）
+%     \SECNUM = 0 ⟹ 官方 TAD 样例原样：标题**不编号**
+%     🔴 投稿前必须改回 0（官方样例实测：全篇标题无编号）。改一个字符即可，别动下面的格式。
+\newcommand{\SECNUM}{1}
+%
+%  三级标题的**格式**照官方 Word 样例实测值，编号与否不影响格式：
+%    一级 \section       = 12 pt 加粗 + 全大写（Heading1）
+%    二级 \subsection    = 11 pt 加粗（正文字号，Heading2）
+%    三级 \subsubsection = 11 pt 斜体（正文字号，Heading3）
+%    四级                 = 段首加粗引导词，与正文同一段（run-in，不占一行）
+\ifnum\SECNUM=1
+  \setcounter{secnumdepth}{3}
+  \titleformat{\section}{\normalfont\fontsize{12}{14}\selectfont\bfseries}{\thesection\quad}{0pt}{\MakeUppercase}
+  \titleformat{\subsection}{\normalfont\bfseries}{\thesubsection\quad}{0pt}{}
+  \titleformat{\subsubsection}{\normalfont\itshape}{\thesubsubsection\quad}{0pt}{}
+\else
+  \setcounter{secnumdepth}{0}
+  \titleformat{\section}{\normalfont\fontsize{12}{14}\selectfont\bfseries}{}{0pt}{\MakeUppercase}
+  \titleformat{\subsection}{\normalfont\bfseries}{}{0pt}{}
+  \titleformat{\subsubsection}{\normalfont\itshape}{}{0pt}{}
+\fi
 \titlespacing*{\section}{0pt}{12pt}{4pt}
-\titleformat{\subsection}{\normalfont\bfseries}{}{0pt}{}
 \titlespacing*{\subsection}{0pt}{12pt}{4pt}
-\titleformat{\subsubsection}{\normalfont\itshape}{}{0pt}{}
 \titlespacing*{\subsubsection}{0pt}{12pt}{4pt}
 
 %--- 图表 ---------------------------------------------------------------------
@@ -215,7 +232,15 @@ Submitted [Submission Date]\par
 %==============================================================================
 % 【样章】§4.2 安全动作集与投影 —— 先翻这一节给 user 验语气与句长
 %==============================================================================
+% 🔴 §1–§3 尚未译；先把计数器顶到 3，让本章显示为 4，编号与最终结构一致。
+%    §1–§3 写完后**删掉下面这一行**。
+\setcounter{section}{3}
 \section{Methodology}
+
+\noindent\textbf{A note on the guarantees.}\ Three properties are stated in this section.
+Each one is placed immediately after the mechanism it certifies, rather than collected in a
+separate block. Each is given as a statement, its assumptions, a proof sketch, and its
+scope. The scope paragraph names the cases that the property does not cover.
 
 \subsection{COLREGs Obligations as Half-Plane Constraints}
 \label{sec:rulesets}
@@ -236,7 +261,9 @@ has a half-angle of $5^\circ$ and the side sectors end at $112.5^\circ$. The ove
 has a half-angle of $67.5^\circ$. The occupancy of the target vessel is inflated by three
 times its length, and the check horizon is $420$~s.
 
-Four situations carry an obligation,
+Four situations carry an obligation. More than one of their predicates can hold at the same
+instant, so the four are tested in a fixed priority order and the first match wins. The
+rows below are written in that priority order, which is not the order of the indices,
 \begin{equation}
 \begin{aligned}
 \rho_2\ \text{head-on}&:\quad \mathrm{CP}\wedge\mathrm{Fr}(s_e,s_m)\wedge\mathrm{Ap},\\
@@ -246,7 +273,11 @@ Four situations carry an obligation,
 \end{aligned}
 \label{eq:situations}
 \end{equation}
-and all other cases fall into $\rho_0$. Overtaking and being overtaken swap the two vessel arguments, because overtaking places the own vessel in the aft sector of the target vessel. The four predicates can hold at once, so they are applied in the order written above.
+and all other cases fall into $\rho_0$. Stand-on is tested last, and its definition reuses
+the overtaking predicate with the two vessels exchanged. Overtaking and being overtaken
+swap the two vessel arguments, because overtaking places the own vessel in the aft sector
+of the target vessel. The indices $\rho_0$ to $\rho_5$ are identifiers rather than a
+ranking.
 
 Entry into a give-way situation has two parts. A give-way predicate must not hold now. It must hold at every decision step of a $60$~s reaction window under constant-velocity extrapolation. The first part separates ``about to hold'' from ``already holds'', and it creates one asymmetry that Section~\ref{sec:sym} treats. The emergency situation is
 entered by a stronger set-based prediction with a horizon of $180$~s.
