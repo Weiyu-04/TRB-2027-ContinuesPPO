@@ -253,7 +253,7 @@ Submitted [Submission Date]\par
 \noindent\textbf{贡献。}
 \begin{enumerate}\itemsep2pt
  \item 连续动作空间中的投影式 COLREGs 安全盾（第~\ref{sec:proj} 节）。合规方向作为硬区间约束进入二次规划，故每一个投影可行的让路步的方向合规由构造成立，不依赖训练结果、不受种子方差影响。
- \item 一个分级的安全性陈述（第~\ref{sec:guarantee} 节）。远场单步无碰为严格结论，每一让路步的方向合规由构造成立，紧急迫近不可避给出只漏报不误报的充分条件证书；在此之上证明该证书定义的可清障集在理想模型下控制不变，并据此设计后备机动的终端约束——该路径的闭环验证尚未完成。
+ \item 一个分级的安全性陈述（第~\ref{sec:guarantee} 节）。远场单步无碰为严格结论，每一让路步的方向合规由构造成立，紧急迫近不可避给出只漏报不误报的充分条件证书。每一条都附完整假设与作用域，并写明未被覆盖的情形。
  \item 一个把机制逐级拆开的实验设计（第~\ref{sec:setup} 节）。$9$ 种配置构成一条连通的单变量递进序列，相邻两级只改一个变量，其中两跳带有不可分割的伴随变量并在表注中列出；另行构造真冲突算例，用以激活并检验只在极端态势下才启用的兜底链与终端约束。
 \end{enumerate}
 
@@ -334,7 +334,7 @@ Submitted [Submission Date]\par
   $\oplus$ & Minkowski 和 & $T_M$ & 机动段时长 & $\mathrm{disk}(r)$ & 半径 $r$ 的闭圆盘 \\
   $\omega_{\mathrm{turn}}$ & 合规转艏率下确界 & $R_{\mathrm{circ}},r_{\mathrm{insc}}$ & 外接圆、内切圆半径 & $\varepsilon_a,\varepsilon_\omega$ & 直航保速、保向容差 \\
   $O$ & 他船占据 & $T_h,T_{\mathrm{pred}}$ & 碰撞可能、紧急预测时域 & $d$ & 两船中心距 \\
-  $R_{\mathrm{box}}(t)$ & 可达中心过近似集 & $p_e,p_m$ & 本船/他船中心位置 & $A_{\mathrm{clr}}$ & 可清障集 \\
+  $R_{\mathrm{box}}(t)$ & 可达中心过近似集 & $p_e,p_m$ & 本船/他船中心位置\\
   $v_{\mathrm{obs,max}}$ & 他船速度上界(设) & $\gamma$ & 折扣因子 & $K$ & 回合步数上限 \\
   $\alpha,\beta$ & Beta 分布形状参数 & $\Phi$ & 势函数（塑形） & $r$ & 单步回报 \\
   $\Delta_{\mathrm{ho}}$ & 前扇区半角/对遇带 & $\Delta_{\mathrm{sd}}$ & 舷侧扇区外边界 & $\Delta_{\mathrm{ot}}$ & 追越带半角 \\
@@ -423,6 +423,9 @@ Submitted [Submission Date]\par
 % ▶ 来源：Paper/01_论文稿/figs/make_fig1_overview.py（手绘示意·遵 nature-figure 规范）
 %------------------------------------------------------------------------------
 
+
+\noindent\textbf{关于保证的统一说明。}\ 本文的三条性质分别附在其对应机制之后，每条按陈述、假设、证明要点与作用域四项给出，\textbf{作用域一项写明该性质没有覆盖的情形}；完整推导见补充材料。\label{sec:guarantee}
+
 \subsection{COLREGs 让路条款在动作空间中的形式化}
 \label{sec:rulesets}
 
@@ -492,6 +495,23 @@ Submitted [Submission Date]\par
 
 一阶展开本身既非内近似也非外近似，其余项符号随曲率变化，故仅由式~\eqref{eq:ucf} 并不能直接断言保守，使该断言成立的是安全距离中预留的裕度。叠加裕度后，无碰撞约束实际施加在约 $590$--$840$~m 的中心距上，按本场景库的他船尺寸实算中位约 $714$~m，而两船真正接触所需的距离要小得多。裕度因此吸收了线性化残差，代价是约束偏紧，会拒绝一些实际安全的控制。
 
+
+式~\eqref{eq:ucf} 的线性化只保证局部有效，但在远场可以给出一个不依赖线性化的充分条件。
+\begin{prop}[远场单步无碰]\label{prop:farfield}
+设本船与单个他船的中心距为 $d$。若
+\begin{equation}
+ d \;\ge\; d_{\mathrm{safe}} + v_{\mathrm{obs,max}}\Delta t + \rho_{\mathrm{ego}},
+ \label{eq:farfield}
+\end{equation}
+则一个决策步之后两船以外接圆保守占据必不相交，其中 $d_{\mathrm{safe}}$ 为两船外接圆半径之和，$\rho_{\mathrm{ego}}$ 为本船单步最大位移。
+\end{prop}
+
+\noindent\textbf{假设。}\ 单他船；他船速度不超过 $9.5~\mathrm{m/s}$，该上界不由式~\eqref{eq:dyn} 约束、须独立给出，全库 $2000$ 个场景实测最大值为 $7.10~\mathrm{m/s}$；他船步内恒速。
+
+\noindent\textbf{证明要点。}\ 三角不等式，步后中心距不小于 $d$ 减去两船各自的单步位移上界，故不小于 $d_{\mathrm{safe}}$。
+
+\noindent\textbf{作用域。}\ 三角不等式与方向无关，故对遇即最坏情形。代入本场景库的常数后阈值约 $764$~m。它是\textbf{单步}充分条件，既非前向不变性，也不覆盖近场。
+
 \subsubsection{安全动作集与投影算子}
 
 安全动作集取三者之交
@@ -527,6 +547,18 @@ Submitted [Submission Date]\par
 \end{algorithmic}
 \end{algorithm}
 
+
+这一构造直接给出本文的核心保证。
+\begin{prop}[每一让路步的方向合规]\label{prop:comply}
+在被状态机判为让路态势、且投影二次规划可行的每一个决策步上，实际执行的 $u_{\mathrm{safe}}$ 必落在式~\eqref{eq:ucolregs} 的合规方向半平面内。
+\end{prop}
+
+\noindent\textbf{假设。}\ 单他船；状态机判定正确。后者继承碰撞可能性谓词的一处保守偏差，该谓词以中心距为准，对速度接近的尾随会遇存在漏判区间。
+
+\noindent\textbf{证明要点。}\ 合规半平面以硬区间约束进入二次规划，投影解必然满足它。该结论由构造成立，与训练结果和随机种子无关。
+
+\noindent\textbf{作用域。}\ 不覆盖紧急态，其判据在结构上旁路合规约束；也不覆盖安全动作集为空而转入兜底的步。
+
 \subsubsection{安全动作集为空时的兜底}
 
 安全动作集为空时投影无解，此时须由一条不提供保证的替代规则给出控制，本文称之为兜底。兜底的处置按态势分支，而非按一条固定优先级依次尝试，可分为两条互斥的通道。
@@ -536,6 +568,23 @@ Submitted [Submission Date]\par
 \textbf{其余态势的兜底。}\ 非紧急态只在安全动作集为空时兜底，先判退化情形：若线性化给不出可用的分离方向（本船标称落点与他船膨胀占据的圆心重合），返回箱内投影；否则依次尝试放松方向约束与最小化碰撞风险。占据仅仅已经相交并不触发退化。后两支都在执行器物理量程上求解并整块丢弃合规约束，故转艏率可超出策略动作箱，统计动作饱和率时按各自的箱分别计算。
 
 这些分支在实现上必需，但在本文使用的公开基准上几乎不发生——实测该基准中本船若保持航向航速，与他船的最近中心距中位数约 $1300$~m，安全动作集基本不会为空。为使它们得到检验，我们另行构造真冲突算例，结果见第~\ref{sec:res-shield} 节。
+
+
+紧急通道不提供保证，但可以判定该局面是否本就无法挽回。
+\begin{prop}[碰撞不可避的保守判据]\label{prop:imminent}
+设单个恒速他船，$R_{\mathrm{box}}(t)$ 为本船可达中心的过近似集，$O(t)$ 为他船船体矩形。若
+\begin{equation}
+ \exists\,t^\ast\in[0,T]:\quad R_{\mathrm{box}}(t^\ast)\subseteq\bigl(O(t^\ast)\oplus\mathrm{disk}(r_{\mathrm{insc}})\bigr),
+ \label{eq:imminent}
+\end{equation}
+则碰撞不可避，任何可行控制序列都会在 $t^\ast$ 与该他船相撞。
+\end{prop}
+
+\noindent\textbf{假设。}\ 单个恒速他船；他船船体尺寸不得高估，传入大于真实值的船宽会使判据失去可靠性；有限时域 $120$~s 上取 $241$ 个等距时刻求值。
+
+\noindent\textbf{证明要点。}\ 速度矢量变化率有界，二重积分给出 $R_{\mathrm{box}}$ 的两个半轴，故它过近似真可达中心；内切圆欠近似船体；可达中心整体落入膨胀后的他船占据时，任何控制都无法避开。
+
+\noindent\textbf{作用域。}\ 该判据\textbf{可靠}但不完备，即只漏报不误报，不触发并不意味着可避；它是末端分类器而非早预警，也不覆盖机动他船。$20{,}000$ 个随机场景与 $735$ 个精选场景上零假阳，包络硬化后追加 $1500$ 例模糊测试仍为零假阳。
 
 \subsection{策略学习}
 \label{sec:rl}
@@ -616,67 +665,6 @@ Submitted [Submission Date]\par
  \textbf{表注。}未列出的强化学习超参（折扣 $0.99$、学习率 $3\times10^{-4}$、采样步数 $2048$、批大小 $64$、GAE 折扣 $0.95$、裁剪范围 $0.2$）全部为库默认值。四项塑形仅用于连续动作策略。
 \end{table}
 %------------------------------------------------------------------------------
-
-\subsection{安全性保证与作用域}
-\label{sec:guarantee}
-
-本节说明该机制能够严格保证什么。四条性质按同一格式给出，即陈述、假设、证明要点与作用域，作用域一栏写明该性质\textbf{没有}覆盖的情形。完整推导见补充材料。
-
-\begin{prop}[远场单步无碰]\label{prop:farfield}
-设本船与单个他船的中心距为 $d$。若
-\begin{equation}
- d \;\ge\; d_{\mathrm{safe}} + v_{\mathrm{obs,max}}\Delta t + \rho_{\mathrm{ego}},
- \label{eq:farfield}
-\end{equation}
-则一个决策步之后两船以外接圆保守占据必不相交，其中 $d_{\mathrm{safe}}$ 为两船外接圆半径之和，$\rho_{\mathrm{ego}}$ 为本船单步最大位移。
-\end{prop}
-
-\noindent\textbf{假设。}\ 单他船；他船速度不超过 $9.5~\mathrm{m/s}$，该上界不由式~\eqref{eq:dyn} 约束、须独立给出，全库 $2000$ 个场景实测最大值为 $7.10~\mathrm{m/s}$；他船步内恒速。
-
-\noindent\textbf{证明要点。}\ 三角不等式，步后中心距不小于 $d$ 减去两船各自的单步位移上界，故不小于 $d_{\mathrm{safe}}$。
-
-\noindent\textbf{作用域。}\ 三角不等式与方向无关，故对遇即最坏情形。代入本场景库的常数后阈值约 $764$~m。它是\textbf{单步}充分条件，既非前向不变性，也不覆盖近场。
-
-\begin{prop}[每一让路步的方向合规]\label{prop:comply}
-在被状态机判为让路态势、且投影二次规划可行的每一个决策步上，实际执行的 $u_{\mathrm{safe}}$ 必落在式~\eqref{eq:ucolregs} 的合规方向半平面内。
-\end{prop}
-
-\noindent\textbf{假设。}\ 单他船；状态机判定正确。后者继承碰撞可能性谓词的一处保守偏差，该谓词以中心距为准，对速度接近的尾随会遇存在漏判区间。
-
-\noindent\textbf{证明要点。}\ 合规半平面以硬区间约束进入二次规划，投影解必然满足它。该结论由构造成立，与训练结果和随机种子无关。
-
-\noindent\textbf{作用域。}\ 不覆盖紧急态，其判据在结构上旁路合规约束；也不覆盖安全动作集为空而转入兜底的步。
-
-\begin{prop}[碰撞不可避的保守判据]\label{prop:imminent}
-设单个恒速他船，$R_{\mathrm{box}}(t)$ 为本船可达中心的过近似集，$O(t)$ 为他船船体矩形。若
-\begin{equation}
- \exists\,t^\ast\in[0,T]:\quad R_{\mathrm{box}}(t^\ast)\subseteq\bigl(O(t^\ast)\oplus\mathrm{disk}(r_{\mathrm{insc}})\bigr),
- \label{eq:imminent}
-\end{equation}
-则碰撞不可避，任何可行控制序列都会在 $t^\ast$ 与该他船相撞。
-\end{prop}
-
-\noindent\textbf{假设。}\ 单个恒速他船；他船船体尺寸不得高估，传入大于真实值的船宽会使判据失去可靠性；有限时域 $120$~s 上取 $241$ 个等距时刻求值。
-
-\noindent\textbf{证明要点。}\ 速度矢量变化率有界，二重积分给出 $R_{\mathrm{box}}$ 的两个半轴，故它过近似真可达中心；内切圆欠近似船体；可达中心整体落入膨胀后的他船占据时，任何控制都无法避开。
-
-\noindent\textbf{作用域。}\ 该判据\textbf{可靠}但不完备，即只漏报不误报，不触发并不意味着可避；它是末端分类器而非早预警，也不覆盖机动他船。$20{,}000$ 个随机场景与 $735$ 个精选场景上零假阳，包络硬化后追加 $1500$ 例模糊测试仍为零假阳。
-
-\begin{prop}[可清障集的控制不变性，\textbf{暂定}]\label{prop:inv}
-称控制序列为状态 $s$ 的已认证逃逸，若它逐步可执行、尾段恒速直行、且沿途与他船的距离经可靠证书判定为不减；记全部具有已认证逃逸的状态之集为可清障集 $A_{\mathrm{clr}}$。对每个 $s\in A_{\mathrm{clr}}$，施加其逃逸序列的首个控制一个决策步后所得 $s'$ 仍属于 $A_{\mathrm{clr}}$。
-\end{prop}
-
-\noindent\textbf{假设。}\ 单个恒速他船；$A_{\mathrm{clr}}$ 为真实可清障集的内近似；证书要求尾段\textbf{恒速}，仅航向不变不足以保证距离函数的凸性。
-
-\noindent\textbf{证明要点。}\ 施加首个控制之后，原序列的其余部分就是同一条已通过证书的物理轨迹的后半段，因而仍是新状态的已认证逃逸。合规版本另需首步落在合规半平面内。
-
-\noindent\textbf{作用域。}\ \textbf{暂定}。控制不变性已证、证书经长时域模糊测试为零假阳、终端约束模块已单测，但把该约束接进部署中的安全盾并在训练所得策略上验证闭环尚未完成。故本文只声明“已证可清障集不变、并据此设计了终端约束”，不声明“已实现前向不变的安全盾”。
-
-综合起来，本文可辩护的核心结论是，在连续控制上同时取得 COLREGs 让路条款的方向合规保证，并配以远场单步无碰的严格结论与紧急迫近不可避的可靠证书。该结论的作用域限于单个恒速他船、让路态势且投影可行的决策步；紧急态与三支兜底不在其内。上述边界在结论中集中说明。
-
-\textbf{兜底行为的实证边界。}
-当投影在紧急态不可行时，判据在结构上旁路方向约束，兜底控制器最小化碰撞风险。这是经验兜底，不是保证。在一个专门逼出紧急支的对抗性纯几何基线上，我们观察到的碰撞全部发生在归类为紧急控制的步上，即“最后手段尝试并失败”，且都落在性质 1 的适用域（远场、非紧急、单步）之外。它们不是对头条主张的反例，但坐实了紧急态不是保证。此处按来源分类的碰撞计数留待正式实验重评后填入（见第~\ref{sec:res-shield} 节，\TBD）。
-
 
 \section{Experiments}
 \label{sec:exp}
@@ -970,7 +958,7 @@ Submitted [Submission Date]\par
 
 COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法用最终有没有撞上来验证。既有工作要么以离散动作加屏蔽换取可证的合规，要么以连续控制加软性奖励换取控制精度。本文指出这一取舍并非必然：让路条款在控制量平面上恰好构成一个半平面，而“逐个枚举并屏蔽”这一前提可以由“向凸集投影”替代。据此我们把投影式安全盾落到海事 COLREGs 的连续控制上，使每一个投影可行的让路步的方向合规由构造成立，不依赖训练结果，也不受随机种子影响。凡是能写成动作空间中凸约束的行为规范都可循同一路径迁移。
 
-结论的边界如下。安全盾提供的保证不含无碰撞，性质 4 仍为暂定；方向合规成立于\textbf{每一个投影可行的让路步}而非每一步，紧急态在结构上旁路该约束，实测每局违规数非零（\TBD）。性质 1、3、4 均建立在他船恒速外推之上，机动他船会使保证失效。到达率与平顺度都不作为效能主张，后者因动作增量惩罚只在连续配置中启用而不可跨动作空间归因。报数上有最佳存档选择与跨机跨轮抖动两个已知偏倚，故主表两版并报且强制同机同轮评估。规则覆盖上，本文实现第 13--17 条的方向要求与直航保向保速，未实现直航船的自行避碰义务；追越一支虽已实现，本场景库无样本，未获实证检验。离散基线为重新实现，其种子脆弱性归因于本文的复现。
+结论的边界如下。安全盾提供的保证不含无碰撞；方向合规成立于\textbf{每一个投影可行的让路步}而非每一步，紧急态在结构上旁路该约束，实测每局违规数非零（\TBD）。性质 1、3、4 均建立在他船恒速外推之上，机动他船会使保证失效。到达率与平顺度都不作为效能主张，后者因动作增量惩罚只在连续配置中启用而不可跨动作空间归因。报数上有最佳存档选择与跨机跨轮抖动两个已知偏倚，故主表两版并报且强制同机同轮评估。规则覆盖上，本文实现第 13--17 条的方向要求与直航保向保速，未实现直航船的自行避碰义务；追越一支虽已实现，本场景库无样本，未获实证检验。离散基线为重新实现，其种子脆弱性归因于本文的复现。
 
 后续工作包括把后备机动的终端约束接进部署中的安全盾并验证闭环、把方向合规推广到多他船并给出冲突消解规则，以及把远场判据实现为 $O(1)$ 的提前退出。
 
@@ -1046,7 +1034,7 @@ COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法
 \refitem{Kochdumper, Niklas, Hanna Krasowski, Xiao Wang, Stanley Bak, and Matthias Althoff. 2023. ``Provably Safe Reinforcement Learning via Action Projection Using Reachability Analysis and Polynomial Zonotopes.'' \textit{IEEE Open Journal of Control Systems} 2.}
 
 
-\refitem{Krasowski, Hanna, and Matthias Althoff. 2022. ``CommonOcean: Composable Benchmarks for Motion Planning on Oceans.'' In \textit{Proceedings of the IEEE International Conference on Intelligent Transportation Systems (ITSC)}, 1676--1682. DOI: 10.1109/ITSC55140.2022.9921925.}
+\refitem{Krasowski, Hanna, and Matthias Althoff. 2022. ``CommonOcean: Composable Benchmarks for Motion Planning on Oceans.'' In \textit{Proceedings of the IEEE International Conference on Intelligent Transportation Systems (ITSC)}, 1676--1682. DOI: 10.1109/ITSC55140.2022.9921925. \url{https://commonocean.cps.cit.tum.de/}.}
 
 \refitem{Krasowski, Hanna, and Matthias Althoff. 2024. ``Provable Traffic Rule Compliance in Safe Reinforcement Learning on the Open Sea.'' \textit{IEEE Transactions on Intelligent Vehicles} 9 (12): 7617--7634. arXiv:2402.08502.}
 
