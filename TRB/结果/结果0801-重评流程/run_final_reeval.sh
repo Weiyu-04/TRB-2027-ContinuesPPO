@@ -22,6 +22,7 @@ ROOT="${ROOT:-/root/trb}"
 CODE_DIR="$ROOT/代码"
 RES="$ROOT/结果"
 PY="${PY:-/root/miniconda3/bin/python}"
+export CODE_DIR PY          # run_reeval_all.sh 内有写死默认值，必须传下去
 
 #: 实际跑完的种子（仓库清点坐实：8 颗 × 9 臂 = 72 条 run）
 SEEDS="${SEEDS:-0 1 2 3 4 5 8 9}"
@@ -61,6 +62,17 @@ check)
         find "$RES" -name "$d" ! -path "*/segments/*" 2>/dev/null | sed 's/^/       /'
       done
   echo "  （上面没有 ❌ 就说明没有重名）"
+
+  banner "第 0.7 步 · 存档落在哪一层（层数不对，重评的 REEVAL_CKDIRS 会扫不到）"
+  echo "  脚本认的两种位置：\$ROOT/*/checkpoints/  与  \$ROOT/*/*/checkpoints/"
+  echo "  （即 结果/checkpoints/ 或 结果/<任意一层>/checkpoints/，再深就扫不到了）"
+  find "$ROOT" -type d -name checkpoints ! -path "*/segments/*" 2>/dev/null | while read -r d; do
+    rel="${d#$ROOT/}"; depth=$(echo "$rel" | tr -cd '/' | wc -c)
+    n=$(ls "$d"/*_F240*.zip 2>/dev/null | wc -l)
+    if [ "$depth" -le 2 ]; then echo "  ✅ $rel  （$n 个正式存档）"
+    else                        echo "  🔴 $rel  （$n 个正式存档）—— 太深了，往上挪一层"; fi
+  done
+  echo
 
   banner "第 1 步 · 完整性体检（退出码 1 = 有硬伤，先修）"
   SEEDS="$SEEDS" ARMS="$ARMS_ALL" NSEG=20 \
