@@ -278,7 +278,9 @@ def fig5(D):
         🔴 角度是**该态势的定义扇区**，不是实测方位分布——图注必须写清楚，别让人误读成
            「我们测了他船方位」。
     """
-    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.60))
+    #: 紧凑型（user 2026-08-01）：整图收到双栏宽的 0.78，2×2 每格接近正方形。
+    #  原来是宽扁格子——横向留白多、纵向被挤，四张排开显得又大又空。
+    fig = plt.figure(figsize=(PS.COL2 * 0.78, PS.COL2 * 0.72))
     gs = fig.add_gridspec(2, 2)
     a = fig.add_subplot(gs[0, 0]); b = fig.add_subplot(gs[0, 1])
     c = fig.add_subplot(gs[1, 0]); d = fig.add_subplot(gs[1, 1], projection="polar")
@@ -294,7 +296,7 @@ def fig5(D):
         if len(x):
             a.plot(x / 1e6, y, color=col, linewidth=1.4, label=lab)
     a.set_xlim(0, XMAX)
-    a.legend(loc="center left", fontsize=6.2)
+    a.legend(loc="center left", fontsize=5.8)
     a.set_title("(a) Which branch produced the control")
     a.set_ylabel("Share of control steps (%)"); xaxis(a)
 
@@ -308,7 +310,7 @@ def fig5(D):
             if len(x):
                 b.plot(x / 1e6, 100 * y, color=col, linestyle=ls, linewidth=1.1,
                        label=(short(tag) if key == "roll_yaw_sat_frac" else None))
-    b.legend(loc="center right", fontsize=6.2)
+    b.legend(loc="center right", fontsize=5.8)
     b.set_ylabel("Action saturation (%)"); xaxis(b)
 
     # ── (c) 投影修正量：雨云图（半边密度 + 散点）──────────────────────────
@@ -335,8 +337,8 @@ def fig5(D):
         c.plot([i - 0.34, i + 0.02], [np.median(v)] * 2,
                color=PS.PALETTE["neutral_black"], linewidth=1.2, zorder=5)
     c.set_xticks(range(len(ARMS_C)))
-    c.set_xticklabels([short(t).replace("Continuous", "Cont.").replace("abl. ", "abl.\n")
-                       for t in ARMS_C], fontsize=6.2)
+    c.set_xticklabels(["Ours", "Cont.\n+ shield", "abl.\nbounded",
+                       "abl.\nsym. entry"], fontsize=5.6)
     c.set_xlim(-0.5, len(ARMS_C) - 0.4)
     c.set_ylabel("Correction (norm.)")
     c.grid(axis="x", visible=False)
@@ -374,9 +376,9 @@ def fig5(D):
     hs.append(Line2D([], [], color=PS.PALETTE["red_strong"], linestyle=(0, (3, 2)),
                      linewidth=1.1,
                      label="$\\rho_5$ emergency (any bearing)  %.2f%%" % em))
-    d.legend(handles=hs, loc="upper left", bbox_to_anchor=(-0.32, 1.16),
-             frameon=False, fontsize=5.8, handlelength=1.4, handletextpad=0.5,
-             labelspacing=0.30)
+    d.legend(handles=hs, loc="upper center", bbox_to_anchor=(0.5, -0.16),
+             frameon=False, fontsize=5.2, handlelength=1.2, handletextpad=0.4,
+             labelspacing=0.22, ncol=1)
     d.set_rlim(0, RMAX * 1.12)
     d.set_rticks([np.log10(x / rmin) for x in (0.01, 0.1, 1, 10, 100)])
     d.set_yticklabels(["", "0.1", "1", "10", "100%"], fontsize=5.0)
@@ -384,10 +386,10 @@ def fig5(D):
     d.set_xticks(np.radians([0, 90, 180, 270]))
     d.set_xticklabels(["ahead", "stbd", "astern", "port"], fontsize=6.2)
     d.tick_params(pad=1.0)
-    d.set_title("(d) Encounter situations by defining sector", pad=26)
+    d.set_title("(d) Encounter situations", pad=8)
     d.grid(color="#DDDDDD", linewidth=0.5)
 
-    fig.tight_layout(w_pad=2.4, h_pad=1.8)
+    fig.tight_layout(w_pad=1.6, h_pad=1.5)
     PS.save(fig, "Fig5_shield_behaviour", R.OUT_DIRS)
     plt.close(fig)
 
