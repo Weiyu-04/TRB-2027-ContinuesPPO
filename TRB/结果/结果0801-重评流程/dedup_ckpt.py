@@ -39,7 +39,16 @@ def main():
         raise SystemExit(__doc__)
     root = os.path.abspath(sys.argv[1])
     apply_ = os.environ.get("APPLY") == "1"
-    quarant = os.path.join(root, "_孤儿档")
+    # 🔴 隔离区**必须放在 `结果/` 之外**（2026-08-01 实测）：
+    #   · `select_best_ckpt.py:_runs()` 是 `glob(root/**/checkpoints/*.progress.json, recursive=True)`
+    #     —— `**` 匹配任意深度 ⟹ 放在 `结果/_孤儿档/` 里照样被扫到，且它按 basename 建字典、
+    #     **后扫到的覆盖前面的** ⟹ 挪走的半截档可能反杀回来，等于没隔离；
+    #   · `check_formal_integrity.py` 第 ⑧ 项同理，会把隔离区里的又判成重名（硬伤）；
+    #   · 放 `~/trb/_孤儿档/` 也不行 —— `run_reeval_all.sh` 的
+    #     `REEVAL_CKDIRS=$ROOT/*/*/checkpoints` 正好能匹配到 `~/trb/_孤儿档/<原目录>/checkpoints`。
+    #   ⟹ 默认挪到 `~/trb` 的**上一级**（即 `/root/_孤儿档`），三个工具都够不着。
+    quarant = os.environ.get("QUARANTINE") or os.path.abspath(
+        os.path.join(root, os.pardir, os.pardir, "_孤儿档"))
 
     found = collections.defaultdict(list)
     for dirpath, dirnames, filenames in os.walk(root):
