@@ -12,7 +12,10 @@
   ② 覆盖保护：同名 progress.json 只有在【段数更多】时才覆盖，防"半截档盖掉完整档"
   ③ 提交前把【被 .gitignore 悄悄挡下】的文件单独列出来 —— git add 对被忽略的文件不报错
 """
-import os, re, sys, json, shutil, subprocess, collections
+import os, re, sys, json, shlex, shutil, subprocess, collections
+# 🔴 2026-08-01 later-3 修：原来 git 的路径参数用 `json.dumps(DEST)` 包引号，而 DEST 里带中文，
+#   json 默认把非 ASCII 转义成 \uXXXX ⟹ 传给 shell 的是字面量 "TRB/Paper/正式…"，
+#   `git add` 匹配不到任何文件、还不报错 ⟹ **复制完了却一个文件都没提交**。改用 shlex.quote。
 
 HOME = os.path.expanduser("~")
 REPO = os.path.join(HOME, "TRB-2027-ContinuesPPO")
@@ -213,7 +216,7 @@ def main():
     P(f"  复制 {ncopy} 个（{nbytes/1048576:.1f} MB）· 跳过权重 {nskip_w} 个 · 跳过更旧的存档 {nskip_old} 个")
 
     P("\n══ 3. 提交前检查：有没有文件被 .gitignore 悄悄挡下 ══")
-    rc, out, _ = sh("git status --porcelain --ignored " + json.dumps(DEST), cwd=REPO)
+    rc, out, _ = sh("git status --porcelain --ignored " + shlex.quote(DEST), cwd=REPO)
     ign = [l[3:] for l in out.splitlines() if l.startswith("!!")]
     if ign:
         P(f"  🔴 有 {len(ign)} 个文件被忽略，前 10 个：")
@@ -224,7 +227,7 @@ def main():
         P("  ✅ 没有文件被忽略")
 
     P("\n══ 4. 提交并推送 ══")
-    sh("git add -A " + json.dumps(DEST), cwd=REPO)
+    sh("git add -A " + shlex.quote(DEST), cwd=REPO)
     rc, out, _ = sh("git diff --cached --name-only", cwd=REPO)
     files = out.splitlines()
     P(f"  真正进入本次提交的文件：{len(files)} 个")
@@ -264,7 +267,7 @@ if __name__ == "__main__":
         if os.path.isdir(REPO):
             rp = write_report()
             if rp and "--go" in sys.argv:
-                sh("git add -A " + json.dumps(rp), cwd=REPO)
+                sh("git add -A " + shlex.quote(rp), cwd=REPO)
                 rc, out, _ = sh("git diff --cached --name-only", cwd=REPO)
                 if out.strip():
                     sh('git commit -m "回传：盘点报告"', cwd=REPO)

@@ -754,53 +754,51 @@ Table~\ref{tab:arms} lists nine configurations. They form one connected ladder, 
 level changes a single variable from the level before it. The contribution of each mechanism
 can therefore be read on its own.
 
+Three levels are an exception, because a companion variable switches with the one under
+study. The move to a continuous action space also changes the policy distribution. The
+continuous-only shaping is a bundle of four items. The bounded action distribution also
+raises the initial exploration scale, by about a factor of $2.5$ on the acceleration axis.
+These three levels are attributed as a whole.
+
 %------------------------------------------------------------------------------
 \begin{table}[htbp]
- \caption{The nine configurations and the single-variable ladder}
+ \caption{The nine configurations}
  \label{tab:arms}
  \centering\footnotesize
  \setlength{\tabcolsep}{3pt}
- \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}cl ccccccc@{}}
+ \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccccccc@{}}
   \toprule
-  \# & Configuration & Cont. & Shield & Masking & Soft rew. & Shaping & Bounded & Sym. entry \\
+  Configuration & Cont. & Shield & Masking & Soft rew. & Shaping & Bounded & Sym. entry \\
   \midrule
-  1 & Full method              & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
-  2 & Discrete with masking    & $\times$ & $\times$ & $\checkmark$ & $\checkmark$ & $\times$ & n.a. & $\times$ \\
-  3 & Discrete baseline        & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ & n.a. & n.a. \\
-  4 & Discrete with soft reward& $\times$ & $\times$ & $\times$ & $\checkmark$ & $\times$ & n.a. & n.a. \\
-  5 & Continuous, no shield    & $\checkmark$ & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ \\
-  6 & Continuous with shield   & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ \\
-  7 & Ablation reference       & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\times$ & $\times$ \\
-  8 & Ablation, bounded only   & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\checkmark$ & $\times$ \\
-  9 & Ablation, symmetric only & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\times$ & $\checkmark$ \\
+  Full method           & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
+  Discrete, masking     & $\times$ & $\times$ & $\checkmark$ & $\checkmark$ & $\times$ & -- & $\times$ \\
+  Discrete baseline     & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ & -- & -- \\
+  Discrete, soft reward & $\times$ & $\times$ & $\times$ & $\checkmark$ & $\times$ & -- & -- \\
+  Continuous, no shield & $\checkmark$ & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ \\
+  Continuous, shield    & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\times$ & $\times$ & $\times$ \\
+  Ablation reference    & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\times$ & $\times$ \\
+  Bounded only          & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\checkmark$ & $\times$ \\
+  Symmetric only        & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\times$ & $\checkmark$ \\
   \bottomrule
  \end{tabular*}
 
  \vspace{4pt}
  \footnotesize
- \textbf{Notes.} $\checkmark$ on, $\times$ off, n.a. not applicable. The ladder runs
- $3\rightarrow4$ (soft compliance term), $3\rightarrow5$ (action space),
- $4\rightarrow2$ (action masking), $5\rightarrow6$ (safety shield),
- $6\rightarrow7$ (continuous-only shaping), $7\rightarrow8$ (bounded action
- distribution), $7\rightarrow9$ (symmetric give-way entry), and $8,9\rightarrow1$.
- Three steps carry a companion variable that cannot be separated. From 3 to 5 the action
- space and the policy distribution change together, because an unshielded continuous
- configuration has only one legitimate form. From 6 to 7 the continuous-only shaping is a
- bundle of four items that switch together. From 7 to 8 the change of distribution also
- changes the initial exploration scale, by about a factor of $2.5$ on the acceleration
- axis. These three levels can only be attributed as a whole.
+ \textbf{Notes.} $\checkmark$ on, $\times$ off, -- not applicable.
 \end{table}
 %------------------------------------------------------------------------------
 
-\noindent\textbf{What configurations 5 and 6 can show.}\ A continuous-action configuration
-without a shield can only take the plainest form, namely an unbounded Gaussian, an
-asymmetric give-way entry, and no shaping. Giving it the continuous-only shaping would break
-the symmetry with the discrete baseline, and the attribution would fail. The unbounded
-Gaussian is also the form that pushes many samples past the action box. A small re-evaluation was run during the
-exploration phase, and that setting is not the one used in the formal experiment. About
-$73\%$ of the decision steps of that policy sat against the boundary of the action box. The gain attributed to the shield is therefore measured against
-the weakest form of continuous action. For the same reason the step from 3 to 5 can be
-negative, and it should be read as a conservative lower bound.
+\noindent\textbf{What the unshielded continuous configuration can show.}\ A
+continuous-action configuration without a shield can only take the plainest form, namely an
+unbounded Gaussian, an asymmetric give-way entry, and no shaping. Giving it the
+continuous-only shaping would break the symmetry with the discrete baseline, and the
+attribution would fail. The unbounded Gaussian is also the form that pushes many samples
+past the action box. A small re-evaluation was run during the exploration phase, and that
+setting is not the one used in the formal experiment. About $73\%$ of the decision steps of
+that policy sat against the boundary of the action box. The gain attributed to the shield is
+therefore measured against the weakest form of continuous action. For the same reason the
+step from the discrete baseline to the unshielded continuous configuration can be negative,
+and it should be read as a conservative lower bound.
 
 \subsection{Metrics and Evaluation Protocol}
 \label{sec:metrics}
@@ -833,11 +831,9 @@ does not claim one. In particular, Proposition~\ref{prop:comply} guarantees the 
 direction on every give-way step. It does \textbf{not} imply a give-way violation count of
 zero. How often the mismatch occurs was not measured.
 
-\noindent\textbf{Training budget.}\ Each configuration is trained with $8$ random seeds, one
-run per seed, and $10{,}158{,}080$ steps per run in $20$ segments. Each segment leaves one
-checkpoint and is evaluated once on the validation set. Of the $72$ runs, $71$ completed
-$20$ segments. One seed of the discrete safe baseline stopped after segment $19$, and it is
-counted at its actual $19$ segments and $9{,}650{,}176$ steps. The scenario split is fixed
+\noindent\textbf{Training budget.}\ Each configuration is trained with $8$ random seeds and
+one run per seed. The $72$ runs consume $730{,}873{,}856$ environment steps in total, or
+about $10.2$ million per run. The scenario split is fixed
 by a separate seed, so every run sees the same scenarios. Every configuration inside one
 table is evaluated on one machine in one pass, so that machine differences do not enter the
 evaluation. Machine time did not allow the same during training. For $5$ of the $8$ seeds
@@ -848,13 +844,14 @@ byte-identical fingerprint of the training path, and with the thread count locke
 not excluded. This is listed as a limitation.}
 
 \noindent\textbf{Checkpoint selection.}\ The rule was fixed in advance and has no tunable
-part. The candidates are all $20$ segments, the criterion is the highest arrival rate on the
-validation set, ties go to the earlier segment, and the test set is never touched.
+part. Each run leaves $20$ checkpoints, each of which is evaluated once on the validation
+set. The criterion is the highest arrival rate on that set, ties go to the earlier
+checkpoint, and the test set is never touched.
 \textbf{The rule is itself biased, so two versions are reported.} The validation set holds
 only $100$ scenarios, and the binomial standard error of the arrival rate is about $4$
 points. Taking the maximum over $20$ candidates lifts the reported value by about $7.5$
 points in expectation. That is four times the drift of about $1.6$ points that the
-same-machine rule was written to prevent. The best-checkpoint version and the last-segment
+same-machine rule was written to prevent. The best-checkpoint version and the last-checkpoint
 version are therefore both reported.
 
 \noindent\textbf{Statistics.}\ The paired test is a per-seed paired sign test. With $8$
@@ -868,10 +865,8 @@ they are, and a converged-seeds-only version is also reported.
 
 %------------------------------------------------------------------------------
 \begin{table}[htbp]
- \caption{Main comparison of the nine configurations under one condition (all seeds).
- \textbf{These values are provisional. They are last-segment evaluations on the $100$
- validation scenarios. The whole table is replaced once the re-evaluation on the official
- test set of $600$ is complete.}}
+ \caption{Main comparison, all seeds. \textbf{Provisional: last-checkpoint values on the
+ validation set.}}
  \label{tab:main}
  \centering\footnotesize
  \setlength{\tabcolsep}{4pt}
@@ -879,27 +874,22 @@ they are, and a converged-seeds-only version is also reported.
   \toprule
   Configuration & $n$ & Conv. & Arrival \% [CI] & Coll. \% & Viol./ep. & Turn $\Delta$ & Thr. $\Delta$ & Emerg. \% \\
   \midrule
-  1 Full method       & \prov{8} & \prov{\textbf{8/8}} & \prov{88.5 [81,\,92]} & \prov{\textbf{0.00}} & \prov{\textbf{0.49}} & \prov{0.0085} & \prov{0.0193} & \prov{2.56} \\
-  2 Discrete, masking & \prov{8} & \prov{6/8} & \prov{92.5 [11,\,94]} & \prov{\textbf{0.00}} & \prov{1.01} & \prov{0.0121} & \prov{0.0263} & \prov{4.90} \\
-  3 Discrete baseline & \prov{8} & \prov{\textbf{8/8}} & \prov{\textbf{97.0 [96,\,98]}} & \prov{3.00} & \prov{2.52} & \prov{0.0139} & \prov{0.0210} & \prov{0.00} \\
-  4 Soft reward       & \prov{8} & \prov{7/8} & \prov{96.5 [94,\,98]} & \prov{2.50} & \prov{2.41} & \prov{0.0139} & \prov{0.0215} & \prov{0.00} \\
-  5 Cont., no shield  & \prov{8} & \prov{7/8} & \prov{\textbf{97.0 [94,\,98]}} & \prov{2.50} & \prov{4.06} & \prov{0.0248} & \prov{0.0134} & \prov{0.00} \\
-  6 Cont., shield     & \prov{8} & \prov{5/8} & \prov{78.5 [6,\,88]} & \prov{\textbf{0.00}} & \prov{0.93} & \prov{0.0213} & \prov{0.0267} & \prov{2.49} \\
-  7 Ablation ref.     & \prov{8} & \prov{5/8} & \prov{86.0 [3,\,88]} & \prov{\textbf{0.00}} & \prov{1.09} & \prov{0.0142} & \prov{0.0109} & \prov{3.84} \\
-  8 Bounded only      & \prov{8} & \prov{7/8} & \prov{86.0 [50,\,91]} & \prov{\textbf{0.00}} & \prov{0.52} & \prov{0.0087} & \prov{0.0176} & \prov{1.97} \\
-  9 Symmetric only    & \prov{8} & \prov{5/8} & \prov{75.5 [0,\,82]} & \prov{\textbf{0.00}} & \prov{0.77} & \prov{0.0150} & \prov{0.0143} & \prov{3.02} \\
+  Full method           & \prov{8} & \prov{\textbf{8/8}} & \prov{88.5 [81,\,92]} & \prov{\textbf{0.00}} & \prov{\textbf{0.49}} & \prov{0.0085} & \prov{0.0193} & \prov{2.56} \\
+  Discrete, masking     & \prov{8} & \prov{6/8} & \prov{92.5 [11,\,94]} & \prov{\textbf{0.00}} & \prov{1.01} & \prov{0.0121} & \prov{0.0263} & \prov{4.90} \\
+  Discrete baseline     & \prov{8} & \prov{\textbf{8/8}} & \prov{\textbf{97.0 [96,\,98]}} & \prov{3.00} & \prov{2.52} & \prov{0.0139} & \prov{0.0210} & \prov{0.00} \\
+  Discrete, soft reward & \prov{8} & \prov{7/8} & \prov{96.5 [94,\,98]} & \prov{2.50} & \prov{2.41} & \prov{0.0139} & \prov{0.0215} & \prov{0.00} \\
+  Continuous, no shield & \prov{8} & \prov{7/8} & \prov{\textbf{97.0 [94,\,98]}} & \prov{2.50} & \prov{4.06} & \prov{0.0248} & \prov{0.0134} & \prov{0.00} \\
+  Continuous, shield    & \prov{8} & \prov{5/8} & \prov{78.5 [6,\,88]} & \prov{\textbf{0.00}} & \prov{0.93} & \prov{0.0213} & \prov{0.0267} & \prov{2.49} \\
+  Ablation reference    & \prov{8} & \prov{5/8} & \prov{86.0 [3,\,88]} & \prov{\textbf{0.00}} & \prov{1.09} & \prov{0.0142} & \prov{0.0109} & \prov{3.84} \\
+  Bounded only          & \prov{8} & \prov{7/8} & \prov{86.0 [50,\,91]} & \prov{\textbf{0.00}} & \prov{0.52} & \prov{0.0087} & \prov{0.0176} & \prov{1.97} \\
+  Symmetric only        & \prov{8} & \prov{5/8} & \prov{75.5 [0,\,82]} & \prov{\textbf{0.00}} & \prov{0.77} & \prov{0.0150} & \prov{0.0143} & \prov{3.02} \\
   \bottomrule
  \end{tabular*}
 
  \vspace{4pt}\footnotesize
- \textbf{Notes.} Configurations 5 and 6 use the only legitimate plain form of an unshielded
- continuous configuration, so the gain of the shield is measured in that form. The best
- value in each column is in bold. The turn and throttle increment columns are
- \textbf{not} marked, because they cannot be compared across action spaces
- (Section~\ref{sec:train}), and marking a best value there would assume that they can. The
- share of emergency steps is descriptive and is neither good nor bad. One seed of the
- discrete safe baseline ran only to segment $19$, at $9{,}650{,}176$ steps, and it is
- counted at its actual length. Its arrival rate stayed below $3\%$ throughout.
+ \textbf{Notes.} The best value in each column is in bold. The turn and throttle increments
+ are not marked, because they cannot be compared across action spaces
+ (Section~\ref{sec:train}). The share of emergency steps is descriptive.
 \end{table}
 %------------------------------------------------------------------------------
 
@@ -911,17 +901,11 @@ accompany the table.
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig2_tradeoff.pdf}
- \caption{Safety and efficiency. (a) Arrival rate against COLREGs violations per episode
- on a logarithmic axis. Points are medians across seeds, error bars are bootstrap $95\%$
- intervals resampled over seeds, and the ideal region is the lower right. Circles are
- continuous action spaces and triangles are discrete ones. Filled markers carry a shield.
- (b) Collision rate for each seed, one point per seed, with a short bar at the median.
- The error bars are wide because every configuration contains a diverged seed, and
- Section~\ref{sec:metrics} gives the converged-seeds-only version. \textbf{These values are
- from the $100$ validation scenarios, which is not the test set used in
- Table~\ref{tab:main}. Violations are the sum of stand-on and give-way counts. The three
- external geometric baselines are not trained and have no training-time record, so they do
- not appear here.}}
+ \caption{Safety and efficiency. (a) Arrival rate against COLREGs violations per episode, on
+ a logarithmic axis. Points are medians across seeds and bars are bootstrap $95\%$ intervals
+ resampled over seeds. Circles are continuous action spaces, triangles are discrete ones,
+ and filled markers carry a shield. (b) Collision rate, one point per seed, with a bar at
+ the median. \textbf{Provisional: values are from the validation set.}}
  \label{fig:tradeoff}
 \end{figure}
 
@@ -945,23 +929,20 @@ This group is the only place where the smoothness result can be read. All four
 configurations run the same action-increment penalty, so the difference can be attributed
 to the bounded action distribution rather than to an extra reward term. A comparison against
 the discrete baseline would not be valid here, because that penalty applies to a quantity
-the discrete configurations do not have. The step from 7 to 8 carries a companion variable. The
-initial exploration scale differs by about a factor of $2.5$ on the acceleration axis, as
-noted with Table~\ref{tab:arms}. A converged-seeds-only version is given for this group
+the discrete configurations do not have. The bounded action distribution carries a companion
+variable, namely the initial exploration scale, as stated in
+Section~\ref{sec:setup}. A converged-seeds-only version is given for this group
 as well.
 
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig3_ablation.pdf}
- \caption{Contribution of the two changes, as a $2\times2$ ablation paired by seed. (a)
- and (b) Bars are medians across seeds and error bars are bootstrap $95\%$ intervals
- resampled over seeds. Above each bar are the change relative to the leftmost bar, the
- significance mark of the paired signed-rank test, and the number of seeds that moved in
- the same direction. (c) The arrival rate is bimodal, because some seeds diverge, so a box
- plot is used and the number of diverged seeds is printed below each box. Open points are
- single seeds. \textbf{These values are from the $100$ validation scenarios, which is not
- the test set used in Table~\ref{tab:main}. Violations are the sum of stand-on and give-way
- counts.}}
+ \caption{The $2\times2$ ablation, paired by seed. (a) and (b) Bars are medians across seeds
+ and error bars are bootstrap $95\%$ intervals resampled over seeds. Above each bar are the
+ change relative to the leftmost bar, the mark of the paired signed-rank test, and the
+ number of seeds that moved in the same direction. (c) Box plot of the arrival rate, with
+ the number of diverged seeds below each box and open points for single seeds.
+ \textbf{Provisional: values are from the validation set.}}
  \label{fig:ablation}
 \end{figure}
 
@@ -1000,24 +981,31 @@ situations or the fallback. A collision rate of zero is therefore an observation
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig4_training_reliability.pdf}
- \caption{Sample efficiency and training reliability against training steps. The four main
- configurations share one legend, and $n/8$ in the legend is the number of converged seeds.
- Thick lines are medians and shaded bands are interquartile ranges, and \textbf{both use
- converged seeds only}, because a diverged seed pulls the band to zero. How many seeds
- converge is answered separately by (d), which counts all $8$. \textbf{The axis starts at
- the first evaluation point, at $0.5$ million steps. There is no evaluation at zero steps,
- and adding an origin would add a data point that was never measured.} (a) Arrival rate.
- (b) Collision rate. (c) COLREGs violations per episode. (d) Number of seeds that meet the
- convergence rule. (e) Share of steps under emergency control. (f) Explained variance of
- the value function. The ablation configurations are not shown here and are compared in
- Figure~\ref{fig:ablation}. \textbf{One seed of the discrete safe baseline stopped after
- segment $19$, and the other $71$ runs completed $20$ segments. Values are from the $100$
- validation scenarios, which is not the test set used in Table~\ref{tab:main}.}}
+ \caption{Sample efficiency and training reliability against training steps. Thick lines are
+ medians and shaded bands are interquartile ranges, both over converged seeds only. The
+ legend gives the number of converged seeds out of $8$. The axis starts at the first
+ evaluation point. (a) Arrival rate. (b) Collision rate. (c) COLREGs violations per episode.
+ (d) Seeds that meet the convergence rule, counted over all $8$. (e) Share of steps under
+ emergency control. (f) Explained variance of the value function. \textbf{Provisional:
+ values are from the validation set.}}
  \label{fig:curves}
 \end{figure}
 
 \subsection{Behavior of the Safety Shield}
 \label{sec:res-shield}
+\begin{figure}[htbp]
+ \centering
+ \includegraphics[width=\linewidth]{figs/fig5_shield_behaviour.pdf}
+ \caption{Behavior of the shield during training. (a) Which branch produced each control
+ command, on a logarithmic axis. (b) Saturation of the action, with the turn axis solid and
+ the acceleration axis dashed. (c) Distribution of the size of the projection correction,
+ with single samples on the left half, a kernel density on the right half, and the median as
+ a black line. (d) Share of each encounter situation, on a logarithmic radius.
+ \textbf{The angle is the sector in which the convention defines the situation, not a
+ measured bearing distribution.} The emergency situation belongs to no sector and is drawn
+ as a dashed ring. \textbf{Values are collected during training.}}
+ \label{fig:shield}
+\end{figure}
 
 The emergency branch is the only part of this method that offers no guarantee, so how often
 it is used and what follows from its use are reported separately. At the end of training,
@@ -1039,52 +1027,17 @@ At the end of training its median is \prov{$0.082$} and its interquartile range 
 \prov{$[0.065,\,0.102]$}. The gap between the command of the policy and what the rules
 require therefore stays within about a tenth of the control range. It also narrows
 monotonically during training (Figure~\ref{fig:shield}c). The correction is largest for the
-symmetric-entry-only configuration, at \prov{$0.093$}, and smallest for the
-bounded-distribution-only configuration, at \prov{$0.066$}. That ordering matches the turn
+symmetric-only configuration, at \prov{$0.093$}, and smallest for the
+bounded-only configuration, at \prov{$0.066$}. That ordering matches the turn
 increments in Figure~\ref{fig:ablation}. The full distribution of this quantity is \TBD.
 
-\begin{figure}[htbp]
- \centering
- \includegraphics[width=\linewidth]{figs/fig5_shield_behaviour.pdf}
- \caption{How the behavior of the shield evolves during training, taken from training-time
- telemetry. (a) Which branch produced each control command, as a stacked area, with the
- emergency and fallback shares at the end of training marked on the right. (b) Saturation
- of the action, with the turn axis and the acceleration axis separated. The upper limit of
- the discrete grid equals the half-width of the continuous action box, so one saturation
- rule serves both. (c) Distribution of the size of the projection correction, with samples
- on the left half and a kernel density on the right half, and the median as a black line.
- (d) Share of each encounter situation. \textbf{The angle is the sector in which the
- convention defines that situation. It is not the measured bearing distribution of target
- vessels.} The radius is logarithmic. The emergency situation is triggered by the
- unavoidable-collision criterion and belongs to no sector, so it is drawn as a dashed ring.
- \textbf{This figure is collected during training, which is not the evaluation setting of
- Table~\ref{tab:main}.}}
- \label{fig:shield}
-\end{figure}
 
 \subsection{Comparison with External Baselines}
 \label{sec:res-ext}
 
-Three geometric collision-avoidance controllers that need no training are run through the
-same evaluation pipeline, on the same test set, at the same sample size
-(Table~\ref{tab:ext}). The question here is not whether a learning method is stronger. It
-is which dimensions a geometric method already covers.
-
-The answer narrows the defensible claim to one dimension. The collision rate does not
-separate the two families, since the control barrier function filter also reaches
-$0.00\%$ on this test set. The arrival rate and the smoothness columns are governed by the
-type of terminal constraint and by the control range, and neither supports a reading in
-favor of this paper. The real difference is in COLREGs violations, and almost all of it
-comes from stand-on violations. These controllers aim only at avoiding contact, so they keep
-maneuvering during periods in which the rules require course and speed to be held.
-Violations are decided by the offline scorer from the bare situation predicates, so the
-comparison is made under one condition. The claim of this paper against geometric methods
-rests on this dimension alone, and the specific difference is \TBD.
-
 %------------------------------------------------------------------------------
 \begin{table}[htbp]
- \caption{External geometric baselines, without training and without seeds, on the official
- test set of $N=600$}
+ \caption{External geometric baselines on the official test set ($N=600$)}
  \label{tab:ext}
  \centering\footnotesize
  \setlength{\tabcolsep}{4pt}
@@ -1108,21 +1061,37 @@ rests on this dimension alone, and the specific difference is \TBD.
    & Policy range, margin & 57.00 & 0.00 & 8.20 & 0.50 & 7.70 & 0.00425 & 0.279 \\
    & Actuator limits      & 42.67 & 0.00 & 8.06 & 0.68 & 7.38 & 0.00128 & 0.071 \\
   \addlinespace
-  1 This paper & Policy range & \multicolumn{7}{c}{(see Table~\ref{tab:main})} \\
+  This paper & Policy range & \multicolumn{7}{c}{(see Table~\ref{tab:main})} \\
   \bottomrule
  \end{tabular*}
 
  \vspace{4pt}\footnotesize
- \textbf{Notes.} The three baselines are not trained and have no seed. Each is reported at
- its own best setting, and the set used for tuning is disjoint from the set used here. Two
- control ranges are reported. The policy range is the same authority as the policy of this
- paper, at $\pm0.048$ and $\pm0.018$, and the actuator limits are $\pm0.24$ and $\pm0.03$.
- Both are reported so that a difference in authority is not a confounder. \textbf{The
- arrival rate is not a measure of collision avoidance.} The nominal law of a geometric
- controller has no terminal alignment stage. These controllers reach the goal position in
- $96.8\%$ to $99.7\%$ of episodes and then fail the terminal heading gate.
+ \textbf{Notes.} Each baseline is reported at its own best setting, tuned on a set that is
+ disjoint from the one used here. The policy range is $\pm0.048$ and $\pm0.018$, the same
+ authority as the policy of this paper, and the actuator limits are $\pm0.24$ and
+ $\pm0.03$. Both are reported so that a difference in authority is not a confounder.
+ \textbf{The arrival rate is not a measure of collision avoidance.} These controllers have
+ no terminal alignment stage. They reach the goal position in $96.8\%$ to $99.7\%$ of
+ episodes and then fail the terminal heading gate.
 \end{table}
 %------------------------------------------------------------------------------
+
+Three geometric collision-avoidance controllers that need no training are run through the
+same evaluation pipeline, on the same test set, at the same sample size
+(Table~\ref{tab:ext}). The question here is not whether a learning method is stronger. It
+is which dimensions a geometric method already covers.
+
+The answer narrows the defensible claim to one dimension. The collision rate does not
+separate the two families, since the control barrier function filter also reaches
+$0.00\%$ on this test set. The arrival rate and the smoothness columns are governed by the
+type of terminal constraint and by the control range, and neither supports a reading in
+favor of this paper. The real difference is in COLREGs violations, and almost all of it
+comes from stand-on violations. These controllers aim only at avoiding contact, so they keep
+maneuvering during periods in which the rules require course and speed to be held.
+Violations are decided by the offline scorer from the bare situation predicates, so the
+comparison is made under one condition. The claim of this paper against geometric methods
+rests on this dimension alone, and the specific difference is \TBD.
+
 
 
 %==============================================================================

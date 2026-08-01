@@ -213,7 +213,10 @@ def fig4(D):
     #   这是论文统计一节**事先声明**的第二种报数口径，不是事后挑数据。
     OK = {t: [sd for sd, r in D[t].items()
               if r["trend"] and r["trend"][-1]["到达率%"] >= R.CRASH_ARR] for t in MAIN}
-    fig, AX = plt.subplots(2, 3, figsize=(PS.COL2, PS.COL2 * 0.52))
+    #: 🔴 高宽比 0.52→0.45（2026-08-01 later-3）：论文里按 `width=\linewidth` 收，
+    #  高度 = 165 mm × 高宽比 ⟹ 0.52 时 86 mm，比图 2（66）图 3（56）高出一截。
+    #  格子仍是 2×3，内容一格没减，只把每格压扁一点。
+    fig, AX = plt.subplots(2, 3, figsize=(PS.COL2, PS.COL2 * 0.45))
     (a, b, c), (d, e, f) = AX
 
     #: 🔴 第一个评估点在 0.5M 步，**没有 0 步的评估**。横轴若从 0 起画，
@@ -285,13 +288,14 @@ def fig5(D):
         🔴 角度是**该态势的定义扇区**，不是实测方位分布——图注必须写清楚，别让人误读成
            「我们测了他船方位」。
     """
-    #: 紧凑型（user 2026-08-01）：整图收到双栏宽的 0.78，2×2 每格接近正方形。
-    #  原来是宽扁格子——横向留白多、纵向被挤，四张排开显得又大又空。
-    #: 版式取舍（user 2026-08-01 两轮反馈）：
-    #  2×2 满宽 → 「四张排列感觉好大」；1×4 一行 → 「实在是太窄了」。
-    #  折中：**2×2，整图收到双栏宽的 0.82**，每格接近正方（约 75×62 mm），
-    #  既不占满一页宽，也不把极坐标与雨云挤成条状。
-    fig = plt.figure(figsize=(PS.COL2 * 0.82, PS.COL2 * 0.70))
+    #: 🔴 2026-08-01 later-3（user：「图 4 实在是太大了，跟前面的尺寸相差太多」）——
+    #  病根不在这里的 figsize，而在**论文里是 `width=\linewidth` 收的**：
+    #  以前 figsize 宽 = COL2×0.82 = 150 mm，正文行宽 165 mm ⟹ LaTeX 把它**放大 1.12 倍**，
+    #  高度从 128 mm 涨到 144 mm、字号也跟着涨 12%，于是这一张比图 2/3 高出一倍还多。
+    #  ⟹ 宽度必须**就是 COL2**（与图 2/3/4 同宽，缩放系数一致、字号才一致），
+    #     "别太大" 要靠**压高宽比**来实现，不是靠缩宽度。
+    #  高宽比 0.56 ⟹ 论文里 165×92 mm，与图 2（165×66）图 3（165×56）同一量级。
+    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.56))
     gs = fig.add_gridspec(2, 2)
     a = fig.add_subplot(gs[0, 0]); b = fig.add_subplot(gs[0, 1])
     c = fig.add_subplot(gs[1, 0]); d = fig.add_subplot(gs[1, 1], projection="polar")
@@ -386,7 +390,9 @@ def fig5(D):
     hs.append(Line2D([], [], color=PS.PALETTE["red_strong"], linestyle=(0, (3, 2)),
                      linewidth=1.1,
                      label="$\\rho_5$ emergency (any bearing)  %.2f%%" % em))
-    d.legend(handles=hs, loc="upper center", bbox_to_anchor=(0.5, -0.13),
+    #: 🔴 图例移到极坐标**右侧**（原来在下方）：整图压扁之后纵向最紧、横向反而有余，
+    #  legend 放下面会把玫瑰图挤成一条；放右边正好吃掉极坐标（正方）留出的横向空档。
+    d.legend(handles=hs, loc="center left", bbox_to_anchor=(1.14, 0.5),
              frameon=False, fontsize=5.2, handlelength=1.1, handletextpad=0.35,
              labelspacing=0.28, ncol=1)
     d.set_rlim(0, RMAX * 1.12)
