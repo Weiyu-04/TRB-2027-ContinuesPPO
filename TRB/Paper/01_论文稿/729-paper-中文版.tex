@@ -134,6 +134,14 @@
 %  正文引用宏：\cit{Smith 2020} → (Smith 2020)；\citp{Smith 2020}{25--27} → (Smith 2020, 25--27)
 \newcommand{\cit}[1]{(#1)}
 \newcommand{\citp}[2]{(#1 #2)}
+%--- 🆕 2026-08-01 可跳转引用（user 要求：文献可点击跳转，引用文字保持黑色）------
+%  hyperref 已是 hidelinks ⟹ 链接不变色、不加框，打印稿与现在逐字相同。
+%  \citl{键}{显示文字}            单条：渲染 (显示文字)，整体可点
+%  \citm{\cl{k1}{A 1999}; \cl{k2}{B 2020}}  多条并列：各自可点
+%  锚点由 \refitem 里的 \hypertarget{ref:键}{} 提供，键 = 第一作者姓氏小写 + 年份。
+\newcommand{\citl}[2]{(\hyperlink{ref:#1}{#2})}
+\newcommand{\citm}[1]{(#1)}
+\newcommand{\cl}[2]{\hyperlink{ref:#1}{#2}}
 
 %--- 占位宏：图未出图前用白色方框占位（图注照最终版写全）----------------------
 \newcommand{\figplaceholder}[1]{\fbox{\parbox[c][6cm][c]{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\centering\textbf{【#1 占位 —— 数据到手后替换】}}}}
@@ -242,9 +250,9 @@ Submitted [Submission Date]\par
 
 两船在海上相遇，各自向右转向，安全交错而过。这一幕之所以有效，靠的不是任何一方的临场判断，而是一套双方都遵守、并且都知道对方会遵守的规则。当船上没有人时，这种可预期性就成了必须被兑现的技术指标——海事责任认定不只看有没有撞上，还看船舶是否按规则行动，一次未发生碰撞却从错误一侧通过的会遇在事故调查中依然是违规操作。
 
-无人水面航行器的避碰必须遵守《国际海上避碰规则》\citp{IMO}{1972}。与陆上交通规则相比，该规则集有一处决定性的不同，即让路条款具有\textbf{方向性}：对遇时两船各自向右转向，交叉时让路船向右避让、直航船保向保速，追越时追越船负责让清。因此一个动作即使在几何上避开了碰撞，若转向方向违反规则仍属违规。这使合规无法用最终有没有撞上来验证，也使它成为安全强化学习中并不常见的一类问题——需要保证的不是某个状态量的界，而是每一步动作落在哪个方向的半平面里。
+无人水面航行器的避碰必须遵守《国际海上避碰规则》\citl{imo1972}{IMO 1972}。与陆上交通规则相比，该规则集有一处决定性的不同，即让路条款具有\textbf{方向性}：对遇时两船各自向右转向，交叉时让路船向右避让、直航船保向保速，追越时追越船负责让清。因此一个动作即使在几何上避开了碰撞，若转向方向违反规则仍属违规。这使合规无法用最终有没有撞上来验证，也使它成为安全强化学习中并不常见的一类问题——需要保证的不是某个状态量的界，而是每一步动作落在哪个方向的半平面里。
 
-现有工作沿两条路径推进，各自放弃了一项关键属性。第一条是离散动作加动作屏蔽，把动作空间离散成有限网格，每步先用规则状态机算出合规子集再屏蔽其余 \citp{Krasowski and Althoff}{2024}；合规因而可证，且不依赖训练结果与随机种子，代价是放弃连续控制，量化既引入抖动，又把控制精度锁死在网格分辨率上。对本文的任务还有一处更具体的损失：规则要求让路转向足够明显，这在数学上是一个下确界，而网格取不到它，只能退到最近的档位，于是每一次合规让路都要比规则所需多转一些。第二条是连续动作加软性奖励，把规则写成奖励里的一项惩罚 \cit{Meyer et al. 2020; Heiberg et al. 2022; Müller et al. 2026}；控制虽然连续了，保证却随之消失，因为奖励只能塑造期望行为，不能排除任何一个具体的违规动作。
+现有工作沿两条路径推进，各自放弃了一项关键属性。第一条是离散动作加动作屏蔽，把动作空间离散成有限网格，每步先用规则状态机算出合规子集再屏蔽其余 \citl{krasowski2024}{Krasowski and Althoff 2024}；合规因而可证，且不依赖训练结果与随机种子，代价是放弃连续控制，量化既引入抖动，又把控制精度锁死在网格分辨率上。对本文的任务还有一处更具体的损失：规则要求让路转向足够明显，这在数学上是一个下确界，而网格取不到它，只能退到最近的档位，于是每一次合规让路都要比规则所需多转一些。第二条是连续动作加软性奖励，把规则写成奖励里的一项惩罚 \citm{\cl{meyer2020}{Meyer et al. 2020}; \cl{heiberg2022}{Heiberg et al. 2022}; \cl{mller2026}{Müller et al. 2026}}；控制虽然连续了，保证却随之消失，因为奖励只能塑造期望行为，不能排除任何一个具体的违规动作。
 
 于是连续动作 $\cap$ 可证明方向合规 $\cap$ COLREGs 这个三重交集是空的。本文用投影式安全盾把它填上：规则状态机给出合规方向的半平面，与单步无碰约束、动作箱一起构成安全动作集，二次规划把策略的连续指令投影到该集合上最近的点。关键在于\textbf{可枚举}这一前提可以被\textbf{可投影}替代，而投影解满足硬约束是构造式的，与训练无关。策略以安全盾在环的方式训练，因而会适应投影带来的修正。
 
@@ -261,19 +269,19 @@ Submitted [Submission Date]\par
 
 \subsection{海事避碰与 COLREGs 合规}
 
-规则合规的研究最早集中在模型驱动的方法上。速度障碍法用相对速度锥判断碰撞危险并选出规避速度，后被纳入 COLREGs 的让路语义 \citp{Kuwata et al.}{2014} 并推广到更一般的船舶会遇 \citp{Huang et al.}{2019}；模型预测控制在有限预测时域上评估各候选机动的碰撞危险与合规度并择优 \citp{Johansen et al.}{2016}，其分支航向变体经过海上实测 \citp{Eriksen et al.}{2019} 与全尺度验证 \citp{Kufoalor et al.}{2020}，更早的协议式方法则把规则写成船间可协商的行为约定 \citp{Benjamin et al.}{2006}。近期这条线转向控制障碍函数与凸优化 \cit{Lee et al. 2025; Patil et al. 2026}，多建立在标准船舶操纵模型之上 \citp{Fossen}{2011}。它们的保证来自显式约束，但控制律由手工设计，不含从数据中学到的策略。
+规则合规的研究最早集中在模型驱动的方法上。速度障碍法用相对速度锥判断碰撞危险并选出规避速度，后被纳入 COLREGs 的让路语义 \citl{kuwata2014}{Kuwata et al. 2014} 并推广到更一般的船舶会遇 \citl{huang2019}{Huang et al. 2019}；模型预测控制在有限预测时域上评估各候选机动的碰撞危险与合规度并择优 \citl{johansen2016}{Johansen et al. 2016}，其分支航向变体经过海上实测 \citl{eriksen2019}{Eriksen et al. 2019} 与全尺度验证 \citl{kufoalor2020}{Kufoalor et al. 2020}，更早的协议式方法则把规则写成船间可协商的行为约定 \citl{benjamin2006}{Benjamin et al. 2006}。近期这条线转向控制障碍函数与凸优化 \citm{\cl{lee2025}{Lee et al. 2025}; \cl{patil2026}{Patil et al. 2026}}，多建立在标准船舶操纵模型之上 \citl{fossen2011}{Fossen 2011}。它们的保证来自显式约束，但控制律由手工设计，不含从数据中学到的策略。
 
-深度强化学习出现后，避碰策略开始从数据中学习 \citp{Sarhadi et al.}{2022}。多数工作把操纵指令离散化，如以有限档舵角在受限水域完成多船避碰 \citp{Shen et al.}{2019}，或面向多船生成合规的规避时机与路径 \cit{Zhao and Roh 2019; Chun et al. 2021}；离散化便于优化，代价是控制精度受网格分辨率限制。另一类保留连续控制，把 COLREGs 写成随方位与距离衰减的软性惩罚 \citp{Meyer et al.}{2020}，或做成可调的风险门控 \citp{Heiberg et al.}{2022}，亦有工作在欠驱动无人艇上验证简洁的强化学习避障 \citp{Cheng and Zhang}{2018}。这类工作多以近端策略优化 \citp{Schulman et al.}{2017} 为主干，可用有界的 Beta 分布 \citp{Chou et al.}{2017} 参数化连续动作以避开高斯策略在动作边界处的截断偏差。它们保住了控制精度，但合规只由奖励诱导，无法排除任何一个具体的违规动作。
+深度强化学习出现后，避碰策略开始从数据中学习 \citl{sarhadi2022}{Sarhadi et al. 2022}。多数工作把操纵指令离散化，如以有限档舵角在受限水域完成多船避碰 \citl{shen2019}{Shen et al. 2019}，或面向多船生成合规的规避时机与路径 \citm{\cl{zhao2019}{Zhao and Roh 2019}; \cl{chun2021}{Chun et al. 2021}}；离散化便于优化，代价是控制精度受网格分辨率限制。另一类保留连续控制，把 COLREGs 写成随方位与距离衰减的软性惩罚 \citl{meyer2020}{Meyer et al. 2020}，或做成可调的风险门控 \citl{heiberg2022}{Heiberg et al. 2022}，亦有工作在欠驱动无人艇上验证简洁的强化学习避障 \citl{cheng2018}{Cheng and Zhang 2018}。这类工作多以近端策略优化 \citl{schulman2017}{Schulman et al. 2017} 为主干，可用有界的 Beta 分布 \citl{chou2017}{Chou et al. 2017} 参数化连续动作以避开高斯策略在动作边界处的截断偏差。它们保住了控制精度，但合规只由奖励诱导，无法排除任何一个具体的违规动作。
 
 
 
 \subsection{安全强化学习与可证明合规}
 
-安全强化学习 \citp{García and Fernández}{2015} 研究如何为学习策略附加硬性保证。把安全写成约束马尔可夫决策过程并以拉格朗日方法求解是常见路线，但它保证的是期望意义下的约束满足，仍不能排除任何一个具体的违规动作。动作屏蔽在离散动作上按时序逻辑规范剔除不安全动作 \citp{Alshiekh et al.}{2018}，其可实现形式已被推广到连续动作空间，但针对通用任务、未涉及海事规则 \citp{Kim et al.}{2024}。在连续控制上，控制障碍函数的二次规划 \citp{Ames et al.}{2019} 与预测式安全滤波 \citp{Wabersich and Zeilinger}{2021} 提供逐步硬保证，后者也被接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向条款 \citp{Vaaler et al.}{2024}。与本文机制最接近的是安全层方法，它把约束在当前状态处线性化，再把策略动作解析地投影到由此得到的线性半空间上 \citp{Dalal et al.}{2018}；本文的投影与之同源，新增的部分是把让路条款的方向性编码为动作平面上的半平面，使被强制的对象由状态约束变为规则合规。
+安全强化学习 \citl{garca2015}{García and Fernández 2015} 研究如何为学习策略附加硬性保证。把安全写成约束马尔可夫决策过程并以拉格朗日方法求解是常见路线，但它保证的是期望意义下的约束满足，仍不能排除任何一个具体的违规动作。动作屏蔽在离散动作上按时序逻辑规范剔除不安全动作 \citl{alshiekh2018}{Alshiekh et al. 2018}，其可实现形式已被推广到连续动作空间，但针对通用任务、未涉及海事规则 \citl{kim2024}{Kim et al. 2024}。在连续控制上，控制障碍函数的二次规划 \citl{ames2019}{Ames et al. 2019} 与预测式安全滤波 \citl{wabersich2021}{Wabersich and Zeilinger 2021} 提供逐步硬保证，后者也被接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向条款 \citl{vaaler2024}{Vaaler et al. 2024}。与本文机制最接近的是安全层方法，它把约束在当前状态处线性化，再把策略动作解析地投影到由此得到的线性半空间上 \citl{dalal2018}{Dalal et al. 2018}；本文的投影与之同源，新增的部分是把让路条款的方向性编码为动作平面上的半平面，使被强制的对象由状态约束变为规则合规。
 
-表~\ref{tab:related} 把以上两节的工作放在同一组维度下对照，由此可见一处结构性空缺。海事场景中规则合规的硬保证此前只在离散动作空间上实现过 \citp{Krasowski and Althoff}{2024}，该工作也提供了本文使用的场景库与状态机阈值，并把连续动作下的动作投影列为未来方向 \citp{Kochdumper et al.}{2023}；沿该方向的后续工作虽转入连续动作，却以软性奖励逼近合规，没有给出硬保证 \citp{Müller et al.}{2026}。本文在连续控制上给出方向合规的构造式保证，并以 zonotope 加二次规划投影 \citp{Markgraf et al.}{2026} 替代多项式 zonotope 表示以降低单步求解开销。
+表~\ref{tab:related} 把以上两节的工作放在同一组维度下对照，由此可见一处结构性空缺。海事场景中规则合规的硬保证此前只在离散动作空间上实现过 \citl{krasowski2024}{Krasowski and Althoff 2024}，该工作也提供了本文使用的场景库与状态机阈值，并把连续动作下的动作投影列为未来方向 \citl{kochdumper2023}{Kochdumper et al. 2023}；沿该方向的后续工作虽转入连续动作，却以软性奖励逼近合规，没有给出硬保证 \citl{mller2026}{Müller et al. 2026}。本文在连续控制上给出方向合规的构造式保证，并以 zonotope 加二次规划投影 \citl{markgraf2026}{Markgraf et al. 2026} 替代多项式 zonotope 表示以降低单步求解开销。
 
-方向约束会在紧急与近域收紧可行动作集，可能损失终端效率，本文因此用势函数型塑形帮助策略追回效率。势函数型塑形不改变最优策略集 \citp{Ng et al.}{1999}，但朴素的距离型塑形容易停在目标附近 \citp{Trott et al.}{2019}，单一连续势也难以根治 \citp{Müller and Kudenko}{2025}，故本文改用线性核并把真正到达设为终端条件 \citp{De Lellis et al.}{2024}。安全盾对性能与终端行为的影响另有专门研究，训练中纳入滤波并惩罚修正量可提升样本效率 \citp{Pizarro Bejarano et al.}{2025}，足够宽松的滤波不损渐近最优 \citp{Oh et al.}{2025}，而安全项与目标项对冲会造成目标前停滞 \citp{Grover et al.}{2022}。
+方向约束会在紧急与近域收紧可行动作集，可能损失终端效率，本文因此用势函数型塑形帮助策略追回效率。势函数型塑形不改变最优策略集 \citl{ng1999}{Ng et al. 1999}，但朴素的距离型塑形容易停在目标附近 \citl{trott2019}{Trott et al. 2019}，单一连续势也难以根治 \citl{mller2025}{Müller and Kudenko 2025}，故本文改用线性核并把真正到达设为终端条件 \citl{de2024}{De Lellis et al. 2024}。安全盾对性能与终端行为的影响另有专门研究，训练中纳入滤波并惩罚修正量可提升样本效率 \citl{pizarro2025}{Pizarro Bejarano et al. 2025}，足够宽松的滤波不损渐近最优 \citl{oh2025}{Oh et al. 2025}，而安全项与目标项对冲会造成目标前停滞 \citl{grover2023}{Grover et al. 2023}。
 
 
 
@@ -288,20 +296,20 @@ Submitted [Submission Date]\par
   代表工作 & 动作空间 & 合规施加方式 & 逐步硬保证 & 含学习 \\
   \midrule
   \multicolumn{5}{@{}l}{\textit{Model-driven, no learning}}\\
-  \citp{Kuwata et al.}{2014} & 连续 & 速度障碍几何构造 & 几何充分条件 & --- \\
-  \citp{Johansen et al.}{2016} & 离散分支 & 代价函数择优 & --- & --- \\
-  \cit{Lee et al. 2025; Patil et al. 2026} & 连续 & 控制障碍函数 / 凸优化 & 状态量 & --- \\
+  \citl{kuwata2014}{Kuwata et al. 2014} & 连续 & 速度障碍几何构造 & 几何充分条件 & --- \\
+  \citl{johansen2016}{Johansen et al. 2016} & 离散分支 & 代价函数择优 & --- & --- \\
+  \citm{\cl{lee2025}{Lee et al. 2025}; \cl{patil2026}{Patil et al. 2026}} & 连续 & 控制障碍函数 / 凸优化 & 状态量 & --- \\
   \midrule
   \multicolumn{5}{@{}l}{\textit{Learning, compliance via soft reward}}\\
-  \citp{Meyer et al.}{2020} & 连续 & 软性奖励 & --- & $\checkmark$ \\
-  \citp{Heiberg et al.}{2022} & 连续 & 软性奖励 $+$ 风险门控 & --- & $\checkmark$ \\
-  \citp{Müller et al.}{2026} & 连续 & 软性奖励 $+$ 证伪训练 & --- & $\checkmark$ \\
+  \citl{meyer2020}{Meyer et al. 2020} & 连续 & 软性奖励 & --- & $\checkmark$ \\
+  \citl{heiberg2022}{Heiberg et al. 2022} & 连续 & 软性奖励 $+$ 风险门控 & --- & $\checkmark$ \\
+  \citl{mller2026}{Müller et al. 2026} & 连续 & 软性奖励 $+$ 证伪训练 & --- & $\checkmark$ \\
   \midrule
   \multicolumn{5}{@{}l}{\textit{Learning, compliance via hard constraint}}\\
-  \citp{Alshiekh et al.}{2018} & 离散 & 动作屏蔽 & 状态量 & $\checkmark$ \\
-  \citp{Dalal et al.}{2018} & 连续 & 线性化后投影 & 状态量 & $\checkmark$ \\
-  \citp{Vaaler et al.}{2024} & 连续 & 预测式安全滤波 & 仅碰撞 & $\checkmark$ \\
-  \citp{Krasowski and Althoff}{2024} & 离散（$49$ 点） & 动作屏蔽 & \textbf{方向合规} & $\checkmark$ \\
+  \citl{alshiekh2018}{Alshiekh et al. 2018} & 离散 & 动作屏蔽 & 状态量 & $\checkmark$ \\
+  \citl{dalal2018}{Dalal et al. 2018} & 连续 & 线性化后投影 & 状态量 & $\checkmark$ \\
+  \citl{vaaler2024}{Vaaler et al. 2024} & 连续 & 预测式安全滤波 & 仅碰撞 & $\checkmark$ \\
+  \citl{krasowski2024}{Krasowski and Althoff 2024} & 离散（$49$ 点） & 动作屏蔽 & \textbf{方向合规} & $\checkmark$ \\
   \midrule
   \textbf{本文} & \textbf{连续} & \textbf{投影（二次规划）} & \textbf{方向合规} & $\checkmark$ \\
   \bottomrule
@@ -435,7 +443,7 @@ Submitted [Submission Date]\par
 \label{sec:rulesets}
 
 
-我们把会遇态势形式化为一组关于两船相对几何的谓词，并由此定义每类态势下规则允许的控制集，谓词的结构与阈值沿海事规则的时序逻辑形式化一脉 \citp{Krasowski and Althoff}{2024}。本文在此之上明确给出碰撞可能性谓词中的膨胀半径与速度集半宽，对让路态入口作对称化处理（第~\ref{sec:sym} 节），并把整组谓词接到连续动作的约束集上。
+我们把会遇态势形式化为一组关于两船相对几何的谓词，并由此定义每类态势下规则允许的控制集，谓词的结构与阈值沿海事规则的时序逻辑形式化一脉 \citl{krasowski2024}{Krasowski and Althoff 2024}。本文在此之上明确给出碰撞可能性谓词中的膨胀半径与速度集半宽，对让路态入口作对称化处理（第~\ref{sec:sym} 节），并把整组谓词接到连续动作的约束集上。
 
 规则状态机把当前会遇归入六类，
 \begin{equation*}
@@ -605,7 +613,7 @@ Submitted [Submission Date]\par
 
 \subsubsection{回报函数}
 
-回报由五项相加而成 \citp{Krasowski and Althoff}{2024}，另有三处偏离在本节末声明。
+回报由五项相加而成 \citl{krasowski2024}{Krasowski and Althoff 2024}，另有三处偏离在本节末声明。
 \begin{equation}
  r=r_{\mathrm{sparse}}+r_{\mathrm{goal}}+r_{\mathrm{velocity}}+r_{\mathrm{deviate}}+r_{\mathrm{colregs}},
  \label{eq:reward}
@@ -639,7 +647,7 @@ Submitted [Submission Date]\par
 \subsubsection{训练配置}
 \label{sec:train}
 
-除熵正则系数（取 $0.01$）与有界动作分布外，强化学习超参一律取库默认值、未作调整，离散与连续两类配置在这些值上逐项相同，故超参不构成两类配置之间的差异来源。观测与回报的滑动归一化不是可选项，不做时式~\eqref{eq:reward} 中大尺度的趋近项会把策略推向原地停船的退化解。
+除熵正则系数（取 $0.01$）与有界动作分布外，强化学习超参一律取实现库默认值、未作调整；实现库为 Stable-Baselines3 2.3.2 \citl{raffin2021}{Raffin et al. 2021} 与 sb3-contrib 2.3.0，优势函数按广义优势估计 \citl{schulman2016}{Schulman et al. 2016} 计算。离散与连续两类配置在这些值上逐项相同，故超参不构成两类配置之间的差异来源。观测与回报的滑动归一化不是可选项，不做时式~\eqref{eq:reward} 中大尺度的趋近项会把策略推向原地停船的退化解。
 
 完整配置另含四项塑形，全部仅作用于连续动作策略：三项势函数型塑形（进门、进带、保速）与一项动作增量惩罚。动作增量惩罚取相邻两个决策步之间策略指令变化量按动作箱各轴半宽归一化后的平方和，因此\textbf{同时作用于加速度轴与转艏轴}。四项一并启用或一并关闭，未逐项拆开做消融，故只能报这一组塑形共同带来的变化。\textbf{由此产生一条贯穿全文的限制}：转艏增量、油门增量与 jerk 三项指标只能在同样启用该惩罚的两组之间比较，否则分不清差异来自控制器还是训练目标。
 
@@ -652,7 +660,7 @@ Submitted [Submission Date]\par
 \subsection{场景库与对照配置}
 \label{sec:setup}
 
-实验在 CommonOcean 基准 \citp{Krasowski and Althoff}{2022} 的双船会遇场景库上进行，共 $2000$ 个场景。每个场景规定受控船的初始位姿与航速、他船的初始状态与既定航迹、以及受控船的目标区域（含位置门、朝向门与时限）；会遇几何程序化生成，覆盖不同的相对方位、航向交角与接近速率。他船船长 $200$--$300$~m，回合上限 $170$ 个决策步。
+实验在 CommonOcean 基准 \citl{krasowski2022}{Krasowski and Althoff 2022} 的双船会遇场景库上进行，共 $2000$ 个场景。每个场景规定受控船的初始位姿与航速、他船的初始状态与既定航迹、以及受控船的目标区域（含位置门、朝向门与时限）；会遇几何程序化生成，覆盖不同的相对方位、航向交角与接近速率。他船船长 $200$--$300$~m，回合上限 $170$ 个决策步。
 
 按几何类型谓词对全库分类，交叉与对遇两类占满全库，\textbf{追越场景数为零}（官方测试集中交叉 $395$、对遇 $205$）。式~\eqref{eq:ucolregs} 的追越一支因而无法在本场景库上得到实证检验，结论中如实列出。
 
@@ -727,7 +735,7 @@ Submitted [Submission Date]\par
 \textbf{计数窗口与安全盾并不重合。}\ 评分器累积的是一整段义务期内的航向变化，安全盾约束的却是单个机动时段内的变化，两者的窗口长短不同；此外紧急态与安全动作集为空时的兜底都在结构上旁路合规约束。因此安全盾不保证违规计数为零，本文也不作此主张——特别地，性质~\ref{prop:comply} 保证的是每一让路步的转向方向，\textbf{并不蕴含让路违规计数为零}。该错配的实际发生频率未作测量。
 
 \textbf{训练预算与报数规则。}\ 
-每种配置以 $8$ 颗随机种子各训练一条 run，每条 $10{,}158{,}080$ 步、分 $20$ 段，每段留一份存档并在验证集上评估一次。场景划分由一个独立的固定种子决定，故所有 run 看到同一批场景。本文的主统计工具是同种子配对比较，因此同一颗种子下的全部配置在同一台机器内训练，同一张表内的全部配置也同机同轮评完，以免机器成为混淆变量。
+每种配置以 $8$ 颗随机种子各训练一条 run，每条 $10{,}158{,}080$ 步、分 $20$ 段，每段留一份存档并在验证集上评估一次。$72$ 条 run 中 $71$ 条跑满 $20$ 段，离散安全基线有一颗种子在第 $19$ 段后中断，按其实际的 $19$ 段、$9{,}650{,}176$ 步计入。场景划分由一个独立的固定种子决定，故所有 run 看到同一批场景。本文的主统计工具是同种子配对比较，同一张表内的全部配置同机同轮评完，以免评估环节引入机器差异；训练环节受机时约束未能完全做到这一点，$8$ 颗种子中 $5$ 颗的全部配置在同一台机器内完成，另 $3$ 颗分布在两到三台机器上，这些机器使用同一镜像与同一份训练代码（训练路径的文件指纹逐字相同）并将线程数锁为 $1$。\textbf{本批训练没有做跨机逐位一致性核验，故机器差异未被排除，此点列为局限。}
 
 存档选取规则事先定死、不含可调参数：候选为全部 $20$ 段，指标为验证集到达率取最高，平局取更早的段，全程不接触测试集。\textbf{该规则本身带偏倚，故必须两版并报。}验证集只有 $100$ 个场景，到达率的二项标准误约 $4$ 个点，在 $20$ 个候选里取最大值期望上抬约 $7.5$ 个点，比我们专门立规矩去防的跨机跨轮抖动（约 $1.6$ 个点）还大四倍。因此最佳存档一版、末段存档一版同时报出。
 
@@ -763,7 +771,7 @@ Submitted [Submission Date]\par
  \end{tabular*}
 
  \vspace{4pt}\footnotesize
- \textbf{表注。}\textbf{口径警示：本表现填的是验证集 $100$ 场景、各种子末段的数值，不是标题所述的官方测试集 $600$ 与最佳存档轮；重评后整表替换。}配置⑤⑥使用无盾连续动作唯一合法的极简形态，故安全盾的收益是在该形态下测得的。每列的最优值加粗；转艏与油门增量两列\textbf{不加粗}，因为它们不可跨动作空间比较（第~\ref{sec:train} 节），标出“最优”等于默认可比。紧急步占比为描述量，无优劣之分。
+ \textbf{表注。}\textbf{口径警示：本表现填的是验证集 $100$ 场景、各种子末段的数值，不是标题所述的官方测试集 $600$ 与最佳存档轮；重评后整表替换。}配置⑤⑥使用无盾连续动作唯一合法的极简形态，故安全盾的收益是在该形态下测得的。每列的最优值加粗；转艏与油门增量两列\textbf{不加粗}，因为它们不可跨动作空间比较（第~\ref{sec:train} 节），标出“最优”等于默认可比。紧急步占比为描述量，无优劣之分。离散安全基线的一颗种子只跑到第 $19$ 段（$9{,}650{,}176$ 步），按其实际段数计入，该 run 全程到达率不超过 $3\%$。
 \end{table}
 
 表~\ref{tab:main} 另报“仅计收敛种子”的版本。发散种子会污染逐局平均，且污染方向因配置而异，故两版并报，关键差值为 \TBD。逐种子原始值随表给出。
@@ -818,7 +826,7 @@ Submitted [Submission Date]\par
 \begin{figure}[t]
  \centering
  \includegraphics[width=\linewidth]{figs/fig4_training_reliability.pdf}
- \caption{样本效率与训练可靠性，横轴为训练步数，四种主对照配置共用图例，图例中的 $n/8$ 为该配置的收敛种子数。粗线为中位数、阴影为四分位距，\textbf{二者均只统计收敛种子}——发散种子会把分位带拉到零，而“有多少种子练得成”这件事由 (d) 单独回答。(d) 计入全部 $8$ 颗种子。\textbf{横轴自第一个评估点（$0.5$ 百万步）起画，训练期没有零步评估，补一个原点会是凭空添加的数据点。}（a）到达率。（b）碰撞率。（c）每局 COLREGs 违规。（d）到达率达到收敛判据的种子数。（e）紧急控制步占比。（f）值函数可解释方差。消融配置不入本图，其对照见图~\ref{fig:ablation}。\textbf{离散安全基线尚有两颗种子在训练（分别跑到第 $14$、$13$ 段），其中位线在末段由较少种子构成，逐种子细线的长度即为各自的实际进度。纵轴为 $100$ 个验证场景上的数值，与表~\ref{tab:main} 的官方测试集口径不同。}}
+ \caption{样本效率与训练可靠性，横轴为训练步数，四种主对照配置共用图例，图例中的 $n/8$ 为该配置的收敛种子数。粗线为中位数、阴影为四分位距，\textbf{二者均只统计收敛种子}——发散种子会把分位带拉到零，而“有多少种子练得成”这件事由 (d) 单独回答。(d) 计入全部 $8$ 颗种子。\textbf{横轴自第一个评估点（$0.5$ 百万步）起画，训练期没有零步评估，补一个原点会是凭空添加的数据点。}（a）到达率。（b）碰撞率。（c）每局 COLREGs 违规。（d）到达率达到收敛判据的种子数。（e）紧急控制步占比。（f）值函数可解释方差。消融配置不入本图，其对照见图~\ref{fig:ablation}。\textbf{离散安全基线有一颗种子在第 $19$ 段后中断，其余 $71$ 条 run 均跑满 $20$ 段；逐种子细线的长度即为各自的实际进度。纵轴为 $100$ 个验证场景上的数值，与表~\ref{tab:main} 的官方测试集口径不同。}}
  \label{fig:curves}
 \end{figure}
 % ▶ 来源：Paper/正式实验/04_图/make_figures.py → Fig1_sample_efficiency.*
@@ -944,7 +952,7 @@ COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法
 
 
 \section*{Acknowledgements}
-作者感谢 CommonOcean 基准与 \citp{Krasowski and Althoff}{2024} 公开的场景库与规则形式化，
+作者感谢 CommonOcean 基准与 \citl{krasowski2024}{Krasowski and Althoff 2024} 公开的场景库与规则形式化，
 它们构成本文实验的基础。
 % 🔴 投稿前须按当年投稿系统的措辞要求补：生成式模型使用声明。
 %  本项目的实情（据实填写，不夸大也不隐瞒）：生成式模型用于代码实现、文档整理与稿件起草；
@@ -977,86 +985,86 @@ COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法
 % 深度强化学习报告规范（种子敏感性 / 稳健指标）· CommonOcean 场景库 · COLREGs 公约原文 ·
 % 控制障碍函数与预测式安全滤波 · 速度障碍。]
 
-\refitem{Alshiekh, Mohammed, Roderick Bloem, Rüdiger Ehlers, Bettina Könighofer, Scott Niekum, and Ufuk Topcu. 2018. ``Safe Reinforcement Learning via Shielding.'' In \textit{Proceedings of the AAAI Conference on Artificial Intelligence}.}
+\refitem{\hypertarget{ref:alshiekh2018}{}Alshiekh, Mohammed, Roderick Bloem, Rüdiger Ehlers, Bettina Könighofer, Scott Niekum, and Ufuk Topcu. 2018. ``Safe Reinforcement Learning via Shielding.'' In \textit{Proceedings of the AAAI Conference on Artificial Intelligence}.}
 
-\refitem{Ames, Aaron D., Samuel Coogan, Magnus Egerstedt, Gennaro Notomista, Koushil Sreenath, and Paulo Tabuada. 2019. ``Control Barrier Functions: Theory and Applications.'' In \textit{European Control Conference (ECC)}, 3420--3431.}
+\refitem{\hypertarget{ref:ames2019}{}Ames, Aaron D., Samuel Coogan, Magnus Egerstedt, Gennaro Notomista, Koushil Sreenath, and Paulo Tabuada. 2019. ``Control Barrier Functions: Theory and Applications.'' In \textit{European Control Conference (ECC)}, 3420--3431.}
 
-\refitem{Benjamin, Michael R., John J. Leonard, Joseph A. Curcio, and Paul M. Newman. 2006. ``A Method for Protocol-Based Collision Avoidance Between Autonomous Marine Surface Craft.'' \textit{Journal of Field Robotics} 23 (5): 333--346.}
+\refitem{\hypertarget{ref:benjamin2006}{}Benjamin, Michael R., John J. Leonard, Joseph A. Curcio, and Paul M. Newman. 2006. ``A Method for Protocol-Based Collision Avoidance Between Autonomous Marine Surface Craft.'' \textit{Journal of Field Robotics} 23 (5): 333--346.}
 
-\refitem{Cheng, Yin, and Weidong Zhang. 2018. ``Concise Deep Reinforcement Learning Obstacle Avoidance for Underactuated Unmanned Marine Vessels.'' \textit{Neurocomputing} 272: 63--73.}
+\refitem{\hypertarget{ref:cheng2018}{}Cheng, Yin, and Weidong Zhang. 2018. ``Concise Deep Reinforcement Learning Obstacle Avoidance for Underactuated Unmanned Marine Vessels.'' \textit{Neurocomputing} 272: 63--73.}
 
-\refitem{Chou, Po-Wei, Daniel Maturana, and Sebastian Scherer. 2017. ``Improving Stochastic Policy Gradients in Continuous Control with Deep Reinforcement Learning Using the Beta Distribution.'' In \textit{Proceedings of the International Conference on Machine Learning (ICML)}.}
+\refitem{\hypertarget{ref:chou2017}{}Chou, Po-Wei, Daniel Maturana, and Sebastian Scherer. 2017. ``Improving Stochastic Policy Gradients in Continuous Control with Deep Reinforcement Learning Using the Beta Distribution.'' In \textit{Proceedings of the International Conference on Machine Learning (ICML)}.}
 
-\refitem{Chun, D.-H., M.-I. Roh, H.-W. Lee, J. Ha, and D. Yu. 2021. ``Deep Reinforcement Learning-Based Collision Avoidance for an Autonomous Ship.'' \textit{Ocean Engineering} 234: 109216.}
+\refitem{\hypertarget{ref:chun2021}{}Chun, D.-H., M.-I. Roh, H.-W. Lee, J. Ha, and D. Yu. 2021. ``Deep Reinforcement Learning-Based Collision Avoidance for an Autonomous Ship.'' \textit{Ocean Engineering} 234: 109216.}
 
-\refitem{Dalal, Gal, Krishnamurthy Dvijotham, Matej Vecerik, Todd Hester, Cosmin Paduraru, and Yuval Tassa. 2018. ``Safe Exploration in Continuous Action Spaces.'' arXiv:1801.08757.}
+\refitem{\hypertarget{ref:dalal2018}{}Dalal, Gal, Krishnamurthy Dvijotham, Matej Vecerik, Todd Hester, Cosmin Paduraru, and Yuval Tassa. 2018. ``Safe Exploration in Continuous Action Spaces.'' arXiv:1801.08757.}
 
-\refitem{De Lellis, Francesco, Marco Coraggio, Giovanni Russo, Mirco Musolesi, and Mario di Bernardo. 2024. ``Guaranteeing Control Requirements via Reward Shaping in Reinforcement Learning.'' \textit{IEEE Transactions on Control Systems Technology}. arXiv:2311.10026.}
+\refitem{\hypertarget{ref:de2024}{}De Lellis, Francesco, Marco Coraggio, Giovanni Russo, Mirco Musolesi, and Mario di Bernardo. 2024. ``Guaranteeing Control Requirements via Reward Shaping in Reinforcement Learning.'' \textit{IEEE Transactions on Control Systems Technology}. arXiv:2311.10026.}
 
-\refitem{Eriksen, Bjørn-Olav H., Morten Breivik, Erik F. Wilthil, Andreas L. Flåten, and Edmund F. Brekke. 2019. ``The Branching-Course Model Predictive Control Algorithm for Maritime Collision Avoidance.'' \textit{Journal of Field Robotics} 36.}
+\refitem{\hypertarget{ref:eriksen2019}{}Eriksen, Bjørn-Olav H., Morten Breivik, Erik F. Wilthil, Andreas L. Flåten, and Edmund F. Brekke. 2019. ``The Branching-Course Model Predictive Control Algorithm for Maritime Collision Avoidance.'' \textit{Journal of Field Robotics} 36.}
 
-\refitem{Fossen, Thor I. 2011. \textit{Handbook of Marine Craft Hydrodynamics and Motion Control}. Chichester: John Wiley \& Sons.}
+\refitem{\hypertarget{ref:fossen2011}{}Fossen, Thor I. 2011. \textit{Handbook of Marine Craft Hydrodynamics and Motion Control}. Chichester: John Wiley \& Sons.}
 
-\refitem{García, Javier, and Fernando Fernández. 2015. ``A Comprehensive Survey on Safe Reinforcement Learning.'' \textit{Journal of Machine Learning Research} 16: 1437--1480.}
+\refitem{\hypertarget{ref:garca2015}{}García, Javier, and Fernando Fernández. 2015. ``A Comprehensive Survey on Safe Reinforcement Learning.'' \textit{Journal of Machine Learning Research} 16: 1437--1480.}
 
-\refitem{Grover, Jaskaran, Changliu Liu, and Katia Sycara. 2023. ``The Before, During, and After of Multi-Robot Deadlock.'' \textit{International Journal of Robotics Research}. arXiv:2206.01781.}
+\refitem{\hypertarget{ref:grover2023}{}Grover, Jaskaran, Changliu Liu, and Katia Sycara. 2023. ``The Before, During, and After of Multi-Robot Deadlock.'' \textit{International Journal of Robotics Research}. arXiv:2206.01781.}
 
-\refitem{Heiberg, Amalie, Thomas Nakken Larsen, Eivind Meyer, Adil Rasheed, Omer San, and Damiano Varagnolo. 2022. ``Risk-Based Implementation of COLREGs for Autonomous Surface Vehicles Using Deep Reinforcement Learning.'' \textit{Neural Networks} 152: 17--33. arXiv:2112.00115.}
+\refitem{\hypertarget{ref:heiberg2022}{}Heiberg, Amalie, Thomas Nakken Larsen, Eivind Meyer, Adil Rasheed, Omer San, and Damiano Varagnolo. 2022. ``Risk-Based Implementation of COLREGs for Autonomous Surface Vehicles Using Deep Reinforcement Learning.'' \textit{Neural Networks} 152: 17--33. arXiv:2112.00115.}
 
-\refitem{Huang, Yamin, Linying Chen, and P. H. A. J. van Gelder. 2019. ``Generalized Velocity Obstacle Algorithm for Preventing Ship Collisions at Sea.'' \textit{Ocean Engineering} 173: 142--156.}
+\refitem{\hypertarget{ref:huang2019}{}Huang, Yamin, Linying Chen, and P. H. A. J. van Gelder. 2019. ``Generalized Velocity Obstacle Algorithm for Preventing Ship Collisions at Sea.'' \textit{Ocean Engineering} 173: 142--156.}
 
-\refitem{International Maritime Organization (IMO). 1972. \textit{Convention on the International Regulations for Preventing Collisions at Sea (COLREGs)}. London: IMO.}
+\refitem{\hypertarget{ref:imo1972}{}IMO (International Maritime Organization). 1972. \textit{Convention on the International Regulations for Preventing Collisions at Sea (COLREGs)}. London: IMO.}
 
-\refitem{Johansen, Tor A., Tristan Perez, and Andrea Cristofaro. 2016. ``Ship Collision Avoidance and COLREGS Compliance Using Simulation-Based Control Behavior Selection with Predictive Hazard Assessment.'' \textit{IEEE Transactions on Intelligent Transportation Systems} 17 (12): 3407--3422.}
+\refitem{\hypertarget{ref:johansen2016}{}Johansen, Tor A., Tristan Perez, and Andrea Cristofaro. 2016. ``Ship Collision Avoidance and COLREGS Compliance Using Simulation-Based Control Behavior Selection with Predictive Hazard Assessment.'' \textit{IEEE Transactions on Intelligent Transportation Systems} 17 (12): 3407--3422.}
 
-\refitem{Kim, Kyungmin, Davide Corsi, Andoni Rodríguez, JB Lanier, Benjamí Parellada, Pierre Baldi, César Sánchez, and Roy Fox. 2024. ``Realizable Continuous-Space Shields for Safe Reinforcement Learning.'' arXiv:2410.02038.}
+\refitem{\hypertarget{ref:kim2024}{}Kim, Kyungmin, Davide Corsi, Andoni Rodríguez, JB Lanier, Benjamí Parellada, Pierre Baldi, César Sánchez, and Roy Fox. 2024. ``Realizable Continuous-Space Shields for Safe Reinforcement Learning.'' arXiv:2410.02038.}
 
-\refitem{Kochdumper, Niklas, Hanna Krasowski, Xiao Wang, Stanley Bak, and Matthias Althoff. 2023. ``Provably Safe Reinforcement Learning via Action Projection Using Reachability Analysis and Polynomial Zonotopes.'' \textit{IEEE Open Journal of Control Systems} 2.}
-
-
-\refitem{Krasowski, Hanna, and Matthias Althoff. 2022. ``CommonOcean: Composable Benchmarks for Motion Planning on Oceans.'' In \textit{Proceedings of the IEEE International Conference on Intelligent Transportation Systems (ITSC)}, 1676--1682. DOI: 10.1109/ITSC55140.2022.9921925. \url{https://commonocean.cps.cit.tum.de/}.}
-
-\refitem{Krasowski, Hanna, and Matthias Althoff. 2024. ``Provable Traffic Rule Compliance in Safe Reinforcement Learning on the Open Sea.'' \textit{IEEE Transactions on Intelligent Vehicles} 9 (12): 7617--7634. arXiv:2402.08502.}
+\refitem{\hypertarget{ref:kochdumper2023}{}Kochdumper, Niklas, Hanna Krasowski, Xiao Wang, Stanley Bak, and Matthias Althoff. 2023. ``Provably Safe Reinforcement Learning via Action Projection Using Reachability Analysis and Polynomial Zonotopes.'' \textit{IEEE Open Journal of Control Systems} 2.}
 
 
-\refitem{Kufoalor, D. K. M., Tor A. Johansen, Edmund F. Brekke, A. Hepsø, and K. Trnka. 2020. ``Autonomous Maritime Collision Avoidance: Field Verification of Autonomous Surface Vehicle Behavior in Challenging Scenarios.'' \textit{Journal of Field Robotics} 37.}
+\refitem{\hypertarget{ref:krasowski2022}{}Krasowski, Hanna, and Matthias Althoff. 2022. ``CommonOcean: Composable Benchmarks for Motion Planning on Oceans.'' In \textit{Proceedings of the IEEE International Conference on Intelligent Transportation Systems (ITSC)}, 1676--1682. DOI: 10.1109/ITSC55140.2022.9921925. \url{https://commonocean.cps.cit.tum.de/}.}
 
-\refitem{Kuwata, Yoshiaki, Michael T. Wolf, Dimitri Zarzhitsky, and Terrance L. Huntsberger. 2014. ``Safe Maritime Autonomous Navigation with COLREGS, Using Velocity Obstacles.'' \textit{IEEE Journal of Oceanic Engineering} 39 (1): 110--119.}
+\refitem{\hypertarget{ref:krasowski2024}{}Krasowski, Hanna, and Matthias Althoff. 2024. ``Provable Traffic Rule Compliance in Safe Reinforcement Learning on the Open Sea.'' \textit{IEEE Transactions on Intelligent Vehicles} 9 (12): 7617--7634. arXiv:2402.08502.}
 
-\refitem{Lee, Changyu, Jinwook Park, and Jinwhan Kim. 2025. ``Efficient COLREGs-Compliant Collision Avoidance Using Turning Circle-Based Control Barrier Function.'' arXiv:2504.19247.}
 
-\refitem{Markgraf, Hannah, Shambhuraj Sawant, Hanna Krasowski, Lukas Schäfer, Sébastien Gros, and Matthias Althoff. 2026. ``Safe Reinforcement Learning Using Action Projection: Safeguard the Policy or the Environment?'' \textit{Transactions on Machine Learning Research}. arXiv:2509.12833.}
+\refitem{\hypertarget{ref:kufoalor2020}{}Kufoalor, D. K. M., Tor A. Johansen, Edmund F. Brekke, A. Hepsø, and K. Trnka. 2020. ``Autonomous Maritime Collision Avoidance: Field Verification of Autonomous Surface Vehicle Behavior in Challenging Scenarios.'' \textit{Journal of Field Robotics} 37.}
 
-\refitem{Meyer, Eivind, Amalie Heiberg, Adil Rasheed, and Omer San. 2020. ``COLREG-Compliant Collision Avoidance for Unmanned Surface Vehicle Using Deep Reinforcement Learning.'' \textit{IEEE Access} 8. arXiv:2006.09540.}
+\refitem{\hypertarget{ref:kuwata2014}{}Kuwata, Yoshiaki, Michael T. Wolf, Dimitri Zarzhitsky, and Terrance L. Huntsberger. 2014. ``Safe Maritime Autonomous Navigation with COLREGS, Using Velocity Obstacles.'' \textit{IEEE Journal of Oceanic Engineering} 39 (1): 110--119.}
 
-\refitem{Müller, Henrik, and Daniel Kudenko. 2025. ``Improving the Effectiveness of Potential-Based Reward Shaping in Reinforcement Learning.'' In \textit{Proceedings of the International Conference on Autonomous Agents and Multiagent Systems (AAMAS)}. arXiv:2502.01307.}
+\refitem{\hypertarget{ref:lee2025}{}Lee, Changyu, Jinwook Park, and Jinwhan Kim. 2025. ``Efficient COLREGs-Compliant Collision Avoidance Using Turning Circle-Based Control Barrier Function.'' arXiv:2504.19247.}
 
-\refitem{Müller, Marlon, Florian Finkeldei, Hanna Krasowski, Murat Arcak, and Matthias Althoff. 2026. ``Falsification-Driven Reinforcement Learning for Maritime Motion Planning.'' \textit{Ocean Engineering} 361: 125579. arXiv:2510.06970.}
+\refitem{\hypertarget{ref:markgraf2026}{}Markgraf, Hannah, Shambhuraj Sawant, Hanna Krasowski, Lukas Schäfer, Sébastien Gros, and Matthias Althoff. 2026. ``Safe Reinforcement Learning Using Action Projection: Safeguard the Policy or the Environment?'' \textit{Transactions on Machine Learning Research}. arXiv:2509.12833.}
 
-\refitem{Ng, Andrew Y., Daishi Harada, and Stuart Russell. 1999. ``Policy Invariance Under Reward Transformations: Theory and Application to Reward Shaping.'' In \textit{Proceedings of the International Conference on Machine Learning (ICML)}, 278--287.}
+\refitem{\hypertarget{ref:meyer2020}{}Meyer, Eivind, Amalie Heiberg, Adil Rasheed, and Omer San. 2020. ``COLREG-Compliant Collision Avoidance for Unmanned Surface Vehicle Using Deep Reinforcement Learning.'' \textit{IEEE Access} 8. arXiv:2006.09540.}
 
-\refitem{Oh, Donggeon David, Duy P. Nguyen, Haimin Hu, and Jaime F. Fisac. 2025. ``Provably Optimal Reinforcement Learning under Safety Filtering.'' arXiv:2510.18082.}
+\refitem{\hypertarget{ref:mller2025}{}Müller, Henrik, and Daniel Kudenko. 2025. ``Improving the Effectiveness of Potential-Based Reward Shaping in Reinforcement Learning.'' In \textit{Proceedings of the International Conference on Autonomous Agents and Multiagent Systems (AAMAS)}. arXiv:2502.01307.}
 
-\refitem{Patil, Mayur S., Nataraj Sudharsan, Veneela Ammula, Jude Tomdio, Jin Wang, Michael Kei, Sivakumar Rathinam, and Prabhakar R. Pagilla. 2026. ``COLREGs Compliant Collision Avoidance and Grounding Prevention for Autonomous Marine Navigation.'' arXiv:2603.02484.}
+\refitem{\hypertarget{ref:mller2026}{}Müller, Marlon, Florian Finkeldei, Hanna Krasowski, Murat Arcak, and Matthias Althoff. 2026. ``Falsification-Driven Reinforcement Learning for Maritime Motion Planning.'' \textit{Ocean Engineering} 361: 125579. arXiv:2510.06970.}
 
-\refitem{Pizarro Bejarano, Federico, Lukas Brunke, and Angela P. Schoellig. 2025. ``Safety Filtering While Training: Improving the Performance and Sample Efficiency of Reinforcement Learning Agents.'' \textit{IEEE Robotics and Automation Letters}. arXiv:2410.11671.}
+\refitem{\hypertarget{ref:ng1999}{}Ng, Andrew Y., Daishi Harada, and Stuart Russell. 1999. ``Policy Invariance Under Reward Transformations: Theory and Application to Reward Shaping.'' In \textit{Proceedings of the International Conference on Machine Learning (ICML)}, 278--287.}
 
-\refitem{Raffin, Antonin, Ashley Hill, Adam Gleave, Anssi Kanervisto, Maximilian Ernestus, and Noah Dormann. 2021. ``Stable-Baselines3: Reliable Reinforcement Learning Implementations.'' \textit{Journal of Machine Learning Research} 22 (268): 1--8.}
+\refitem{\hypertarget{ref:oh2025}{}Oh, Donggeon David, Duy P. Nguyen, Haimin Hu, and Jaime F. Fisac. 2025. ``Provably Optimal Reinforcement Learning under Safety Filtering.'' arXiv:2510.18082.}
 
-\refitem{Sarhadi, Pouria, Wasif Naeem, and Nikolaos Athanasopoulos. 2022. ``A Survey of Recent Machine Learning Solutions for Ship Collision Avoidance and Mission Planning.'' \textit{IFAC-PapersOnLine}. arXiv:2207.02767.}
+\refitem{\hypertarget{ref:patil2026}{}Patil, Mayur S., Nataraj Sudharsan, Veneela Ammula, Jude Tomdio, Jin Wang, Michael Kei, Sivakumar Rathinam, and Prabhakar R. Pagilla. 2026. ``COLREGs Compliant Collision Avoidance and Grounding Prevention for Autonomous Marine Navigation.'' arXiv:2603.02484.}
 
-\refitem{Schulman, John, Philipp Moritz, Sergey Levine, Michael I. Jordan, and Pieter Abbeel. 2016. ``High-Dimensional Continuous Control Using Generalized Advantage Estimation.'' In \textit{International Conference on Learning Representations (ICLR)}.}
+\refitem{\hypertarget{ref:pizarro2025}{}Pizarro Bejarano, Federico, Lukas Brunke, and Angela P. Schoellig. 2025. ``Safety Filtering While Training: Improving the Performance and Sample Efficiency of Reinforcement Learning Agents.'' \textit{IEEE Robotics and Automation Letters}. arXiv:2410.11671.}
 
-\refitem{Schulman, John, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. 2017. ``Proximal Policy Optimization Algorithms.'' arXiv:1707.06347.}
+\refitem{\hypertarget{ref:raffin2021}{}Raffin, Antonin, Ashley Hill, Adam Gleave, Anssi Kanervisto, Maximilian Ernestus, and Noah Dormann. 2021. ``Stable-Baselines3: Reliable Reinforcement Learning Implementations.'' \textit{Journal of Machine Learning Research} 22 (268): 1--8.}
 
-\refitem{Shen, Haiqing, Hirotada Hashimoto, Akihiko Matsuda, Yuuki Taniguchi, Daisuke Terada, and Chen Guo. 2019. ``Automatic Collision Avoidance of Multiple Ships Based on Deep Q-Learning.'' \textit{Applied Ocean Research} 86: 268--288.}
+\refitem{\hypertarget{ref:sarhadi2022}{}Sarhadi, Pouria, Wasif Naeem, and Nikolaos Athanasopoulos. 2022. ``A Survey of Recent Machine Learning Solutions for Ship Collision Avoidance and Mission Planning.'' \textit{IFAC-PapersOnLine}. arXiv:2207.02767.}
 
-\refitem{Trott, Alexander, Stephan Zheng, Caiming Xiong, and Richard Socher. 2019. ``Keeping Your Distance: Solving Sparse Reward Tasks Using Self-Balancing Shaped Rewards.'' In \textit{Advances in Neural Information Processing Systems (NeurIPS)}.}
+\refitem{\hypertarget{ref:schulman2016}{}Schulman, John, Philipp Moritz, Sergey Levine, Michael I. Jordan, and Pieter Abbeel. 2016. ``High-Dimensional Continuous Control Using Generalized Advantage Estimation.'' In \textit{International Conference on Learning Representations (ICLR)}.}
 
-\refitem{Vaaler, Aksel, Svein Jostein Husa, Daniel Menges, Thomas Nakken Larsen, and Adil Rasheed. 2024. ``Modular Control Architecture for Safe Marine Navigation: Reinforcement Learning and Predictive Safety Filters.'' arXiv:2312.01855.}
+\refitem{\hypertarget{ref:schulman2017}{}Schulman, John, Filip Wolski, Prafulla Dhariwal, Alec Radford, and Oleg Klimov. 2017. ``Proximal Policy Optimization Algorithms.'' arXiv:1707.06347.}
 
-\refitem{Wabersich, Kim P., and Melanie N. Zeilinger. 2021. ``A Predictive Safety Filter for Learning-Based Control of Constrained Nonlinear Dynamical Systems.'' \textit{Automatica} 129: 109597.}
+\refitem{\hypertarget{ref:shen2019}{}Shen, Haiqing, Hirotada Hashimoto, Akihiko Matsuda, Yuuki Taniguchi, Daisuke Terada, and Chen Guo. 2019. ``Automatic Collision Avoidance of Multiple Ships Based on Deep Q-Learning.'' \textit{Applied Ocean Research} 86: 268--288.}
 
-\refitem{Zhao, Luman, and Myung-Il Roh. 2019. ``COLREGs-Compliant Multiship Collision Avoidance Based on Deep Reinforcement Learning.'' \textit{Ocean Engineering} 191: 106436.}
+\refitem{\hypertarget{ref:trott2019}{}Trott, Alexander, Stephan Zheng, Caiming Xiong, and Richard Socher. 2019. ``Keeping Your Distance: Solving Sparse Reward Tasks Using Self-Balancing Shaped Rewards.'' In \textit{Advances in Neural Information Processing Systems (NeurIPS)}.}
+
+\refitem{\hypertarget{ref:vaaler2024}{}Vaaler, Aksel, Svein Jostein Husa, Daniel Menges, Thomas Nakken Larsen, and Adil Rasheed. 2024. ``Modular Control Architecture for Safe Marine Navigation: Reinforcement Learning and Predictive Safety Filters.'' arXiv:2312.01855.}
+
+\refitem{\hypertarget{ref:wabersich2021}{}Wabersich, Kim P., and Melanie N. Zeilinger. 2021. ``A Predictive Safety Filter for Learning-Based Control of Constrained Nonlinear Dynamical Systems.'' \textit{Automatica} 129: 109597.}
+
+\refitem{\hypertarget{ref:zhao2019}{}Zhao, Luman, and Myung-Il Roh. 2019. ``COLREGs-Compliant Multiship Collision Avoidance Based on Deep Reinforcement Learning.'' \textit{Ocean Engineering} 191: 106436.}
 
 \end{document}
