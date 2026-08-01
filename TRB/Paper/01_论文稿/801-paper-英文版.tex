@@ -364,8 +364,8 @@ above, and a one-sided criterion for an unavoidable collision. Each carries its 
  \item Measured effect on the official CommonOcean split (Section~\ref{sec:exp}).
 Over eight seeds per configuration, the full method records $0.53$ COLREGs violations
 per episode. The discrete shielded baseline records $1.16$, and the control barrier
-function at its lowest-violation setting records $4.49$. A nine-configuration ladder separates
-the effect of each mechanism.
+function at its lowest-violation setting records $4.49$. A nine-configuration ladder attributes each mechanism, with three steps that can only be
+read jointly with a declared companion variable.
 \end{enumerate}
 
 %==============================================================================
@@ -626,7 +626,8 @@ inside the training loop. The two bypasses are exclusive. MLP denotes a multilay
 \label{sec:rulesets}
 
 The rule state machine implements Rules 13 to 17 and the stand-on obligation to hold
-course and speed, and sorts the encounter into six situations,
+course and speed. The stand-on duty to take action alone is not implemented. It sorts
+the encounter into six situations,
 \begin{equation*}
 \rho\in\{\rho_0\ \text{conflict-free},\ \rho_1\ \text{stand-on},\ \rho_2\ \text{head-on},\
 \rho_3\ \text{crossing},\ \rho_4\ \text{overtaking},\ \rho_5\ \text{emergency}\},
@@ -690,8 +691,9 @@ union.
 
  The convention asks a give-way
 action to be large enough to be seen in time. We quantify this as a course change of at
-least a given threshold within the maneuver window. With a window of $40$~s and a threshold
-of $20^\circ$,
+least a given threshold within the maneuver window. With the maneuver window of $40$~s
+and the threshold of $20^\circ$ reported by \citl{krasowski2024}{Krasowski and Althoff
+2024},
 \begin{equation}
  \omega_{\mathrm{turn}}=\frac{\Delta_{\mathrm{lt}}}{T_M}=\frac{20^\circ}{40~\mathrm{s}}\approx 0.008727~\mathrm{rad/s}.
  \label{eq:omegaturn}
@@ -1013,8 +1015,12 @@ framework \citl{krasowski2022}{Krasowski and Althoff 2022}. Each scenario fixes 
 initial pose and speed of the own vessel. It also fixes the initial state and the
 planned track of the target vessel. Each scenario defines a goal region with a position
 gate, a heading gate, and a time limit. The encounter geometry is generated programmatically over a range
-of relative bearings, crossing angles, and closing speeds. Target vessels are $200$ to
-$300$~m long, and an episode lasts at most $170$ decision steps, which is $1{,}700$~s.
+of relative bearings, crossing angles, and closing speeds. Target vessels are $200$ to $300$~m long, and an episode lasts at most $170$ decision
+steps, which is $1{,}700$~s. The tracks are recorded rather than exactly straight, so the constant-velocity
+antecedent of Propositions~\ref{prop:farfield} and~\ref{prop:imminent} holds only
+approximately here. Over one step the extrapolation misses the recorded position by a median of $1.8$~m and
+at most $6.9$~m, which the margin of Equation~\eqref{eq:ucf} covers. The effect over the
+longer horizon of Proposition~\ref{prop:imminent} was not measured.
 
 Classifying the library by the geometric predicates returns crossing and head-on only.
 The library contains no overtaking scenario, and the official test set holds $395$
@@ -1088,7 +1094,8 @@ stand-on or a give-way obligation. A stand-on violation is counted per step once
 signed heading change accumulated over the obligation period exceeds the tolerance, and
 the accumulator resets when the obligation ends. A give-way violation is counted per
 encounter, and only when no turn in the required direction reaches the readily apparent
-threshold. One scorer is applied to every method here, including the geometric
+threshold. The counting rule and its two thresholds are those of \citl{krasowski2024}{Krasowski and
+Althoff 2024}. One scorer is applied to every method here, including the geometric
 controllers that have no state machine.
 
 The counting window and the shield do not coincide. The scorer
@@ -1228,7 +1235,9 @@ action space.
 
 Seed-level convergence differs among the shielded configurations. Under the convergence
 rule declared in advance, all $8$ runs of Ours meet the $50\%$ validation-arrival
-criterion, and it is the only shielded configuration for which this holds. The shielded ablation
+criterion, and it is the only shielded configuration for which this holds. The discrete
+configurations are reimplementations (Section~\ref{sec:setup}), and the cause of their
+seed variability is not established here. The shielded ablation
 configurations reach $5$ to $7$ seeds, and the discrete safe baseline reaches $6$
 (Figure~\ref{fig:curves}e). In this eight-seed experiment the two changes therefore
 increase the number of runs meeting the criterion.
@@ -1375,10 +1384,8 @@ validation set. Each column is one encounter, with its range and turn rate below
 track. In (a) and (b) the circle and the square are the starts of the own and the target
 vessel, and the dashed line is the recorded target track. In (c) and (d) the dashed line
 is the closest approach under constant velocity. The shaded band in (e) and (f) is the stand-on tolerance of the shield; the offline
-scorer applies a different test (Section~\ref{sec:metrics}). In (e) and (f) the two
-discrete configurations are drawn faint so that the turn rate of Ours reads against
-them. Its mean step-to-step change in turn rate is $0.0079$ and $0.0060$~rad/s, against
-$0.0110$ to $0.0131$ for those two.}}
+scorer applies a different test (Section~\ref{sec:metrics}). In (e) and (f) the two discrete configurations are drawn faint so that the turn rate of
+Ours is legible.}}
  \label{fig:traj}
 \end{figure}
 %------------------------------------------------------------------------------
