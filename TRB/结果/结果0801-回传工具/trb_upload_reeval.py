@@ -63,6 +63,12 @@ def sh(cmd, cwd=None):
     return p.returncode, p.stdout.strip(), p.stderr.strip()
 
 
+def current_branch():
+    """在**当前分支**上收发，别写死 main —— Claude 的改动可能在 claude/* 分支上。"""
+    rc, out, _ = sh("git rev-parse --abbrev-ref HEAD", cwd=REPO)
+    return out.strip() if rc == 0 and out.strip() and out.strip() != "HEAD" else "main"
+
+
 def walk(root, maxdepth=6):
     root = os.path.abspath(root)
     base = root.rstrip("/").count("/")
@@ -231,8 +237,9 @@ def main():
     if not os.path.isdir(REPO):
         raise SystemExit(f"🔒 本机没有仓库 {REPO} —— 先 git clone，或者在有仓库的机器上跑本脚本")
 
-    P("\n══ 2. 同步仓库 ══")
-    rc, out, err = sh("git pull origin main", cwd=REPO)
+    br = current_branch()
+    P(f"\n══ 2. 同步仓库（分支 {br}）══")
+    rc, out, err = sh(f"git pull origin {shlex.quote(br)}", cwd=REPO)
     P("  " + (out or err).replace("\n", "\n  "))
     if rc != 0:
         raise SystemExit("❌ git pull 没成功，先解决它再跑本脚本")
@@ -278,7 +285,7 @@ def main():
         P(f"     …… 还有 {len(files)-20} 个")
     if files:
         sh('git commit -m "回传正式实验重评与轨迹产物"', cwd=REPO)
-        rc, out, err = sh("git push origin main", cwd=REPO)
+        rc, out, err = sh(f"git push -u origin {shlex.quote(br)}", cwd=REPO)
         P("  " + (out or err).replace("\n", "\n  "))
         if rc != 0:
             P("  🔴 push 没成功。把上面这段发给 Claude。")
@@ -291,7 +298,7 @@ def main():
     open(rp, "w", encoding="utf-8").write("\n".join(REPORT) + "\n")
     sh("git add -A " + shlex.quote(rp), cwd=REPO)
     sh('git commit -m "回传：重评产物盘点报告"', cwd=REPO)
-    sh("git push origin main", cwd=REPO)
+    sh(f"git push -u origin {shlex.quote(br)}", cwd=REPO)
     print(f"\n盘点报告已提交：{rp}")
 
 
