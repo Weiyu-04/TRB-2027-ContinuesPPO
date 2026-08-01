@@ -154,9 +154,13 @@
 {\bfseries Half-Plane Shielding: Provable Directional COLREGs Compliance for Continuous-Action Safe Reinforcement Learning}\par
 \vspace{12pt}
 
+% 🔴 单位块的写法逐条对着官方样例（`_模板_官方Word原版_TAD_AMSamplePaper.docx`）：
+%    ① 学术作者那一档**不写职称**（样例只给公共部门/企业作者写 Position）；
+%    ② 行末**不带逗号**（样例是 `Department of XXX` / `Institution, City, Country, Postcode`）；
+%    ③ 封面**没有字数行**，只有 `Total Number of Pages`。
+%    四位作者的单位统一为 State Key Laboratory of Ocean Engineering（user 2026-08-01 定）。
 {\bfseries Weiyu Tang}\par
-Graduate Research Assistant\par
-Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
+State Key Laboratory of Ocean Engineering\par
 School of Naval Architecture, Ocean and Civil Engineering\par
 Shanghai Jiao Tong University, Shanghai, 200240, China\par
 Email: weiyutang@sjtu.edu.cn\par
@@ -171,27 +175,23 @@ Email: j.xue@sjtu.edu.cn\par
 \vspace{12pt}
 
 {\bfseries Peijie Yang}\par
-Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
+State Key Laboratory of Ocean Engineering\par
 School of Naval Architecture, Ocean and Civil Engineering\par
 Shanghai Jiao Tong University, Shanghai, 200240, China\par
 Email: yangpeijie21@sjtu.edu.cn\par
 \vspace{12pt}
 
 {\bfseries Qianbing Li}\par
-Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
+State Key Laboratory of Ocean Engineering\par
 School of Naval Architecture, Ocean and Civil Engineering\par
 Shanghai Jiao Tong University, Shanghai, 200240, China\par
 Email: qianbing\_li@sjtu.edu.cn\par
 \vspace{12pt}
 
-% 🔴 这两行**不要手数**。改完稿子重新编译后跑：
-%    python3 结果/结果0801-英文版/count_words.py Paper/01_论文稿/801-paper-英文版.tex
-%    把它打出来的两行原样贴回来。口径写在那个脚本的文档字符串里。
-Word Count: 10,932 words + 4 table(s) $\times$ 250 = 11,932 words\par
 Total Number of Pages: 20\par
 \vspace{24pt}
 
-Submitted [Submission Date]\par
+Submitted July 31, 2026\par
 \textsuperscript{*}Corresponding Author\par
 \end{flushleft}
 
@@ -580,7 +580,9 @@ exists and is unique, and it is obtained from a very small quadratic program.
 
 
 
-\noindent\textbf{A note on the guarantees.}\ Each proposition below is placed after the mechanism it applies to, and is given as a
+Figure~\ref{fig:overview} summarizes the mechanism and its two bypasses.
+\noindent\textbf{A note on the guarantees.}\ Each proposition below is placed after the
+mechanism it applies to, and is given as a
 statement, its assumptions, a proof sketch, and its scope. The scope paragraph names the
 cases it does not cover.
 
@@ -1288,6 +1290,8 @@ comparison is made under one condition. The claim of this paper against geometri
 rests on this dimension alone. Ours records $0.53$ violations per episode against $4.95$
 for the control barrier function filter at its best setting, which is a factor of $9.3$.
 Almost all of that gap is in stand-on violations, at $0.36$ against $4.48$.
+Figure~\ref{fig:traj} shows tracks from two encounters of the test set, one head-on and
+one crossing.
 
 %------------------------------------------------------------------------------
 \begin{table}[htbp]
