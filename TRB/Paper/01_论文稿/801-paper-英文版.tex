@@ -172,7 +172,8 @@
 % 第 1 页：标题页（官方要求：标题 + 全部作者姓名/职称/单位/邮箱 + 总页数）
 %------------------------------------------------------------------------------
 \begin{flushleft}
-{\bfseries Half-Plane Shielding: Provable Directional COLREGs Compliance for Continuous-Action Safe Reinforcement Learning}\par
+{\bfseries Half-Plane Shielding for Unmanned Surface Vessel Collision Avoidance:
+Provable Directional COLREGs Compliance under Continuous Control}\par
 \vspace{12pt}
 
 % 🔴 单位块的写法逐条对着官方样例（`_模板_官方Word原版_TAD_AMSamplePaper.docx`）：
@@ -236,24 +237,25 @@ Submitted July 31, 2026\par
 \begingroup
 \setlength{\parindent}{0pt}
 
-\abshead{Objectives:}Autonomous surface vessels must obey the International Regulations for Preventing Collisions at Sea (COLREGs). The give-way clauses are directional. A track that avoids a collision but passes on the wrong side still violates them. This paper establishes a per-step guarantee of directional compliance for continuous
+\abshead{Objectives:}Unmanned surface vessels must obey the International Regulations for Preventing Collisions at Sea (COLREGs). The give-way clauses are directional. A track that avoids a collision but passes on the wrong side still violates them. This paper establishes a per-step guarantee of directional compliance for continuous
 control on give-way steps where the projection is feasible.
 
 \abshead{Methods:}The give-way clause is written as a half-plane constraint on the control plane. It is intersected with the actuator limits and a one-step collision-free condition,
 giving a convex safe control set. A quadratic program with two variables and at most six linear constraints projects the
-control command of the policy onto the nearest point of that set. The projection sits inside the environment transition, so the policy learns under its
-corrected commands. The scenario library holds 2,000 simulated two-vessel encounters, 1,400 for training and
-600 for test. Nine configurations are compared, each trained with eight seeds.
+control command of the policy onto the nearest point of that set. The projection sits inside the environment transition, so proximal policy optimization
+is trained on the shielded transition and learns under its own corrected commands. The library holds 2,000 simulated two-vessel encounters, 1,400 for training and 600 for
+test. Nine configurations are compared, each trained with eight seeds.
 
 \abshead{Findings:}On every give-way step where the projection is feasible, directional compliance holds by
 construction, independently of the training outcome and the seed. Emergency and fallback steps are not covered. On the 600 test scenarios the median violation count is 0.53 per episode at a median
 collision rate of 0.00\%, against 1.16 for the discrete shielded baseline. In the ablation the bounded action distribution accounts for a $65\%$ lower median turn
-increment (paired signed-rank $p=0.008$). The arrival rate is lower and is not claimed as a benefit.
+increment (paired signed-rank $p=0.008$). The arrival rate is lower.
 
-\abshead{Novelty:}To the best of the authors' knowledge, this is the first projection-based safety shield for directional COLREGs compliance
-under continuous control. 
+\abshead{Novelty:}To the best of the authors' knowledge, this is the first safe reinforcement learning
+method that enforces directional COLREGs compliance by projection under continuous
+control. 
 
-\abshead{Practical Applications:}The safety shield is independent of the training outcome. The online cost is one quadratic program per step,
+\abshead{Practical Applications:}The online cost is one quadratic program per step,
 with a median solve time of $4.11$~ms against a decision period of $10$~s.
 
 \vspace{12pt}
@@ -347,6 +349,7 @@ onto that set inside the environment transition. Directional compliance holds by
 construction on every give-way step where the projection is feasible, independently of
 the training outcome and of the seed. Emergency steps and steps with an empty safe
 control set are excluded.
+ \item A safe reinforcement learning method for continuous-action COLREGs compliance (Section~\ref{sec:rl}, Algorithm~\ref{alg:step}). The projection is part of the environment transition, so proximal policy optimization is trained on the shielded transition and learns under its own corrected commands. Two continuous-action refinements are included and ablated: a bounded action distribution and symmetric entry into give-way situations.
  \item Three scoped propositions (Sections~\ref{sec:collfree} to~\ref{sec:fallback}):
 a sufficient far-field condition for one-step collision freedom, the compliance statement
 above, and a one-sided criterion for an unavoidable collision. Each carries its assumptions.
