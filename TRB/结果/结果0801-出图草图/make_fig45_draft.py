@@ -207,6 +207,12 @@ def fig4(D):
           补一个 (0,0) 等于编点。
     """
     MAIN = ("base", "rr", "disc", "ours")
+    #: 🔴 带子只统计**收敛种子**（末段到达率 ≥ 判据），发散种子会把四分位带拉到 0，
+    #   那是「训练不稳」这件事，该由 (d) 格去讲，不该糊在每一条曲线上。
+    #   收敛数直接写进图例（如 Discrete-safe 6/8），一眼可查，不额外堆文字。
+    #   这是论文统计一节**事先声明**的第二种报数口径，不是事后挑数据。
+    OK = {t: [sd for sd, r in D[t].items()
+              if r["trend"] and r["trend"][-1]["到达率%"] >= R.CRASH_ARR] for t in MAIN}
     fig, AX = plt.subplots(2, 3, figsize=(PS.COL2, PS.COL2 * 0.52))
     (a, b, c), (d, e, f) = AX
 
@@ -217,7 +223,7 @@ def fig4(D):
 
     def trend_panel(ax, key, title, ylab, ylim):
         for tag in MAIN:
-            runs = list(D[tag].values())
+            runs = [D[tag][sd] for sd in OK[tag]]
             if runs:
                 band(ax, runs, key, R.ARMS[tag][1])
         ax.set_title(title); ax.set_ylim(*ylim); ax.set_xlim(X0, XMAX)
@@ -245,7 +251,7 @@ def fig4(D):
 
     # (f) 值函数可解释方差
     for tag in MAIN:
-        x, y = curve(list(D[tag].values()), "explained_variance")
+        x, y = curve([D[tag][sd] for sd in OK[tag]], "explained_variance")
         if len(x):
             f.plot(x / 1e6, y, color=R.ARMS[tag][1], linewidth=1.3)
     f.set_title("(f) Value-function explained variance")
@@ -254,7 +260,8 @@ def fig4(D):
 
     # ── 整图共用一个图例，放在顶部 ────────────────────────────────────────
     from matplotlib.lines import Line2D
-    handles = [Line2D([], [], color=R.ARMS[t][1], linewidth=1.8, label=short(t))
+    handles = [Line2D([], [], color=R.ARMS[t][1], linewidth=1.8,
+                      label="%s  %d/%d" % (short(t), len(OK[t]), len(D[t])))
                for t in MAIN]
     fig.legend(handles=handles, loc="upper center", ncol=len(MAIN),
                bbox_to_anchor=(0.5, 1.005), frameon=False,
@@ -280,10 +287,10 @@ def fig5(D):
     """
     #: 紧凑型（user 2026-08-01）：整图收到双栏宽的 0.78，2×2 每格接近正方形。
     #  原来是宽扁格子——横向留白多、纵向被挤，四张排开显得又大又空。
-    fig = plt.figure(figsize=(PS.COL2 * 0.78, PS.COL2 * 0.72))
-    gs = fig.add_gridspec(2, 2)
+    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.29))
+    gs = fig.add_gridspec(1, 4)
     a = fig.add_subplot(gs[0, 0]); b = fig.add_subplot(gs[0, 1])
-    c = fig.add_subplot(gs[1, 0]); d = fig.add_subplot(gs[1, 1], projection="polar")
+    c = fig.add_subplot(gs[0, 2]); d = fig.add_subplot(gs[0, 3], projection="polar")
 
     # ── (a) 控制归口：对数折线 + 图例 ────────────────────────────────────
     runs = list(D["ours"].values())
@@ -296,12 +303,12 @@ def fig5(D):
         if len(x):
             a.plot(x / 1e6, y, color=col, linewidth=1.4, label=lab)
     a.set_xlim(0, XMAX)
-    a.legend(loc="center left", fontsize=5.8)
-    a.set_title("(a) Which branch produced the control")
+    a.legend(loc="lower left", fontsize=4.8, borderpad=0.2)
+    a.set_title("(a) Control branch")
     a.set_ylabel("Share of control steps (%)"); xaxis(a)
 
     # ── (b) 动作打满率：折线 ──────────────────────────────────────────────
-    b.set_title("(b) Action saturation  (solid: yaw, dashed: accel.)")
+    b.set_title("(b) Action saturation")
     b.set_xlim(0, XMAX)
     for tag in ("ours", "uns", "disc"):
         col = R.ARMS[tag][1]
@@ -310,11 +317,11 @@ def fig5(D):
             if len(x):
                 b.plot(x / 1e6, 100 * y, color=col, linestyle=ls, linewidth=1.1,
                        label=(short(tag) if key == "roll_yaw_sat_frac" else None))
-    b.legend(loc="center right", fontsize=5.8)
+    b.legend(loc="upper left", fontsize=4.8, borderpad=0.2)
     b.set_ylabel("Action saturation (%)"); xaxis(b)
 
     # ── (c) 投影修正量：雨云图（半边密度 + 散点）──────────────────────────
-    c.set_title("(c) Projection correction magnitude")
+    c.set_title("(c) Projection correction")
     ARMS_C = ["ours", "ush", "abB", "abG"]
     rng = np.random.default_rng(11)
     for i, tag in enumerate(ARMS_C):
@@ -337,8 +344,7 @@ def fig5(D):
         c.plot([i - 0.34, i + 0.02], [np.median(v)] * 2,
                color=PS.PALETTE["neutral_black"], linewidth=1.2, zorder=5)
     c.set_xticks(range(len(ARMS_C)))
-    c.set_xticklabels(["Ours", "Cont.\n+ shield", "abl.\nbounded",
-                       "abl.\nsym. entry"], fontsize=5.6)
+    c.set_xticklabels(["Ours", "C+S", "abl.B", "abl.S"], fontsize=5.2)
     c.set_xlim(-0.5, len(ARMS_C) - 0.4)
     c.set_ylabel("Correction (norm.)")
     c.grid(axis="x", visible=False)
@@ -376,20 +382,20 @@ def fig5(D):
     hs.append(Line2D([], [], color=PS.PALETTE["red_strong"], linestyle=(0, (3, 2)),
                      linewidth=1.1,
                      label="$\\rho_5$ emergency (any bearing)  %.2f%%" % em))
-    d.legend(handles=hs, loc="upper center", bbox_to_anchor=(0.5, -0.16),
-             frameon=False, fontsize=5.2, handlelength=1.2, handletextpad=0.4,
-             labelspacing=0.22, ncol=1)
+    d.legend(handles=hs, loc="upper left", bbox_to_anchor=(1.14, 1.02),
+             frameon=False, fontsize=4.8, handlelength=1.1, handletextpad=0.35,
+             labelspacing=0.28, ncol=1)
     d.set_rlim(0, RMAX * 1.12)
     d.set_rticks([np.log10(x / rmin) for x in (0.01, 0.1, 1, 10, 100)])
-    d.set_yticklabels(["", "0.1", "1", "10", "100%"], fontsize=5.0)
+    d.set_yticklabels(["", "", "1", "", "100%"], fontsize=4.6)
     d.set_rlabel_position(123)
     d.set_xticks(np.radians([0, 90, 180, 270]))
-    d.set_xticklabels(["ahead", "stbd", "astern", "port"], fontsize=6.2)
+    d.set_xticklabels(["ahead", "stbd", "astern", "port"], fontsize=5.2)
     d.tick_params(pad=1.0)
     d.set_title("(d) Encounter situations", pad=8)
     d.grid(color="#DDDDDD", linewidth=0.5)
 
-    fig.tight_layout(w_pad=1.6, h_pad=1.5)
+    fig.tight_layout(w_pad=1.4)
     PS.save(fig, "Fig5_shield_behaviour", R.OUT_DIRS)
     plt.close(fig)
 
