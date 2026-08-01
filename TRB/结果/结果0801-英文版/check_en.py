@@ -105,7 +105,10 @@ def strip_tex(s):
     s = re.sub(r"(?m)^\s*%.*$", " ", s)                 # 整行注释
     s = re.sub(r"(?<!\\)%.*$", " ", s, flags=re.M)      # 行尾注释
     s = re.sub(r"\$[^$]*\$", " NUM ", s)                # 行内数学
-    s = re.sub(r"\\begin\{(equation|align|algorithm|tabular\*?|table|figure)\}.*?\\end\{\1\}", " ", s, flags=re.S)
+    # 🔴 行间公式与各级标题都是**句子边界**：不这么处理，标题会被粘进下一句、
+    #   跨公式的半句会被算成一整句，句长检查就全是假阳性（2026-08-01 实测）。
+    s = re.sub(r"\\begin\{(equation|align|algorithm|tabular\*?|table|figure)\*?\}.*?\\end\{\1\*?\}", " EQUATION. ", s, flags=re.S)
+    s = re.sub(r"\\(sub)*section\*?\{([^}]*)\}", r" \2. ", s)
     s = re.sub(r"\\(cite|citl|citm|cl|ref|label|hyperlink|hypertarget)\s*\{[^}]*\}", " CITE ", s)
     s = re.sub(r"\\[a-zA-Z]+\*?(\[[^\]]*\])?", " ", s)  # 其余命令
     s = re.sub(r"[{}~\\]", " ", s)
@@ -162,6 +165,17 @@ def main():
             warn(f"中位句长 {med} 词，目标 ≤16（对标论文是 12）")
     else:
         warn("正文还没有内容，跳过句长检查")
+
+    print("\n②·五 破折号（user 2026-08-01：不要使用破折号）")
+    # 🔴 在【原始文本】上查，不能用 strip_tex 后的：`$590$--$840$` 会被替换成 `NUM -- NUM`，
+    #   数字区间是合法的，那样查会误报。只剥注释。
+    rawb = re.sub(r"(?m)^\s*%.*$", " ", body)
+    rawb = re.sub(r"(?<!\\)%.*$", " ", rawb, flags=re.M)
+    em = re.findall(r"---", rawb) + re.findall(r"(?<=[a-zA-Z]) -- (?=[a-zA-Z])", rawb)
+    if em:
+        hard(f"{len(em)} 处破折号 —— 换成句号另起一句，或冒号/逗号（`--` 只准用于数字区间）")
+    else:
+        ok("正文没有破折号")
 
     print("\n③ 红线措辞")
     red = 0

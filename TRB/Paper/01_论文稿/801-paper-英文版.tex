@@ -102,6 +102,11 @@
 \newcommand{\refitem}[1]{\par\begingroup\emergencystretch=3em\sloppy\noindent\hangindent=0.5in\hangafter=1 #1\par\endgroup}
 \newcommand{\cit}[1]{(#1)}
 \newcommand{\citp}[2]{(#1 #2)}
+%--- 可跳转引用（user 要求：文献可点击，引用文字保持黑色；hyperref 已是 hidelinks）------
+%  \citl{键}{显示文字}  单条 · \citm{\cl{k1}{A 1999}; \cl{k2}{B 2020}} 多条 · 锚点在 _refs.tex
+\newcommand{\citl}[2]{(\hyperlink{ref:#1}{#2})}
+\newcommand{\citm}[1]{(#1)}
+\newcommand{\cl}[2]{\hyperlink{ref:#1}{#2}}
 
 %--- 占位宏 -------------------------------------------------------------------
 \newcommand{\figplaceholder}[1]{\fbox{\parbox[c][6cm][c]{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\centering\textbf{[#1 placeholder]}}}}
@@ -210,10 +215,94 @@ Submitted [Submission Date]\par
 %==============================================================================
 \section{Methodology}
 
+\subsection{The Give-Way Clause as a Half-Plane}
+\label{sec:rulesets}
+
+The rule state machine sorts the current encounter into six situations,
+\begin{equation*}
+\rho\in\{\rho_0\ \text{conflict-free},\ \rho_1\ \text{stand-on},\ \rho_2\ \text{head-on},\
+\rho_3\ \text{crossing},\ \rho_4\ \text{overtaking},\ \rho_5\ \text{emergency}\},
+\end{equation*}
+and the decision is a conjunction of three groups of predicates.
+
+The first group is the bearing sector. The bearing of the target vessel is placed in a
+forward, port, starboard, or aft sector, along the sidelight boundaries of the convention.
+The forward sector has a half-angle of $5^\circ$. The outer boundary of the side sectors is
+$112.5^\circ$. The second group is the heading relation. It separates nearly anti-parallel
+headings, nearly parallel headings, and a target vessel that heads to port or to starboard.
+The overtaking band has a half-angle of $67.5^\circ$. The third group is collision
+possibility. The speed set of the own vessel must intersect the collision cone of the target
+vessel. The relative speed must also close the current center distance within the check
+horizon. The cone has its apex at the own vessel and is tangent to the inflated occupancy of
+the target vessel. It is then translated along the velocity of the target vessel. The
+inflation radius is three times the length of the target vessel, the half-width of the speed
+set is $1$~m/s, and the check horizon is $420$~s.
+
+Four situations carry an obligation,
+\begin{equation}
+\begin{aligned}
+\rho_2\ \text{head-on}&:\quad \mathrm{CP}\wedge\mathrm{Fr}(s_e,s_m)\wedge\mathrm{Ap},\\
+\rho_3\ \text{crossing}&:\quad \mathrm{CP}\wedge\mathrm{Ri}(s_e,s_m)\wedge\mathrm{Tl},\\
+\rho_4\ \text{overtaking}&:\quad \mathrm{CP}\wedge\mathrm{Be}(s_m,s_e)\wedge(v_e>v_m)\wedge\mathrm{Sd},\\
+\rho_1\ \text{stand-on}&:\quad \bigl[\mathrm{CP}\wedge\mathrm{Le}(s_e,s_m)\wedge\mathrm{Tr}\bigr]\ \vee\ \rho_4(s_m,s_e),
+\end{aligned}
+\label{eq:situations}
+\end{equation}
+and every other case falls into $\rho_0$. Overtaking and being overtaken both swap the two
+vessel arguments, because overtaking places the own vessel in the aft sector of the target
+vessel. The four predicates can hold at the same time in geometry. They are therefore
+applied in the order written above.
+
+Transitions are triggered by a persistence condition. Entry from the conflict-free situation
+into a give-way situation has two parts. A give-way predicate must not hold now. It must
+also hold at every decision step of a $60$~s reaction window under constant-velocity
+extrapolation. The first part separates ``about to hold'' from ``already holds''. It also
+creates one asymmetry, which Section~\ref{sec:sym} treats. The emergency situation is
+entered by a stronger set-based prediction with a horizon of $180$~s.
+
+\noindent\textbf{Compliant control set.}\ Each situation maps to an explicit constraint set
+on the command,
+\begin{equation}
+ U_{\mathrm{colregs}}(\rho)=
+ \begin{cases}
+  U_{\mathrm{box}}, & \rho=\rho_0,\\[2pt]
+  \{|a|\le\varepsilon_a\}\cap\{|\omega|\le\varepsilon_\omega\}, & \rho=\rho_1,\\[2pt]
+  \{\omega\le-\omega_{\mathrm{turn}}\}, & \rho\in\{\rho_2,\rho_3\},\\[2pt]
+  \{\omega\le-\omega_{\mathrm{turn}}\}\ \text{or}\ \{\omega\ge+\omega_{\mathrm{turn}}\}, & \rho=\rho_4,\\[2pt]
+  U_{\mathrm{box}}, & \rho=\rho_5.
+ \end{cases}
+ \label{eq:ucolregs}
+\end{equation}
+Head-on and crossing require a turn to starboard. Overtaking allows a turn to either side.
+Stand-on requires the course and the speed to be held. Each of these sets is a half-plane or
+an interval on the plane of control commands. That shape is what the rest of this paper
+builds on. A set of this shape can be entered by projection, so the commands do not have to
+be enumerated.
+
+\noindent\textbf{Quantifying a readily apparent action.}\ The convention asks a give-way
+action to be large enough to be seen in time. We quantify this as a course change of at
+least a given threshold within the maneuver window. With a window of $40$~s and a threshold
+of $20^\circ$,
+\begin{equation}
+ \omega_{\mathrm{turn}}=\frac{\Delta_{\mathrm{lt}}}{T_M}=\frac{20^\circ}{40~\mathrm{s}}\approx 0.008727~\mathrm{rad/s}.
+ \label{eq:omegaturn}
+\end{equation}
+This is the infimum of the compliant turn rate. Any turn at least this large complies, and
+the bound cannot be lowered.
+
+The structure and the thresholds of the predicates are taken from the temporal-logic
+formalization of the maritime rules \citl{krasowski2024}{Krasowski and Althoff 2024}. This
+paper adds three things. The inflation radius and the half-width of the speed set are stated
+explicitly. The entry into a give-way situation is made symmetric
+(Section~\ref{sec:sym}). The predicate set is then connected to a constraint set on
+continuous commands.
+
+
 \subsection{Safe Control Set and Projection}
 \label{sec:proj}
 
 \subsubsection{One-Step Collision-Free Constraint}
+\label{sec:sym}% 占位：对称化那一节还没写，先把 label 挂这儿免得 undefined
 
 At each decision step the applied command must keep the two hulls apart at the end of the
 next step. Written directly, that condition is not convex. We therefore use a conservative
