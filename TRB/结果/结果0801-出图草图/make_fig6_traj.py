@@ -134,69 +134,75 @@ def main():
     #  所以转艏率与航速的时间曲线，直接把「Ours 稳住、两条离散臂来回摆」画出来，
     #  正是直航违规计数在数的那件事（本文违规量的大头）。
     #  版面：上排三格（轨迹×2 + 距离），下排两格拉通（转艏率、航速）。
-    #: 🔴 2026-08-01 later-11（user）：时间序列改成**三条通栏长带**，每条只放一个量，
-    #  这样每条折线的起伏都读得出来（挤在半宽格里看不清）。
-    #  上排只放两张轨迹图（比原来三张时更大）；下面三条依次是与他船的距离、转艏率、航速。
-    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.74))
-    gs = fig.add_gridspec(4, 2, height_ratios=[1.55, 0.52, 0.52, 0.52], hspace=0.62)
-    a = fig.add_subplot(gs[0, 0])
-    b = fig.add_subplot(gs[0, 1])
-    c = fig.add_subplot(gs[1, :])
-    dax = fig.add_subplot(gs[2, :], sharex=c)
-    eax = fig.add_subplot(gs[3, :], sharex=c)
+    #: 🔴 2026-08-01 later-13（user）：改成**两列 × 三行**——左列对遇、右列交叉，
+    #  每个案例的动力学**对齐放在它自己的轨迹图正下方**，两列可以横向对读。
+    #  行 1 轨迹（比原来窄，给下面两行让位）· 行 2 与他船的距离 · 行 3 转艏率。
+    #  同一行的两格共用纵轴范围，左右可比。
+    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.62))
+    gs = fig.add_gridspec(3, 2, height_ratios=[1.25, 0.62, 0.62], hspace=0.55, wspace=0.22)
+    AXT = [fig.add_subplot(gs[0, 0]), fig.add_subplot(gs[0, 1])]
+    AXR = [fig.add_subplot(gs[1, 0]), fig.add_subplot(gs[1, 1])]
+    AXW = [fig.add_subplot(gs[2, 0]), fig.add_subplot(gs[2, 1])]
+    EPS_W = 0.004363323129985824
+    TY = ["head-on", "crossing"]
 
-    for ax, ty in ((a, "head-on"), (b, "crossing")):
+    for col, ty in enumerate(TY):
         tid = pick[ty]
-        #: 他船轨迹只画一次（四条臂看到的是同一条他船）
+        ax = AXT[col]
         ref = T[SHOW[0]][tid]
-        ox = np.array([s["obs_x"] for s in ref]) / 1000.0
-        oy = np.array([s["obs_y"] for s in ref]) / 1000.0
+        ox = np.array([s2["obs_x"] for s2 in ref]) / 1000.0
+        oy = np.array([s2["obs_y"] for s2 in ref]) / 1000.0
         ax.plot(ox, oy, color=PS.PALETTE["neutral_mid"], linewidth=1.0,
                 linestyle=(0, (3, 2)), zorder=2)
-        ax.scatter(ox[0], oy[0], s=14, marker="s", facecolor="white",
+        ax.scatter(ox[0], oy[0], s=13, marker="s", facecolor="white",
                    edgecolor=PS.PALETTE["neutral_mid"], linewidths=0.8, zorder=5)
         for tag in SHOW:
             draw_track(ax, T[tag][tid], R.ARMS[tag][1])
-        x0 = ref[0]["ego_x"] / 1000.0
-        y0 = ref[0]["ego_y"] / 1000.0
-        ax.scatter(x0, y0, s=16, marker="o", facecolor="white",
-                   edgecolor=PS.PALETTE["neutral_black"], linewidths=0.8, zorder=6)
-        ax.set_title(f"({'a' if ty=='head-on' else 'b'}) {ty.capitalize()}, T-{tid}")
-        if ty == "head-on":
+        ax.scatter(ref[0]["ego_x"] / 1000.0, ref[0]["ego_y"] / 1000.0, s=15, marker="o",
+                   facecolor="white", edgecolor=PS.PALETTE["neutral_black"],
+                   linewidths=0.8, zorder=6)
+        ax.set_title(f"({'ab'[col]}) {ty.capitalize()}, T-{tid}")
+        ax.set_xlabel("East (km)"); ax.set_aspect("equal", adjustable="datalim")
+        if col == 0:
+            ax.set_ylabel("North (km)")
             from matplotlib.lines import Line2D
             ax.legend(handles=[Line2D([], [], color=R.ARMS[t2][1], linewidth=1.2,
                                       label=R.ARMS[t2][0]) for t2 in SHOW],
-                      loc="upper left", frameon=False, fontsize=5.2,
-                      handlelength=1.3, labelspacing=0.22, borderpad=0.15)
-        ax.set_xlabel("East (km)")
-        ax.set_ylabel("North (km)")
-        ax.set_aspect("equal", adjustable="datalim")
+                      loc="upper left", frameon=False, fontsize=5.0,
+                      handlelength=1.3, labelspacing=0.2, borderpad=0.12)
 
-    # ── (c)(d)(e) 转艏率：**一条配置一格** ────────────────────────────────
-    #: 🔴 2026-08-01 later-12（user）：三条线叠在一格里互相盖，看不出各自的起伏 ⟹
-    #  **每条线单独一格**，三格上下叠、共用横轴与同一纵轴范围，纵向对读即可比较。
-    #  转艏率是三个量里唯一真正互相遮挡的（距离与航速三条线几乎重合），所以拆的是它。
-    EPS_W = 0.004363323129985824
-    W = {}
-    for tag in SHOW:
-        psi = np.array([q["ego_psi"] for q in T[tag][tid]])
-        W[tag] = ((np.diff(psi) + np.pi) % (2 * np.pi) - np.pi) / DT
-    ylim = max(np.abs(np.concatenate(list(W.values())))) * 1.15
-    for ax, tag, lab in zip((c, dax, eax), SHOW, "cde"):
-        ax.axhspan(-EPS_W, EPS_W, color=PS.PALETTE["neutral_mid"], alpha=0.16, zorder=1)
-        y = W[tag]
-        ax.plot(np.arange(len(y)) * DT / 60.0, y, color=R.ARMS[tag][1], linewidth=1.1, zorder=3)
-        ax.set_ylim(-ylim, ylim)
-        ax.set_ylabel(r"$\omega$ (rad/s)")
-        ax.set_title(f"({lab}) {R.ARMS[tag][0]}")
-        if tag != SHOW[-1]:
-            ax.tick_params(labelbottom=False)
-    eax.set_xlabel("Time (min)")
-    #: ε_ω 带只在第一格标一次
-    c.annotate(r"$|\omega|\leq\varepsilon_\omega$ (shield, stand-on)", (0.995, EPS_W),
-               xycoords=("axes fraction", "data"), xytext=(0, 2),
-               textcoords="offset points", fontsize=5.0, ha="right", va="bottom",
-               color=PS.PALETTE["neutral_black"])
+        # 行 2：与他船的距离
+        axr = AXR[col]
+        for tag in SHOW:
+            st = T[tag][tid]
+            dd = np.hypot(np.array([q["ego_x"] - q["obs_x"] for q in st]),
+                          np.array([q["ego_y"] - q["obs_y"] for q in st])) / 1000.0
+            axr.plot(np.arange(len(dd)) * DT / 60.0, dd, color=R.ARMS[tag][1], linewidth=1.0)
+            j = int(np.argmin(dd))
+            axr.scatter(j * DT / 60.0, dd[j], s=10, color=R.ARMS[tag][1], zorder=5, linewidths=0)
+        axr.axhline(cv_cpa(T[SHOW[0]][tid]) / 1000.0, color=PS.PALETTE["neutral_mid"],
+                    linewidth=0.8, linestyle=(0, (3, 2)), zorder=1)
+        axr.set_title(f"({'cd'[col]}) Range to target vessel")
+        axr.set_ylim(bottom=0); axr.tick_params(labelbottom=False)
+        if col == 0:
+            axr.set_ylabel("Range (km)")
+
+        # 行 3：转艏率
+        axw = AXW[col]
+        axw.axhspan(-EPS_W, EPS_W, color=PS.PALETTE["neutral_mid"], alpha=0.16, zorder=1)
+        for tag in SHOW:
+            psi = np.array([q["ego_psi"] for q in T[tag][tid]])
+            w = ((np.diff(psi) + np.pi) % (2 * np.pi) - np.pi) / DT
+            axw.plot(np.arange(len(w)) * DT / 60.0, w, color=R.ARMS[tag][1], linewidth=0.9)
+        axw.set_ylim(-0.023, 0.023)
+        axw.set_title(f"({'ef'[col]}) Turn rate")
+        axw.set_xlabel("Time (min)")
+        if col == 0:
+            axw.set_ylabel(r"$\omega$ (rad/s)")
+            axw.annotate(r"$|\omega|\leq\varepsilon_\omega$", (0.99, EPS_W),
+                         xycoords=("axes fraction", "data"), xytext=(0, 2),
+                         textcoords="offset points", fontsize=5.0, ha="right", va="bottom",
+                         color=PS.PALETTE["neutral_black"])
 
     fig.tight_layout(w_pad=1.6, h_pad=0.6)
     PS.save(fig, "Fig6_trajectories", R.OUT_DIRS)

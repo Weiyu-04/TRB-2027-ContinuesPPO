@@ -16,6 +16,7 @@
 """
 import os
 import sys
+import textwrap
 
 import numpy as np
 
@@ -307,7 +308,11 @@ def fig4(D):
                 if runs:
                     dense_band(ins, runs, get, R.ARMS[tag][1], nbin=120, lw=0.8)
             ins.set_xlim(0, xhi); ins.set_ylim(ylo, yhi)
-            ins.tick_params(labelsize=5.6, length=1.6, pad=1.0)
+            #: 🔴 2026-08-01 later-14（user：「图 4 的 c 图 X 轴字体太小」）：
+            #   插图刻度原来 5.6 pt，比主图刻度还小两档，印出来几乎读不出 "0.0 / 0.5 / 1.0"。
+            #   放到 7.0 pt（与主图刻度 7.4 pt 相当）。三个刻度、每个 3 字符，
+            #   放大到 7 pt 仍不相碰（下方 assert_no_overlap 逐图核过）。
+            ins.tick_params(labelsize=7.0, length=1.8, pad=1.2)
             ins.set_xticks([0, xhi / 2, xhi])
             for sp in ins.spines.values():
                 sp.set_linewidth(0.6)
@@ -392,7 +397,7 @@ def fig5(D):
     #  ③ 一整格版面只传达 5 个数。换条形后信息密度高得多，且极坐标那个正方形footprint
     #  不再逼着整图用 0.42 的高宽比 ⟹ 压到 0.34（论文里 165×56 mm）。
     #: 🔴 later-11（user：「也被压扁了」）：2×2 下每格 82×28 mm 太扁，加高到 0.44 ⟹ 82×36 mm。
-    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.44))
+    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.40))
     gs = fig.add_gridspec(2, 2)
     a = fig.add_subplot(gs[0, 0]); b = fig.add_subplot(gs[0, 1])
     c = fig.add_subplot(gs[1, 0]); d = fig.add_subplot(gs[1, 1])
@@ -449,8 +454,15 @@ def fig5(D):
         c.plot([i - 0.34, i + 0.02], [np.median(v)] * 2,
                color=PS.PALETTE["neutral_black"], linewidth=1.2, zorder=5)
     c.set_xticks(range(len(ARMS_C)))
-    #: 与表的行名逐字相同，只在空格处换行以适应格宽
-    c.set_xticklabels([R.ARMS[t][0].replace(", ", ",\n") for t in ARMS_C], fontsize=5.0)
+    #: 与表的行名逐字相同，只换行、一个字都不改
+    #: 🔴 2026-08-01 later-14（user：「X 轴的字体太小，担心重叠就用 45 度角」）：
+    #   5.0 pt 是全稿最小的一处文字，先按 user 给的办法斜排到 45°，字号提到 6.6 pt。
+    #   但实测斜排把这一格的下方吃掉近 0.8 in，同一行的 (d) 就显得高出一截。
+    #   本格每个类别有 0.72 in 宽（比图 3 的 0.44 in 宽得多），**逐词折行后横排也塞得下**：
+    #   最长的一行是 "symmetric"，6.6 pt 下约 0.41 in < 0.72 in。
+    #   ⟹ 保留 6.6 pt，改横排逐词折行；不重叠由 check_overlap.py 量包围盒确认，不靠眼估。
+    c.set_xticklabels(["\n".join(textwrap.wrap(R.ARMS[t][0], width=10, break_long_words=False)) for t in ARMS_C],
+                      fontsize=6.6)
     c.set_xlim(-0.5, len(ARMS_C) - 0.4)
     c.set_ylabel("Correction (norm.)")
     c.grid(axis="x", visible=False)

@@ -15,6 +15,7 @@ user 2026-08-01：「为什么没有类似 Fig2_ablation 的图呢？我感觉�
 """
 import os
 import sys
+import textwrap
 
 import numpy as np
 
@@ -115,8 +116,12 @@ def fig3(D):
           检验结果放正文里说，图上不挂星号。
     """
     ORDER = ["ab0", "abB", "abG", "ours"]
-    #: 🔴 与表 1 / 表 2 的行名逐字相同，只在逗号处换行（`03` L243-续51）
-    XTICK = [R.ARMS[t][0].replace(", ", ",\n") for t in ORDER]
+    #: 🔴 与表 1 / 表 2 的行名逐字相同，只换行、一个字都不改（`03` L243-续51）
+    #: 🔴 2026-08-01 later-14（user：「cde 子图 x 轴文字重叠了」）：原来只在逗号处折一次，
+    #   于是 "Ablation reference" 仍是一整行、"bounded only" 也是一整行 —— 一格只有约
+    #   0.44 in 宽，这两行必然骑到邻格上。改成**逐词折行**（每行 ≤10 字符），
+    #   最长的一行变成 "reference"/"symmetric"，才塞得进格宽。
+    XTICK = ["\n".join(textwrap.wrap(R.ARMS[t][0], width=10, break_long_words=False)) for t in ORDER]
 
     fig, AX = plt.subplots(1, 3, figsize=(PS.COL2, PS.COL2 * 0.28))
     rng = np.random.default_rng(3)
@@ -162,16 +167,22 @@ def fig3(D):
                 ax.scatter(i + jit, y, s=9, facecolor="white", edgecolor=cols[i],
                            linewidths=0.7, zorder=3)
             #: 崩掉的种子数直接标出来——这正是箱体被拉长的原因，不写清楚读者会以为是噪声
-            for i, y in enumerate(series):
-                nc = sum(1 for v in y if v < R.CRASH_ARR)
-                if nc:
-                    ax.annotate("%d collapsed" % nc, (i, min(y)), xytext=(0, -11),
-                                textcoords="offset points", ha="center", va="top",
-                                fontsize=5.6, color=PS.PALETTE["red_strong"])
-            ax.set_ylim(-16, 112)
+            #: 🔴 2026-08-01 later-14（user：「e 图上标记崩塌的红字有个超出边界了」）：
+            #   原来每格一条 "N collapsed"、钉在该格的 `min(y)` 再往下偏 11 pt。
+            #   两个毛病：① 每格最低点高度不同 ⟹ 一条掉出框线、一条骑到刻度文字上；
+            #   ② 图上写 "collapsed"、正文与图注写 "nonconverged" —— 同一件事两个词。
+            #   改成**框底一行合并写**：位置固定（不再跟着数据跑），用词与正文统一，
+            #   顺序与四个箱子从左到右一致。
+            counts = [sum(1 for v in y if v < R.CRASH_ARR) for y in series]
+            ax.annotate("nonconverged runs:  " + ",  ".join(str(c) for c in counts),
+                        (0.5, 0.015), xycoords="axes fraction",
+                        ha="center", va="bottom",
+                        fontsize=5.6, color=PS.PALETTE["red_strong"])
+            ax.set_ylim(-20, 112)
         ax.set_xticks(range(4))
         ax.set_xticklabels(XTICK, fontsize=6.4)
-        ax.set_xlim(-0.62, 3.62)
+        #: 左右各再放宽一点，"3 collapsed" 这种居中红字在第一格才不会顶出框线
+        ax.set_xlim(-0.75, 3.75)
         ax.set_title(title)
         ax.set_ylabel(ylab)
         ax.grid(axis="x", visible=False)

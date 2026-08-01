@@ -112,13 +112,20 @@
 \renewcommand{\floatpagefraction}{0.8}
 \setcounter{topnumber}{3}
 \setcounter{totalnumber}{4}
-\captionsetup[algorithm]{labelsep=space,labelfont=bf,font=small}
+% 🔴 later-13：font=small 在 10 pt 基准下 = 9 pt，低于 TRB 的 ≥10 pt。写死 10 pt。
+\captionsetup[algorithm]{labelsep=space,labelfont=bf,font={normalsize}}
 \captionsetup{labelsep=space,font=bf,justification=raggedright,singlelinecheck=false}
 \captionsetup[table]{name=TABLE}
 % 图/表的【名字】随官方样例保持粗体正文号；后面的【说明】降一号（10 pt）且不加粗。
 % 🔴 TRB 硬要求是 Times New Roman ≥10 pt ⟹ \small（11pt 基准下 = 10 pt）是**下限**，
 %    再小就不合规。所以说明只能降到 10 pt，不能更小。
-\newcommand{\capnote}[1]{{\normalfont\small #1}}
+% 🔴🔴 2026-08-01 later-13 修：这里原来是 \small。在 **11 pt 基准**下 \small = 10 pt，合规；
+%    但 `03` L243-续52 C 为压页数把基准降到 **10 pt** 之后，\small 就变成了 **9 pt**，
+%    低于 TRB 硬要求（Times New Roman ≥10 pt，`04 §九` 官方原文）——
+%    也就是说续50 D 那次「把表从 9pt 提到 10pt」的修复，被后来的字号改动**悄悄撤销了**。
+%    实测：全稿有 5,341 个字符是 9 pt。改成写死 10 pt，不再跟基准联动。
+\newcommand{\capsize}{\fontsize{10}{12}\selectfont}
+\newcommand{\capnote}[1]{{\normalfont\capsize #1}}
 \captionsetup[figure]{name=Figure}
 % 🔴 2026-08-01 later-10 页数账：浮动体与正文之间默认留 ~12pt+glue，全稿 6 图 4 表 ⟹
 %    这一项就占掉十几行。收到 8pt（视觉上仍分得开），是「腾行数靠排版参数、不靠抠字」
@@ -432,7 +439,7 @@ control commands the method can exclude at each \emph{covered} decision step, no
 constraint satisfaction in expectation. For Ours the covered steps are the give-way
 steps on which the projection is feasible; emergency and fallback steps are excluded.}}
  \label{tab:related}
- \centering\small
+ \centering\capsize
  \setlength{\tabcolsep}{3pt}
  \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lllcc@{}}
   \toprule
@@ -771,6 +778,8 @@ sixth is the collision-free constraint of Equation~\eqref{eq:ucf}. The program h
 \begin{algorithm}[htbp]
 \caption{One shielded decision step}
 \label{alg:step}
+% 🔴 later-13：algorithmic 环境实测排出来是 8 pt，低于 ≥10 pt ⟹ 显式写死 10 pt。
+\capsize
 \begin{algorithmic}[1]
 \Require own state $s_e$, target state $s_m$, policy command $u_{\mathrm{policy}}$
 \Ensure applied command $u_{\mathrm{applied}}$
@@ -1015,7 +1024,7 @@ the table have to be read jointly.
 \begin{table}[htbp]
  \caption{The nine configurations}
  \label{tab:arms}
- \centering\small
+ \centering\capsize
  \setlength{\tabcolsep}{3pt}
  \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccccccc@{}}
   \toprule
@@ -1034,7 +1043,7 @@ the table have to be read jointly.
  \end{tabular*}
 
  \vspace{4pt}
- \begin{minipage}{\linewidth}\small
+ \begin{minipage}{\linewidth}\capsize
  \textbf{Notes.} A check mark denotes enabled, a cross denotes disabled, and a dash
 denotes not applicable. Rows run from the discrete baseline to Ours. Three steps of the
 ladder carry a companion variable that cannot be separated. The action space changes
@@ -1083,12 +1092,11 @@ measure rather than a direct test of that proposition.
 
 \noindent\textbf{Training budget.}\ Each configuration is trained with $8$ random seeds,
 one run per seed, and the $72$ runs together cover about $730$ million environment
-steps. A separate seed fixes the scenario split, so every run sees the same scenarios.
-Every configuration inside one table is evaluated on one machine in one pass. Training
-itself was spread over several machines running the same software image and training
-code, verified by a checksum, with the thread count locked to one.
-\textbf{No bit-level cross-machine check was run on this batch, so machine differences are
-not excluded. This is listed as a limitation.}
+steps. A separate seed fixes the scenario split, so every run sees the same scenarios,
+and every configuration inside one table is evaluated on one machine in one pass.
+Training was spread over several machines running the same software image and code.
+\textbf{No bit-level cross-machine check was run, so machine differences are not
+excluded.}
 
 \noindent\textbf{Checkpoint selection.}\ Twenty checkpoints are saved per run at even
 intervals and each is evaluated once on the validation set. The rule was fixed in advance and has no tunable part. The criterion is the highest
@@ -1101,17 +1109,16 @@ effect is small. Across the $72$ runs the arrival rate at the selected checkpoin
 last checkpoint by a median of $0.2$ points. It is lower for $31$ of them. The ordering of the configurations and the outcome of the paired tests are
 the same under both rules.
 
-\noindent\textbf{Reading the figures.}\ Figure~\ref{fig:tradeoff} is computed on the same test set as Table~\ref{tab:main}. Figures~\ref{fig:curves}
-and~\ref{fig:shield} are recorded during training and are labeled as such. Violation counts
-in the figures are the sum of stand-on and give-way violations.
+\noindent\textbf{Reading the figures.}\ Violation counts in the figures are the sum of
+stand-on and give-way violations. Each caption states whether the panel comes from the
+test set or from training.
 
 \noindent\textbf{Statistics.}\ The nine-configuration comparisons use a per-seed paired
 sign test, whose smallest two-sided value with $8$ seeds is $p=2/2^{8}=0.0078$. The
-$2\times2$ ablation comparisons use a per-seed paired Wilcoxon signed-rank test. Error bars are bootstrap $95\%$ intervals resampled over seeds. A run counts as
-converged when its arrival rate on the validation set reaches $50\%$, and the criterion
-selects the same runs when applied on the test set instead. Nonconverged runs are counted in the main table as they are. Restricting the table to
-converged runs leaves the ordering unchanged, and Ours keeps the lowest violation count
-at $0.53$ per episode.
+$2\times2$ ablation comparisons use a per-seed paired Wilcoxon signed-rank test. Error bars are bootstrap $95\%$ intervals over seeds. A run counts as converged when its
+arrival rate on the validation set reaches $50\%$; the same runs are selected if the
+criterion is applied on the test set. Nonconverged runs are counted in the main table as
+they are, and restricting it to converged runs leaves the ordering unchanged.
 
 \subsection{Main Comparison}
 \label{sec:res-main}
@@ -1121,7 +1128,7 @@ at $0.53$ per episode.
  \caption{Main comparison, all seeds. \capnote{Official test set, $N=600$, at the
  checkpoint selected on the validation set.}}
  \label{tab:main}
- \centering\small
+ \centering\capsize
  \setlength{\tabcolsep}{4pt}
  \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccccccc@{}}
   \toprule
@@ -1140,7 +1147,7 @@ at $0.53$ per episode.
  \end{tabular*}
 
  \vspace{4pt}
- \begin{minipage}{\linewidth}\small
+ \begin{minipage}{\linewidth}\capsize
  \textbf{Notes.} The best value in each column is in bold. The turn and throttle increment
  columns are \textbf{not} marked, because they cannot be compared across action spaces
  (Section~\ref{sec:train}). The share of emergency steps is descriptive and is neither good
@@ -1195,8 +1202,10 @@ unchanged.
  \caption{Test-set comparison and ablation. \capnote{Official test set, the same source as
  Table~\ref{tab:main}. Points and bars are medians across seeds, error bars are bootstrap
  $95\%$ intervals resampled over seeds, and open points are single seeds. The lower right of (a) is the ideal region. Panels (c) to (e) are the $2\times2$ ablation, paired by
- seed, with the change relative to the leftmost bar printed above each bar; The arrival rate is bimodal, so (e) is a box plot with the number of nonconverged runs
-below each box.}}
+ seed, with the change relative to the leftmost bar printed above each bar. The arrival rate is
+bimodal, so (e) is a box plot, and the number of nonconverged runs for the four
+configurations, in the same left-to-right order, is printed in red at the foot of that
+panel.}}
  \label{fig:tradeoff}
 \end{figure}
 
@@ -1325,7 +1334,7 @@ up to $53$ and $64$ degrees and passes at $1{,}150$ and $889$~m.
 \begin{table}[htbp]
  \caption{Geometric baselines. \capnote{Official test set, $N=600$.}}
  \label{tab:ext}
- \centering\small
+ \centering\capsize
  % 表体由 9 pt 提到 10 pt（TRB 硬要求 ≥10 pt）之后这张 9 列表会超宽 6.6 pt ⟹ 列间距收到 2 pt
  \setlength{\tabcolsep}{2pt}
  \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}llccccccc@{}}
@@ -1344,7 +1353,7 @@ up to $53$ and $64$ degrees and passes at $1{,}150$ and $889$~m.
  \end{tabular*}
 
  \vspace{4pt}
- \begin{minipage}{\linewidth}\small
+ \begin{minipage}{\linewidth}\capsize
  \textbf{Notes.} These controllers need no training and have no seed. Each is reported at
 the setting with the fewest violations per episode, tuned on a set disjoint from the one
 used here. Each was also run at the other control range, which leaves the ordering of
@@ -1367,14 +1376,15 @@ terminal heading gate.
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig6_trajectories.pdf}
- \caption{Tracks and turn rate in two encounters. \capnote{Scenarios are picked by
-geometry alone: the smallest constant-velocity closest approach of each situation, $7$~m
-for T-$1848$ and $2$~m for T-$76$. Seed $s_0$, at the last checkpoint rather than the
-one selected on the validation set. In (a) and (b) the circle and the square are the
-starts of the own and the target vessel, and the dashed line is the recorded target
-track. Panels (c) to (e) share one turn-rate scale and come from the crossing encounter.
-The shaded band is the stand-on tolerance of the shield, and the offline scorer applies
-a different test (Section~\ref{sec:metrics}).}}
+ \caption{Two encounters, by column. \capnote{Scenarios are picked by geometry alone: the
+smallest constant-velocity closest approach of each situation, $7$~m for T-$1848$ and
+$2$~m for T-$76$. Seed $s_0$, at the last checkpoint rather than the one selected on the
+validation set. Each column is one encounter, with its range and turn rate below the
+track. In (a) and (b) the circle and the square are the starts of the own and the target
+vessel, and the dashed line is the recorded target track. In (c) and (d) the dashed line
+is the closest approach under constant velocity. The shaded band in (e) and (f) is the
+stand-on tolerance of the shield; the offline scorer applies a different test
+(Section~\ref{sec:metrics}).}}
  \label{fig:traj}
 \end{figure}
 %------------------------------------------------------------------------------
@@ -1438,9 +1448,7 @@ constraint on the control command. The premise that the safe control set must be
 the premise that it is convex. That step applies a projection-based safety shield to
 maritime COLREGs under continuous control. Directional
 compliance on every give-way step where the projection is feasible holds by
-construction, independently of the training outcome and of the seed. The same structure
-may apply to other rules that admit a convex representation in the action space, subject
-to correct classification and feasibility.
+construction, independently of the training outcome and of the seed. 
 
 On the official test set of $600$ scenarios the median violation count of Ours is $0.53$
 per episode. The discrete shielded baseline records $1.16$ and the geometric baseline with the fewest violations per episode records $4.49$. It is the only shielded configuration that meets the
@@ -1453,22 +1461,20 @@ design, so the measured violation count is not zero. Propositions~\ref{prop:farf
 constant velocity. Proposition~\ref{prop:comply} assumes a correct decision by the state
 machine, and the collision-possibility predicate can miss a trailing encounter in which
 the two speeds are close. Equation~\eqref{eq:ucf} has no formal conservatism proof and relies on the
-safety margin. Neither the arrival rate nor smoothness is claimed as a benefit, and
-smoothness cannot be compared across action spaces. The counting windows of the offline
+safety margin. Neither the arrival rate nor smoothness is claimed as a benefit. The counting windows of the offline
 scorer and of the shield differ, and the frequency of that mismatch was not measured.
 Checkpoint selection and machine-to-machine variation are the two known biases, both
 quantified in Section~\ref{sec:metrics}. On rule coverage, Rules 13 to 17 and the stand-on obligation to hold course and speed
 are implemented. The stand-on duty to act alone is not. The overtaking branch is
-untested because the library holds no overtaking case. The state of the target vessel is assumed free of measurement error,
-and wind, current, and waves are not modeled. The reported runtime comes from one server
+untested because the library holds no overtaking case. Measurement error, wind, current, and waves are not modeled. The reported runtime comes from one server
 processor and has not been checked on shipboard hardware. The discrete baseline is a
 reimplementation, and the cause of its observed seed variability is not established
 here.
 
 Three directions follow. The terminal constraint of the fallback maneuver should be
 wired into the deployed shield and verified in closed loop. Directional compliance
-should be extended to several target vessels with a conflict resolution rule. The
-far-field test should be implemented as a constant-time early exit.
+should be extended to several target vessels. The far-field test should become a
+constant-time early exit.
 
 %==============================================================================
 % 收尾四节 —— TRB 要求，对应中文稿 954–979 行
