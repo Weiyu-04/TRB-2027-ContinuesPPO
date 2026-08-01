@@ -204,6 +204,121 @@ Submitted [Submission Date]\par
 %   Author Contributions / Conflict of Interest / Funding
 %==============================================================================
 
+
+%==============================================================================
+% 【样章】§4.2 安全动作集与投影 —— 先翻这一节给 user 验语气与句长
+%==============================================================================
+\section{Methodology}
+
+\subsection{Safe Control Set and Projection}
+\label{sec:proj}
+
+\subsubsection{One-Step Collision-Free Constraint}
+
+At each decision step the applied command must keep the two hulls apart at the end of the
+next step. Written directly, that condition is not convex. We therefore use a conservative
+convex inner approximation. The construction has three parts.
+
+First, the occupancy of the target vessel after one step is over-approximated by a disk.
+Its center follows a constant-velocity extrapolation. Its radius already contains a safety
+margin. The own vessel is over-approximated by its circumscribed circle. A sufficient
+condition for the two hulls to stay apart is then simple. The distance between the two
+centers must be at least the sum of the two radii, written $d_{\mathrm{safe}}$.
+
+Second, let $n$ be the unit vector from the target vessel to the nominal end point of the
+own vessel, and let $\delta$ be that distance. The nominal end point follows from the
+policy command after clipping to the action box.
+
+Third, the end point is expanded to first order in the command,
+$p_e(u)\approx p_{\mathrm{nom}}+J(u-u_{\mathrm{nom}})$. The end point must lie on the safe
+side of the separating hyperplane. This gives one linear inequality in the command:
+\begin{equation}
+ \underbrace{-\,n^{\!\top}\!J}_{\textstyle g^{\!\top}}\,u\ \le\
+ \underbrace{-\bigl(d_{\mathrm{safe}}-\delta+n^{\!\top}\!J\,u_{\mathrm{nom}}\bigr)}_{\textstyle h},
+ \qquad U_{\mathrm{cf}}(s)=\{u: g^{\!\top}u\le h\}.
+ \label{eq:ucf}
+\end{equation}
+
+A first-order expansion is neither an inner nor an outer approximation. The sign of the
+remainder changes with the curvature. Equation~\eqref{eq:ucf} alone therefore does not
+establish conservatism. The margin inside the safety distance is what does. With that
+margin the constraint acts at a center distance of about $590$--$840$~m. The median over
+this scenario library is about $714$~m. Hull contact needs a much smaller distance. The
+margin thus absorbs the linearization residual. The cost is a tighter constraint. Some
+commands that are in fact safe are rejected.
+
+The linearization in Equation~\eqref{eq:ucf} holds only locally. In the far field a
+sufficient condition is available that does not rely on it.
+
+\begin{prop}[One-step collision freedom in the far field]\label{prop:farfield}
+Let $d$ be the center distance between the own vessel and a single target vessel. If
+\begin{equation}
+ d \;\ge\; d_{\mathrm{safe}} + v_{\mathrm{obs,max}}\Delta t + \rho_{\mathrm{ego}},
+ \label{eq:farfield}
+\end{equation}
+then the two conservative circumscribed occupancies do not intersect after one decision
+step. Here $d_{\mathrm{safe}}$ is the sum of the two circumscribed radii, and
+$\rho_{\mathrm{ego}}$ is the largest displacement of the own vessel in one step.
+\end{prop}
+
+\noindent\textbf{Assumptions.}\ A single target vessel. The speed of the target vessel is
+at most $9.5$~m/s. That bound is not implied by the dynamics and is stated separately; the
+largest value measured over the $2{,}000$ scenarios of the library is $7.10$~m/s. The
+target vessel holds its speed within the step.
+
+\noindent\textbf{Proof sketch.}\ By the triangle inequality, the center distance after the
+step is at least $d$ minus the one-step displacement bound of each vessel. It is therefore
+at least $d_{\mathrm{safe}}$.
+
+\noindent\textbf{Scope.}\ The triangle inequality does not depend on direction, so a
+head-on encounter is the worst case. With the constants of this library the threshold is
+about $764$~m. The statement covers one step. It is not forward invariance, and it does
+not cover the near field.
+
+\subsubsection{Safe Control Set and the Projection Operator}
+
+The safe control set is the intersection of three sets,
+\begin{equation}
+ U_{\mathrm{safe}}(s,\rho)=U_{\mathrm{box}}\cap U_{\mathrm{colregs}}(\rho)\cap U_{\mathrm{cf}}(s),
+ \label{eq:safeset}
+\end{equation}
+and it is a convex polygon in $\mathbb{R}^2$. The applied command is the Euclidean
+projection of the policy command onto that set,
+\begin{equation}
+ u_{\mathrm{safe}}=\Pi_{U_{\mathrm{safe}}}(u_{\mathrm{policy}})
+ =\arg\min_{u\in U_{\mathrm{safe}}}\lVert u-u_{\mathrm{policy}}\rVert_2^2 .
+ \label{eq:qp}
+\end{equation}
+
+The feasible set is an intersection of half-planes. It can be written as
+$U_{\mathrm{safe}}=\{u:Au\le b\}$. The first four rows are the action box. The fifth row is
+the compliant-direction half-plane. The sixth row is the collision-free constraint of
+Equation~\eqref{eq:ucf}. This is a quadratic program in two variables with at most six
+constraints. It is small enough to solve online at every decision step.
+
+This construction gives the central guarantee of the paper.
+
+\begin{prop}[Directional compliance on every give-way step]\label{prop:comply}
+Consider any decision step that the rule state machine assigns to a give-way situation and
+on which the projection is feasible. The applied command $u_{\mathrm{safe}}$ then lies in
+the compliant-direction half-plane.
+\end{prop}
+
+\noindent\textbf{Assumptions.}\ A single target vessel, and a correct decision by the state
+machine. The second assumption inherits one conservative bias of the collision-possibility
+predicate. That predicate uses the center distance, and it can miss a trailing encounter in
+which the two speeds are close.
+
+\noindent\textbf{Proof sketch.}\ The compliant half-plane enters the quadratic program as a
+hard constraint. Any feasible point satisfies it, and the projection returns a feasible
+point. The statement holds by construction. It does not depend on the training outcome or
+on the random seed.
+
+\noindent\textbf{Scope.}\ Emergency situations are not covered, because their branch
+bypasses the compliance constraint by design. Steps on which the safe control set is empty
+and the fallback is used are not covered either.
+
+
 %==============================================================================
 \section*{References}
 

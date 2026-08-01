@@ -88,6 +88,13 @@ BOAST = [
     r"clearly demonstrat", r"proves? that (our|the proposed)", r"we solve the problem",
     r"\bsuperior to\b", r"greatly (improv|reduc|enhanc)",
 ]
+#: 🔴 贬低他人的措辞（user 2026-08-01：对方很可能就是审稿人，差别写成取舍、不要写成缺陷）
+CRITIQUE = [
+    r"fails? to\b", r"cannot handle", r"suffers? from", r"the drawbacks? of",
+    r"a weakness of", r"is unable to", r"\bineffective\b", r"\binadequate\b",
+    r"\bpoorly\b", r"does not work", r"\bflawed?\b", r"\bnaive(ly)?\b",
+]
+
 #: 对标论文的引用键；只准出现在这些节里
 ANCHOR_KEY = "krasowski2024"
 ANCHOR_OK_SECTIONS = ("Related Work", "Experiments")
@@ -203,6 +210,15 @@ def main():
              "确有就留引用但改成事实性归属，没有就删")
     elif hits:
         ok("全部落在 Related Work / Experiments 内")
+
+    crit = []
+    for pat in CRITIQUE:
+        for m in re.finditer(pat, low):
+            crit.append(text[max(0, m.start()-60):m.start()+50])
+    if crit:
+        warn(f"{len(crit)} 处可能在讲他人方法的毛病 —— 逐处看：差别要写成【取舍】不是【缺陷】")
+        for cbit in crit[:4]:
+            print(f"        · …{cbit.strip()}…")
 
     print("\n④ 摘要（≤300 词 · 零第一人称）")
     if abstract:
