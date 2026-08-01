@@ -294,13 +294,13 @@ Submitted [Submission Date]\par
  \end{tabular*}
 
  \vspace{4pt}\footnotesize
- \textbf{表注。}“逐步硬保证”指该方法在\textbf{每一个决策步}上能排除掉哪一类动作，而非期望意义下的约束满足；前三行为非学习方法。本文与 \citp{Krasowski and Althoff}{2024} 只差动作空间一列。
+ \textbf{表注。}“逐步硬保证”指该方法在\textbf{每一个决策步}上能排除掉哪一类动作，而非期望意义下的约束满足；前三行为非学习方法。本文与其上一行只差动作空间一列。
 \end{table}
 %------------------------------------------------------------------------------
 
 \subsection{安全强化学习与可证明合规}
 
-安全强化学习 \citp{García and Fernández}{2015} 研究如何为学习策略附加硬性保证，以形式化方法给出保证的一支已有系统的梳理与基准比较 \citp{Krasowski et al.}{2023}。把安全写成约束马尔可夫决策过程并以拉格朗日方法求解是常见路线，但它保证的是期望意义下的约束满足，仍不能排除任何一个具体的违规动作。动作屏蔽在离散动作上按时序逻辑规范剔除不安全动作 \citp{Alshiekh et al.}{2018}，其可实现形式已被推广到连续动作空间，但针对通用任务、未涉及海事规则 \citp{Kim et al.}{2024}。在连续控制上，控制障碍函数的二次规划 \citp{Ames et al.}{2019} 与预测式安全滤波 \citp{Wabersich and Zeilinger}{2021} 提供逐步硬保证，后者也被接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向条款 \citp{Vaaler et al.}{2024}。与本文机制最接近的是安全层方法，它把约束在当前状态处线性化，再把策略动作解析地投影到由此得到的线性半空间上 \citp{Dalal et al.}{2018}；本文的投影与之同源，新增的部分是把让路条款的方向性编码为动作平面上的半平面，使被强制的对象由状态约束变为规则合规。
+安全强化学习 \citp{García and Fernández}{2015} 研究如何为学习策略附加硬性保证。把安全写成约束马尔可夫决策过程并以拉格朗日方法求解是常见路线，但它保证的是期望意义下的约束满足，仍不能排除任何一个具体的违规动作。动作屏蔽在离散动作上按时序逻辑规范剔除不安全动作 \citp{Alshiekh et al.}{2018}，其可实现形式已被推广到连续动作空间，但针对通用任务、未涉及海事规则 \citp{Kim et al.}{2024}。在连续控制上，控制障碍函数的二次规划 \citp{Ames et al.}{2019} 与预测式安全滤波 \citp{Wabersich and Zeilinger}{2021} 提供逐步硬保证，后者也被接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向条款 \citp{Vaaler et al.}{2024}。与本文机制最接近的是安全层方法，它把约束在当前状态处线性化，再把策略动作解析地投影到由此得到的线性半空间上 \citp{Dalal et al.}{2018}；本文的投影与之同源，新增的部分是把让路条款的方向性编码为动作平面上的半平面，使被强制的对象由状态约束变为规则合规。
 
 表~\ref{tab:related} 汇总了上述工作在四个维度上的定位，由此可见一处结构性空缺。海事场景中规则合规的硬保证此前只在离散动作空间上实现过 \citp{Krasowski and Althoff}{2024}，该工作也提供了本文使用的场景库与状态机阈值，并把连续动作下的动作投影列为未来方向 \citp{Kochdumper et al.}{2023}；沿该方向的后续工作虽转入连续动作，却以软性奖励逼近合规，没有给出硬保证 \citp{Müller et al.}{2026}。本文在连续控制上给出方向合规的构造式保证，并以 zonotope 加二次规划投影 \citp{Markgraf et al.}{2026} 替代多项式 zonotope 表示以降低单步求解开销。
 
@@ -427,7 +427,7 @@ Submitted [Submission Date]\par
 \label{sec:rulesets}
 
 
-我们把会遇态势形式化为一组关于两船相对几何的谓词，并由此定义每类态势下规则允许的控制集；谓词的结构与阈值遵循海事规则的时序逻辑形式化 \citp{Krasowski and Althoff}{2021}。本文在此之上明确给出碰撞可能性谓词中的膨胀半径与速度集半宽，对让路态入口作对称化处理（第~\ref{sec:sym} 节），并把整组谓词接到连续动作的约束集上。
+我们把会遇态势形式化为一组关于两船相对几何的谓词，并由此定义每类态势下规则允许的控制集，谓词的结构与阈值沿海事规则的时序逻辑形式化一脉 \citp{Krasowski and Althoff}{2024}。本文在此之上明确给出碰撞可能性谓词中的膨胀半径与速度集半宽，对让路态入口作对称化处理（第~\ref{sec:sym} 节），并把整组谓词接到连续动作的约束集上。
 
 规则状态机把当前会遇归入六类，
 \begin{equation*}
@@ -551,7 +551,7 @@ Submitted [Submission Date]\par
 
 \subsubsection{回报函数}
 
-回报由五项相加而成，其结构与 \citp{Krasowski and Althoff}{2024} 一致以保证可比，另有三处偏离在本节末声明。
+回报由五项相加而成 \citp{Krasowski and Althoff}{2024}，另有三处偏离在本节末声明。
 \begin{equation}
  r=r_{\mathrm{sparse}}+r_{\mathrm{goal}}+r_{\mathrm{velocity}}+r_{\mathrm{deviate}}+r_{\mathrm{colregs}},
  \label{eq:reward}
@@ -686,9 +686,9 @@ Submitted [Submission Date]\par
 
 实验在 CommonOcean 基准 \citp{Krasowski and Althoff}{2022} 的双船会遇场景库上进行，共 $2000$ 个场景。每个场景规定受控船的初始位姿与航速、他船的初始状态与既定航迹、以及受控船的目标区域（含位置门、朝向门与时限）；会遇几何程序化生成，覆盖不同的相对方位、航向交角与接近速率。他船船长 $200$--$300$~m，回合上限 $170$ 个决策步。
 
-按状态机的几何类型谓词对全库分类，交叉与对遇两类占满全库，\textbf{追越场景数为零}，官方测试集中交叉 $395$ 个、对遇 $205$ 个。式~\eqref{eq:ucolregs} 的追越一支因而无法在本场景库上得到实证检验，结论中如实列出。
+按几何类型谓词对全库分类，交叉与对遇两类占满全库，\textbf{追越场景数为零}（官方测试集中交叉 $395$、对遇 $205$）。式~\eqref{eq:ucolregs} 的追越一支因而无法在本场景库上得到实证检验，结论中如实列出。
 
-场景库的官方划分为训练 $1400$ 与测试 $600$。我们把官方训练侧再切为 $1300$ 个训练场景与 $100$ 个验证场景，验证集只用于训练期监控与存档选取，测试集在训练与调参全程不被访问。训练集与测试集零交集，经独立复算核验，故评估样本量即为 $600$。本文此前的探索性实验使用过一个较小的场景子集，其样本量与此处不同，两套样本量下的数值不可放入同一张表。
+划分沿官方的训练 $1400$ 与测试 $600$，并把训练侧再切为 $1300$ 训练与 $100$ 验证。验证集只用于训练期监控与存档选取，测试集在训练与调参全程不被访问，两集零交集经独立复算核验，故评估样本量即为 $600$。
 
 
 \label{sec:arms}
@@ -1045,13 +1045,11 @@ COLREGs 的让路条款要求船舶朝规定的一侧转向，这使合规无法
 
 \refitem{Kochdumper, Niklas, Hanna Krasowski, Xiao Wang, Stanley Bak, and Matthias Althoff. 2023. ``Provably Safe Reinforcement Learning via Action Projection Using Reachability Analysis and Polynomial Zonotopes.'' \textit{IEEE Open Journal of Control Systems} 2.}
 
-\refitem{Krasowski, Hanna, and Matthias Althoff. 2021. ``Temporal Logic Formalization of Marine Traffic Rules.'' In \textit{Proceedings of the IEEE Intelligent Vehicles Symposium (IV)}, 186--192. DOI: 10.1109/IV48863.2021.9575685.}
 
 \refitem{Krasowski, Hanna, and Matthias Althoff. 2022. ``CommonOcean: Composable Benchmarks for Motion Planning on Oceans.'' In \textit{Proceedings of the IEEE International Conference on Intelligent Transportation Systems (ITSC)}, 1676--1682. DOI: 10.1109/ITSC55140.2022.9921925.}
 
 \refitem{Krasowski, Hanna, and Matthias Althoff. 2024. ``Provable Traffic Rule Compliance in Safe Reinforcement Learning on the Open Sea.'' \textit{IEEE Transactions on Intelligent Vehicles} 9 (12): 7617--7634. arXiv:2402.08502.}
 
-\refitem{Krasowski, Hanna, Jakob Thumm, Marlon Müller, Lukas Schäfer, Xiao Wang, and Matthias Althoff. 2023. ``Provably Safe Reinforcement Learning: Conceptual Analysis, Survey, and Benchmarking.'' \textit{Transactions on Machine Learning Research}. arXiv:2205.06750.}
 
 \refitem{Kufoalor, D. K. M., Tor A. Johansen, Edmund F. Brekke, A. Hepsø, and K. Trnka. 2020. ``Autonomous Maritime Collision Avoidance: Field Verification of Autonomous Surface Vehicle Behavior in Challenging Scenarios.'' \textit{Journal of Field Robotics} 37.}
 
