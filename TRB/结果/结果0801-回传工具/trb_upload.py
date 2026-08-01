@@ -27,6 +27,15 @@ ARMS = ["ours", "disc", "base", "rr", "uns", "ush", "ab0", "abB", "abG"]
 PAT = re.compile(r"F240([A-Za-z0-9]+?)Ppo[Ss](\d+)")
 
 
+REPORT_LINES = []
+
+
+def P(*a):
+    line = " ".join(str(x) for x in a)
+    print(line)
+    REPORT_LINES.append(line)
+
+
 def sh(cmd, cwd=None):
     p = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True)
     return p.returncode, p.stdout.strip(), p.stderr.strip()
@@ -94,13 +103,13 @@ def scan(roots, label):
                 e["jsonl"] = True
             elif n.endswith(".log"):
                 e["log"] = True
-    print(f"  {label}：扫到 {len(files)} 个产物文件，{len(inv)} 个 (臂,种子)")
+    P(f"  {label}：扫到 {len(files)} 个产物文件，{len(inv)} 个 (臂,种子)")
     return inv
 
 
 def table(inv, title):
-    print(f"\n===== {title} =====")
-    print(f"  {'臂':<6}{'种子':<5}{'段数':<6}{'分段副本':<9}{'table3':<8}{'jsonl':<7}{'log'}")
+    P(f"\n===== {title} =====")
+    P(f"  {'臂':<6}{'种子':<5}{'段数':<6}{'分段副本':<9}{'table3':<8}{'jsonl':<7}{'log'}")
     seeds = sorted({s for _, s in inv})
     for arm in ARMS:
         for s in seeds:
@@ -108,11 +117,11 @@ def table(inv, title):
             if not e:
                 continue
             flag = "🔴" if e["seg"] < 20 else "  "
-            print(f"{flag}{arm:<6}{s:<5}{e['seg']:<6}{e['seg_files']:<9}"
+            P(f"{flag}{arm:<6}{s:<5}{e['seg']:<6}{e['seg_files']:<9}"
                   f"{'有' if e['table3'] else '—':<8}{'有' if e['jsonl'] else '—':<7}"
                   f"{'有' if e['log'] else '—'}")
     full = sum(1 for e in inv.values() if e["seg"] >= 20)
-    print(f"  —— 满 20 段 {full} 条 / 共 {len(inv)} 条")
+    P(f"  —— 满 20 段 {full} 条 / 共 {len(inv)} 条")
 
 
 def main():
@@ -122,31 +131,31 @@ def main():
                      [os.path.join(HOME, x) for x in ("Downloads", "Desktop", "Documents")]
                      + ["/root/trb/结果", os.path.join(HOME, "trb", "结果")]
                      if os.path.isdir(d)]
-    print("扫描目录：" + " ".join(roots))
+    P("扫描目录：" + " ".join(roots))
 
     if not os.path.isdir(REPO):
-        print(f"\nⓘ 本机没有仓库（{REPO}）—— 判定为【服务器】，只做盘点。")
+        P(f"\nⓘ 本机没有仓库（{REPO}）—— 判定为【服务器】，只做盘点。")
         src = scan(roots, "本机")
         table(src, "这台机器上有什么")
-        print("\n把上面整张表发给 Claude；要上传就先把这些目录下载到 Mac 再跑本脚本。")
+        P("\n把上面整张表发给 Claude；要上传就先把这些目录下载到 Mac 再跑本脚本。")
         return
 
-    print("══ 0. 同步仓库（必须成功，否则 .gitignore 的修复不生效）══")
+    P("══ 0. 同步仓库（必须成功，否则 .gitignore 的修复不生效）══")
     rc, out, err = sh("git pull origin main", cwd=REPO)
-    print("  " + (out or err).replace("\n", "\n  "))
+    P("  " + (out or err).replace("\n", "\n  "))
     if rc != 0:
         sys.exit("❌ git pull 没成功，先解决它再跑本脚本")
 
-    print("\n══ 1. 盘点 ══")
+    P("\n══ 1. 盘点 ══")
     src = scan(roots, "本机")
     rep = scan([DEST], "仓库")
     nolog = not any(e["log"] for e in src.values())
     if nolog:
-        print("  ⚠️ 本机这些目录里【一个训练日志都没有】——日志在服务器 `结果/*.log`，值得一并下载")
+        P("  ⚠️ 本机这些目录里【一个训练日志都没有】——日志在服务器 `结果/*.log`，值得一并下载")
     table(src, "本机有什么")
     table(rep, "仓库已有什么")
 
-    print("\n===== 差异（本机比仓库多的才需要上传）=====")
+    P("\n===== 差异（本机比仓库多的才需要上传）=====")
     todo = []
     for k, e in sorted(src.items()):
         r = rep.get(k)
@@ -164,15 +173,15 @@ def main():
                 why.append("多 log")
         if why:
             todo.append((k, why))
-            print(f"  🆕 {k[0]} s{k[1]}: " + " / ".join(why))
+            P(f"  🆕 {k[0]} s{k[1]}: " + " / ".join(why))
     if not todo:
-        print("  ✅ 本机没有仓库里缺的东西 —— 产物已经齐了，不用再传")
+        P("  ✅ 本机没有仓库里缺的东西 —— 产物已经齐了，不用再传")
 
     if not go:
-        print("\n（这是只读盘点。确认无误后加 --go 真正上传：python3 ~/trb_upload.py --go）")
+        P("\n（这是只读盘点。确认无误后加 --go 真正上传：python3 ~/trb_upload.py --go）")
         return
 
-    print("\n══ 2. 复制（只搬轻量证据，权重一律不搬）══")
+    P("\n══ 2. 复制（只搬轻量证据，权重一律不搬）══")
     ncopy = nskip_w = nskip_old = 0
     nbytes = 0
     for r in roots:
@@ -201,36 +210,63 @@ def main():
             shutil.copy2(p, dst)
             ncopy += 1
             nbytes += os.path.getsize(dst)
-    print(f"  复制 {ncopy} 个（{nbytes/1048576:.1f} MB）· 跳过权重 {nskip_w} 个 · 跳过更旧的存档 {nskip_old} 个")
+    P(f"  复制 {ncopy} 个（{nbytes/1048576:.1f} MB）· 跳过权重 {nskip_w} 个 · 跳过更旧的存档 {nskip_old} 个")
 
-    print("\n══ 3. 提交前检查：有没有文件被 .gitignore 悄悄挡下 ══")
+    P("\n══ 3. 提交前检查：有没有文件被 .gitignore 悄悄挡下 ══")
     rc, out, _ = sh("git status --porcelain --ignored " + json.dumps(DEST), cwd=REPO)
     ign = [l[3:] for l in out.splitlines() if l.startswith("!!")]
     if ign:
-        print(f"  🔴 有 {len(ign)} 个文件被忽略，前 10 个：")
+        P(f"  🔴 有 {len(ign)} 个文件被忽略，前 10 个：")
         for x in ign[:10]:
-            print("     " + x)
-        print("  → 把这份清单发给 Claude，别自己 -f 强加")
+            P("     " + x)
+        P("  → 把这份清单发给 Claude，别自己 -f 强加")
     else:
-        print("  ✅ 没有文件被忽略")
+        P("  ✅ 没有文件被忽略")
 
-    print("\n══ 4. 提交并推送 ══")
+    P("\n══ 4. 提交并推送 ══")
     sh("git add -A " + json.dumps(DEST), cwd=REPO)
     rc, out, _ = sh("git diff --cached --name-only", cwd=REPO)
     files = out.splitlines()
-    print(f"  真正进入本次提交的文件：{len(files)} 个")
+    P(f"  真正进入本次提交的文件：{len(files)} 个")
     for x in files[:25]:
-        print("     " + x)
+        P("     " + x)
     if len(files) > 25:
-        print(f"     …… 还有 {len(files)-25} 个")
+        P(f"     …… 还有 {len(files)-25} 个")
     if not files:
-        print("  没有新东西要提交，结束。")
+        P("  没有新东西要提交，结束。")
         return
     sh('git commit -m "回传训练产物（含训练日志）"', cwd=REPO)
     rc, out, err = sh("git push origin main", cwd=REPO)
-    print("  " + (out or err).replace("\n", "\n  "))
-    print("  ✅ 完成" if rc == 0 else "  🔴 push 失败，把上面这段发给 Claude")
+    P("  " + (out or err).replace("\n", "\n  "))
+    P("  ✅ 完成" if rc == 0 else "  🔴 push 失败，把上面这段发给 Claude")
+
+
+def write_report():
+    import socket, time
+    out = os.path.join(REPO, "TRB", "结果", "结果0801-回传工具", "_盘点报告.txt")
+    try:
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        with open(out, "w", encoding="utf-8") as f:
+            f.write("机器：%s\n时间：%s\n\n" % (socket.gethostname(),
+                    time.strftime("%Y-%m-%d %H:%M:%S")))
+            f.write("\n".join(REPORT_LINES) + "\n")
+        print("\n📄 盘点报告已写到 TRB/结果/结果0801-回传工具/_盘点报告.txt")
+        return out
+    except Exception as e:
+        print("\n⚠️ 报告写不出来：%s" % e)
+        return None
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    finally:
+        if os.path.isdir(REPO):
+            rp = write_report()
+            if rp and "--go" in sys.argv:
+                sh("git add -A " + json.dumps(rp), cwd=REPO)
+                rc, out, _ = sh("git diff --cached --name-only", cwd=REPO)
+                if out.strip():
+                    sh('git commit -m "回传：盘点报告"', cwd=REPO)
+                    rc, o, e = sh("git push origin main", cwd=REPO)
+                    print("  推送报告：" + ("✅ 成功" if rc == 0 else "🔴 失败\n  " + (o or e)))
