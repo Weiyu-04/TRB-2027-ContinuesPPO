@@ -188,20 +188,26 @@ Submitted [Submission Date]\par
 % 第 2 页：结构化摘要（≤300 词 · 独占一页 · 五个加粗小标题按序 · 不含图表公式）
 %------------------------------------------------------------------------------
 \section*{Abstract}
+%  🔴 2026-08-01 实测官方 Word 样例（`_模板_官方Word原版_TAD_AMSamplePaper.docx` 的 document.xml）：
+%     摘要那五段 **w:ind 一律 none（零缩进）+ w:jc=both（两端对齐）**；
+%     正文段才有 w:firstLine="720"（=0.5 in）。
+%     ⟹ 摘要页把首行缩进关掉，出这一页再恢复。小标题用**冒号**，也是照样例。
+\begingroup
+\setlength{\parindent}{0pt}
 
+\abshead{Objectives:}Autonomous surface vessels must obey the International Regulations for Preventing Collisions at Sea (COLREGs). The give-way rules are directional. A track that avoids a collision but passes on the wrong side is still a violation. This paper builds a per-step guarantee of directional compliance for continuous control commands.
 
+\abshead{Methods:}The give-way clause is written as a half-plane constraint on the plane of control commands. It is intersected with the actuator limits and a one-step collision-free condition, which gives a convex safe control set. A small quadratic program projects the command of the policy onto the nearest point of that set. The projection sits inside the environment transition, so the policy learns under its own corrected commands. The data are 2,000 simulated two-vessel encounters, split into 1,400 training and 600 test cases. Nine configurations form a single-variable ladder, each trained with eight fixed seeds.
 
-\abshead{Objectives.}Autonomous surface vessels must obey the International Regulations for Preventing Collisions at Sea (COLREGs). The give-way rules are directional. A track that avoids a collision but passes on the wrong side is still a violation. This paper builds a per-step guarantee of directional compliance for continuous control commands.
+\abshead{Findings:}On every give-way step where the projection is feasible, directional compliance holds by construction. It does not depend on the training outcome or the seed. Steps that switch to the fallback branch are not covered. On the test set, the violation count per episode is \TBD\ and the collision rate is \TBD. The ablation gains are significant under a paired signed-rank test. The arrival rate is not claimed as a benefit.
 
-\abshead{Methods.}The give-way clause is written as a half-plane constraint on the plane of control commands. It is intersected with the actuator limits and a one-step collision-free condition, which gives a convex safe control set. A small quadratic program projects the command of the policy onto the nearest point of that set. The projection sits inside the environment transition, so the policy learns under its own corrected commands. The data are 2,000 simulated two-vessel encounters, split into 1,400 training and 600 test cases. Nine configurations form a single-variable ladder, each trained with eight fixed seeds.
+\abshead{Novelty:}To the best of the authors' knowledge, this is the first projection-based safety mechanism that enforces directional COLREGs compliance on continuous control commands. The paper also states what is proved and what is not.
 
-\abshead{Findings.}On every give-way step where the projection is feasible, directional compliance holds by construction. It does not depend on the training outcome or the seed. Steps that switch to the fallback branch are not covered. On the test set, the violation count per episode is \TBD\ and the collision rate is \TBD. The ablation gains are significant under a paired signed-rank test. The arrival rate is not claimed as a benefit.
-
-\abshead{Novelty.}To the best of the authors' knowledge, this is the first projection-based safety mechanism that enforces directional COLREGs compliance on continuous control commands. The paper also states what is proved and what is not.
-
-\abshead{Practical Applications.}The compliance check is independent of training. The mechanism can sit above an existing controller as a compliance layer for functional verification and liability assessment. The online cost is one small quadratic program per step, so it runs in real time without special hardware.
+\abshead{Practical Applications:}The compliance check is independent of training. The mechanism can sit above an existing controller as a compliance layer for functional verification and liability assessment. The online cost is one small quadratic program per step, so it runs in real time without special hardware.
 
 \vspace{12pt}
+
+\endgroup
 
 \noindent\textbf{Keywords:} COLREGs compliance, safe reinforcement learning, projection-based safety shield, continuous action space, quadratic programming, unmanned surface vehicle
 
