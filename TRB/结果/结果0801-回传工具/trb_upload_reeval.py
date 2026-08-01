@@ -104,18 +104,47 @@ def find_sources(given):
 
 
 def bucket_of(path, src_root):
-    """按【相对源目录的那一段路径】判归属，别拿 ~/Downloads 这种上层目录名去撞。"""
-    rel = os.path.relpath(path, src_root).lower()
-    name = os.path.basename(path).lower()
-    if name.endswith("_traj.json") or name.endswith("_traj.jsonl"):
-        return "正式-轨迹全集"
+    """按【相对源目录的那一段路径】判归属，别拿 ~/Downloads 这种上层目录名去撞。
+
+    🔴 2026-08-01 later-3 修（差点造成静默覆盖）：原来把「文件名以 `_traj.json` 结尾」
+       当成**第一优先**判据。但 `run_reeval_all.sh:220` 对**每一趟**都设了 `REEVAL_TRAJ_OUT`
+       ⟹ 末段那趟有 9 个 `g*_traj.json`、最佳那趟也有 9 个、轨迹专趟 4 个，**同名**。
+       按文件名优先就会把三趟的轨迹全塞进「正式-轨迹全集」一个筐，
+       而目标路径完全一样 ⟹ **后搬的把先搬的覆盖掉，一声不吭**（user 那次盘点里
+       「轨迹文件 22 个」= 9+9+4，正是三趟混在一起的铁证）。
+       ⟹ **目录优先，文件名只当兜底**（源目录里散着的、不在任何一趟目录下的才按名字判）。
+    """
+    #: 🔴 只拿**目录那一段**去撞，不能带文件名 —— 否则 `traj` 这个 pattern 会命中
+    #   `正式-末段/g6_traj.json` 的文件名，把末段那趟的轨迹判成轨迹专趟的。
+    reldir = os.path.dirname(os.path.relpath(path, src_root)).lower()
     for b, pats in BUCKETS:
-        if any(x.lower() in rel for x in pats):
+        if any(x.lower() in reldir for x in pats):
             #: `_best.json` 是【挑存档的结果文件】，不是"最佳那趟重评"，别混进去
             if b == "正式-最佳" and os.path.basename(path).lower() in ("_best.json", "_best_seg30.json"):
                 return OTHER
             return b
+    name = os.path.basename(path).lower()
+    if name.endswith("_traj.json") or name.endswith("_traj.jsonl"):
+        return "正式-轨迹全集"
     return OTHER
+
+
+def dest_of(f, root, bucket):
+    """源文件 → 仓库里的落点。**复制与撞名自查必须共用这一个函数**，否则查的和搬的不是一回事。"""
+    rel = os.path.relpath(f, root)
+    #: 源目录里已经有 正式-末段/ 这层的，就不要再套一层同名目录
+    parts = [x for x in rel.split(os.sep)[:-1]
+             if not any(y.lower() in x.lower() for _, ps in BUCKETS for y in ps)]
+    return os.path.join(DEST, bucket, *parts, os.path.basename(f))
+
+
+def collisions(got):
+    """两个不同源文件落到同一个目标路径 = 后搬的会把先搬的**静默覆盖**。搬之前先查死。"""
+    m = collections.defaultdict(list)
+    for b, files in got.items():
+        for f, root, _ in files:
+            m[dest_of(f, root, b)].append(f)
+    return {d: srcs for d, srcs in m.items() if len(srcs) > 1}
 
 
 def scan(src_roots):
@@ -230,9 +259,21 @@ def main():
         if not force_big:
             P("     ⟹ 默认【跳过】这些文件，其余照传。确定要传就加 --force-big（很可能被 GitHub 拒）。")
 
+    coll = collisions(got)
+    if coll:
+        P(f"\n  🔴🔴 有 {len(coll)} 个目标路径会被**两个以上不同的源文件**写到 —— "
+          "后搬的会静默盖掉先搬的。前 5 组：")
+        for d, srcs in list(coll.items())[:5]:
+            P("     目标 " + os.path.relpath(d, REPO))
+            for x in srcs:
+                P("       ← " + x)
+        P("  ⟹ 这是分类规则出了问题，**不要 --go**，把这段发给 Claude。")
+
     if not go:
         P("\n（这是只读盘点，什么都没动。确认无误后加 --go 真正上传。）")
         return
+    if coll:
+        raise SystemExit("🔒 存在会互相覆盖的目标路径（见上），拒绝上传。")
 
     if not os.path.isdir(REPO):
         raise SystemExit(f"🔒 本机没有仓库 {REPO} —— 先 git clone，或者在有仓库的机器上跑本脚本")
@@ -252,11 +293,7 @@ def main():
             if s / 1048576 > BIG_MB and not force_big:
                 nskip += 1
                 continue
-            rel = os.path.relpath(f, root)
-            #: 源目录里已经有 正式-末段/ 这层的，就不要再套一层同名目录
-            parts = [x for x in rel.split(os.sep)[:-1]
-                     if not any(y.lower() in x.lower() for _, ps in BUCKETS for y in ps)]
-            dst = os.path.join(DEST, b, *parts, os.path.basename(f))
+            dst = dest_of(f, root, b)
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             shutil.copy2(f, dst)
             ncopy += 1
