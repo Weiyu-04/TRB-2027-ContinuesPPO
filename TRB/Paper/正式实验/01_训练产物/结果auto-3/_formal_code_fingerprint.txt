@@ -1,0 +1,7 @@
+97b15d632982e466 /root/trb/代码/run_step4e.py
+d95e8e2dfa9cc90f /root/trb/代码/trb_env/usv_projection.py
+b2e2e6a5d7cc5ce3 /root/trb/代码/trb_env/usv_colregs.py
+99b1b79a5139b39c /root/trb/代码/trb_env/usv_continuous_shield.py
+6384fb2149349070 /root/trb/代码/trb_env/evaluate.py
+TREE 204b3795c19a032e  (整棵 代码/ 树·*.py + *.sh)
+TRAIN 198d2c8a61c8f8ba  (**只含训练路径**：run_step4e.py + trb_env/**.py ⟹ 论文方法节引这个)
