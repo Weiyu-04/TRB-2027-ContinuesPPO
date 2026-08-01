@@ -50,27 +50,54 @@ def fig2(D):
         a.scatter(mx, my, marker=("o" if space == "cont" else "^"), s=30,
                   facecolor=(col if shield else "white"), edgecolor=col,
                   linewidths=1.0, zorder=3)
-    #: 标签相对点的偏移（点数）与对齐 —— 9 个点手工排一次，比自动避让稳
-    #: 🔴 标签文字**必须与表 1/表 2 的行名逐字相同**（`03` L243-续51）。只留偏移量与对齐方式。
-    LAB = {"ours": (R.ARMS["ours"][0], 8, -8, "left"),
-           "disc": (R.ARMS["disc"][0], 8, 1, "left"),
-           "base": (R.ARMS["base"][0], 0, 9, "center"),
-           "rr":   (R.ARMS["rr"][0], -8, -7, "right"),
-           "uns":  (R.ARMS["uns"][0], 0, 10, "center"),
-           "ush":  (R.ARMS["ush"][0], 0, 15, "center"),
-           "ab0":  (R.ARMS["ab0"][0], 0, 9, "center"),
-           "abB":  (R.ARMS["abB"][0], -6, -10, "right"),
-           "abG":  (R.ARMS["abG"][0], 0, -11, "center")}
-    for tag, (txt, dx, dy, ha) in LAB.items():
-        xs = list(R.final_re(D, tag, "到达率%").values())
-        ys = list(R.final_re(D, tag, "违规次数/局").values())
-        if xs:
-            a.annotate(txt, (np.median(xs), np.median(ys)), xytext=(dx, dy),
-                       textcoords="offset points", fontsize=6.3,
-                       color=R.ARMS[tag][1], ha=ha, va="center", zorder=5)
+    #: 🔴 2026-08-01 later-11：**手工排偏移已作废**。user 实测四处压叠——
+    #:    `Continuous, shield` 左边被裁、`Discrete, masking` 冲出右框、
+    #:    `Ablation, bounded only` 压住 `Ours` 的点与误差棒、`Continuous, no shield` 跑到框外。
+    #:    病根是偏移量写死：改了高宽比或换了数据，手排的位置就全废。
+    #:    改成**确定性自动避让**：每个点试 8 个方位，取第一个既落在坐标区内、
+    #:    又不与已放标签 / 任何数据点相撞的位置。无随机性 ⟹ 重跑出图一模一样。
+    #:    标签文字仍只从 R.ARMS 取（`03` L243-续51：臂名单一真相源）。
     a.set_yscale("log")
     a.set_ylim(0.34, 6.4)
-    a.set_xlim(69, 103)
+    a.set_xlim(67, 104)
+    fig.canvas.draw()
+    PTS = {t: (np.median(list(R.final_re(D, t, "到达率%").values())),
+               np.median(list(R.final_re(D, t, "违规次数/局").values())))
+           for t in R.ARMS if R.final_re(D, t, "到达率%")}
+    #: 8 个候选方位（dx, dy, ha, va），单位是点
+    CAND = [(0, 9, "center", "bottom"), (0, -9, "center", "top"),
+            (9, 0, "left", "center"), (-9, 0, "right", "center"),
+            (7, 7, "left", "bottom"), (-7, 7, "right", "bottom"),
+            (7, -7, "left", "top"), (-7, -7, "right", "top")]
+    placed = []                                   # 已放标签的像素 bbox
+    marks = [a.transData.transform(p) for p in PTS.values()]
+    rend = fig.canvas.get_renderer()
+    axbb = a.get_window_extent(rend)
+    for tag in R.ARMS:                            # 顺序固定 ⟹ 结果可复现
+        if tag not in PTS:
+            continue
+        xy = PTS[tag]
+        best = None
+        for dx, dy, ha, va in CAND:
+            tx = a.annotate(R.ARMS[tag][0], xy, xytext=(dx, dy),
+                            textcoords="offset points", fontsize=6.3,
+                            color=R.ARMS[tag][1], ha=ha, va=va, zorder=5)
+            bb = tx.get_window_extent(rend).expanded(1.06, 1.35)
+            inside = axbb.contains(bb.x0, bb.y0) and axbb.contains(bb.x1, bb.y1)
+            clash = any(bb.overlaps(q) for q in placed) or \
+                    any(bb.x0 - 3 < mx < bb.x1 + 3 and bb.y0 - 3 < my < bb.y1 + 3
+                        for mx, my in marks)
+            if inside and not clash:
+                best = (tx, bb)
+                break
+            tx.remove()
+        if best is None:                          # 8 个方位都不行 ⟹ 退回正上方，至少不出框
+            tx = a.annotate(R.ARMS[tag][0], xy, xytext=(0, 9),
+                            textcoords="offset points", fontsize=6.3,
+                            color=R.ARMS[tag][1], ha="center", va="bottom", zorder=5)
+            best = (tx, tx.get_window_extent(rend))
+            print(f"    ⚠️ {R.ARMS[tag][0]} 八个方位都放不下，已退回正上方，检查一下")
+        placed.append(best[1])
     a.yaxis.set_major_locator(mt.FixedLocator([0.4, 0.6, 1, 2, 4]))
     a.yaxis.set_major_formatter(mt.FixedFormatter(["0.4", "0.6", "1", "2", "4"]))
     a.yaxis.set_minor_locator(mt.NullLocator())

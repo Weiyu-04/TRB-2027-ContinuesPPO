@@ -481,13 +481,17 @@ def fig5(D):
                      label="$\\rho_5$ emergency (any bearing)  %.2f%%" % em))
     #: 🔴 图例移到极坐标**右侧**（原来在下方）：整图压扁之后纵向最紧、横向反而有余，
     #  legend 放下面会把玫瑰图挤成一条；放右边正好吃掉极坐标（正方）留出的横向空档。
-    d.legend(handles=hs, loc="center left", bbox_to_anchor=(1.14, 0.5),
+    #: 🔴 2026-08-01 later-11：1.14 太近，图例把右侧的 `stbd` 轴标签压住了（user 发现）。
+    #  推到 1.30，图例与极坐标之间留出轴标签的位置。
+    d.legend(handles=hs, loc="center left", bbox_to_anchor=(1.30, 0.5),
              frameon=False, fontsize=5.2, handlelength=1.1, handletextpad=0.35,
              labelspacing=0.28, ncol=1)
     d.set_rlim(0, RMAX * 1.12)
     d.set_rticks([np.log10(x / rmin) for x in (0.01, 0.1, 1, 10, 100)])
     d.set_yticklabels(["", "0.1", "1", "10", "100%"], fontsize=4.8)
-    d.set_rlabel_position(123)
+    #: 🔴 123° 落在右下，与 `stbd` 轴标签和图例挤成一团（三者叠字，user 发现）。
+    #  改到 205°（艉左）——ρ4 追越在本场景库恒为 0.00%，那一带本来就是空的。
+    d.set_rlabel_position(205)
     d.set_xticks(np.radians([0, 90, 180, 270]))
     d.set_xticklabels(["ahead", "stbd", "astern", "port"], fontsize=5.8)
     d.tick_params(pad=1.0)
