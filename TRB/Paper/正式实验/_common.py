@@ -98,9 +98,13 @@ ARM_SPECS = [
     ("【正式】Rule-reward 离散软奖励",   lambda ck: "F240rrPpo" in ck,                 True),
     ("【正式】U-无盾（连续·极简）",       lambda ck: "F240unsPpo" in ck,                True),
     ("【正式】U-有盾（与无盾逐字同配方）",  lambda ck: "F240ushPpo" in ck,                True),
-    ("【正式】消融·都不改",             lambda ck: "F240ab0Ppo" in ck,                False),
-    ("【正式】消融·只 Beta",           lambda ck: "F240abBPpo" in ck,                False),
-    ("【正式】消融·只改状态机",          lambda ck: "F240abGPpo" in ck,                False),
+    # 🔴 2026-08-01（`04 §八` 早就记过，一直没迁）：这三条原来是 `False` ⟹ `make_头条表.py`
+    #   开头就 `if not in_head: continue` ⟹ **主表少输出 ⑦⑧⑨ 三行**，而论文主表是 9 行 × 8 列 = 72 个待填数。
+    #   少行**不会报错**，正是本项目反复栽的「静默」那一族。合成正式臂数据实测：改前 6 行、改后 9 行。
+    #   （不在数据里的臂本来就会被 `name not in ba` 跳过，所以置 True 不会把探索期的臂混进来。）
+    ("【正式】消融·都不改",             lambda ck: "F240ab0Ppo" in ck,                True),
+    ("【正式】消融·只 Beta",           lambda ck: "F240abBPpo" in ck,                True),
+    ("【正式】消融·只改状态机",          lambda ck: "F240abGPpo" in ck,                True),
 ]
 
 

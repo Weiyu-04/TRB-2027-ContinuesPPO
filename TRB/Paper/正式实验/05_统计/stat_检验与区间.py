@@ -55,6 +55,24 @@ def fisher(a, b, c, d):
     return float(sum(p(x) for x in range(lo, hi + 1) if p(x) <= p_obs * guard))
 
 
+def _pick(ba, formal, legacy):
+    """数据里有正式臂就用正式名，否则回落到探索期名（保证老产物照样出得来）。"""
+    return formal if formal in ba else legacy
+
+
+def _pairs_for(ba):
+    """同种子配对的对子清单：按数据里实际有哪些臂选，全部来自论文事先声明的设计。"""
+    F = ["【正式】消融·都不改", "【正式】消融·只 Beta", "【正式】消融·只改状态机",
+         "【正式】Ours（Beta+对称让路+盾）", "【正式】U-无盾（连续·极简）",
+         "【正式】U-有盾（与无盾逐字同配方）", "【正式】Discrete-safe 对标"]
+    if any(x in ba for x in F):
+        return [(F[0], F[3]), (F[0], F[1]), (F[0], F[2]), (F[4], F[5]), (F[6], F[3])]
+    return [("金标（连续·从零·旧配方）", "C（从零·两个都上·主线候选）"),
+            ("金标（连续·从零·旧配方）", "A（从零·只 Beta）"),
+            ("金标（连续·从零·旧配方）", "B（从零·只改状态机）"),
+            ("C（从零·两个都上·主线候选）", "大集探针（新配方 D）")]
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
@@ -81,10 +99,14 @@ def main():
         print(f"| {name} | {m['n']} | {m['到达']:.2f} | [{lo:.2f}, {hi:.2f}] | {m['到达SD']:.2f} | {_c} |")
 
     print("\n## ② 同种子配对符号检验（**只在两条臂有共同种子时做**）\n")
-    PAIRS = [("金标（连续·从零·旧配方）", "C（从零·两个都上·主线候选）"),
-             ("金标（连续·从零·旧配方）", "A（从零·只 Beta）"),
-             ("金标（连续·从零·旧配方）", "B（从零·只改状态机）"),
-             ("C（从零·两个都上·主线候选）", "大集探针（新配方 D）")]
+    # 🔴 2026-08-01（`04 §八` 记过，一直没迁）：这里原来**写死探索期臂名**，而正式臂名带
+    #   `【正式】` 前缀 ⟹ 一个都不匹配 ⟹ 整块打「（缺臂，跳过）」，论文要的 p 值全丢，且**不报错**。
+    #   ⟹ 改成按数据里实际有什么选对子；探索期那趟的输出逐字不变（已回归验证）。
+    #   正式那组对子**全部来自论文事先声明的设计**，不是看着数字挑的：
+    #     ⑦→① 两把钥匙同开 · ⑦→⑧ 只换有界分布 · ⑦→⑨ 只换让路入口（= §消融 的 2×2）
+    #     ⑤→⑥ 孪生对（逐字相同、只差盾）= 唯一干净回答「盾值多少」的一对
+    #     ②→① 头条对比（对标论文 vs 本文）
+    PAIRS = _pairs_for(ba)
     print("| 对比（前 → 后） | 共同种子 | 变好 | p（两侧） | 前均值 | 后均值 | 中位差 |")
     print("|---|---|---|---|---|---|---|")
     for x, y in PAIRS:
@@ -112,7 +134,7 @@ def main():
         m = C.metrics(ba[name])
         cnt[name] = (m["碰撞局"], m["总局"])
         print(f"| {name} | {m['碰撞局']}/{m['总局']} | {m['碰撞率']:.3f} |")
-    base = "C（从零·两个都上·主线候选）"
+    base = _pick(ba, "【正式】Ours（Beta+对称让路+盾）", "C（从零·两个都上·主线候选）")
     if base in cnt:
         print(f"\n**以 {base} 为基准的两两 Fisher（两侧）**\n")
         print("| vs | p | 说明 |")
@@ -124,9 +146,18 @@ def main():
             p = fisher(ca, cn - ca, oa, on - oa)
             note = "统计上区分不开" if p > 0.05 else "有差异"
             print(f"| {other} | {p:.4f} | {note} |")
-    if "Base（离散·无盾）" in cnt and "Discrete-safe（对标论文）" in cnt:
-        (b, bn), (s, sn) = cnt["Base（离散·无盾）"], cnt["Discrete-safe（对标论文）"]
-        print(f"\n**盾的价值 · 单变量干净版**（同为离散·只差有没有盾·`03` L234-E⑤）："
+    _nos = _pick(ba, "【正式】Base 离散无盾", "Base（离散·无盾）")
+    _yes = _pick(ba, "【正式】Discrete-safe 对标", "Discrete-safe（对标论文）")
+    # 🔴 连续臂的孪生对（⑤⑥ 逐字相同、只差盾）才是论文说的「唯一干净」那一对，单独报一行
+    _uns, _ush = "【正式】U-无盾（连续·极简）", "【正式】U-有盾（与无盾逐字同配方）"
+    if _uns in cnt and _ush in cnt:
+        (a1, n1), (a2, n2) = cnt[_uns], cnt[_ush]
+        _r = (a1 / n1) / (a2 / n2) if a2 else float("inf")
+        print(f"\n**盾的价值 · 连续臂孪生对**（⑤⑥ 逐字相同、只差盾）："
+              f"无盾 {100*a1/n1:.3f}% → 带盾 {100*a2/n2:.3f}% = **压 {_r:.1f}×**。")
+    if _nos in cnt and _yes in cnt:
+        (b, bn), (s, sn) = cnt[_nos], cnt[_yes]
+        print(f"\n**盾的价值 · 离散臂单变量版**（同为离散·只差有没有盾·`03` L234-E⑤）："
               f"无盾 {100*b/bn:.3f}% → 带盾 {100*s/sn:.3f}% = **压 {(b/bn)/(s/sn):.1f}×**。")
         if base in cnt:
             ca, cn = cnt[base]
