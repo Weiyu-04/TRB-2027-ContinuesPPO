@@ -128,7 +128,7 @@ def main():
     print("载入轨迹…")
     T = load_tracks(tids)
 
-    fig, (a, b, c) = plt.subplots(1, 3, figsize=(PS.COL2, PS.COL2 * 0.33))
+    fig, (a, b, c) = plt.subplots(1, 3, figsize=(PS.COL2, PS.COL2 * 0.30))
 
     for ax, ty in ((a, "head-on"), (b, "crossing")):
         tid = pick[ty]

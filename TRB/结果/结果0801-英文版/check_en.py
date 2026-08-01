@@ -139,9 +139,15 @@ def main():
         raise SystemExit(f"🔒 找不到 {p}")
     raw = open(p, encoding="utf-8").read()
 
-    # 正文 = \begin{document} 之后；摘要 = Abstract 到 Keywords 之间
+    # 正文 = \begin{document} 之后
     doc = raw[raw.index(r"\begin{document}"):] if r"\begin{document}" in raw else raw
-    m = re.search(r"\\section\*\{Abstract\}(.*?)\\noindent\\textbf\{Keywords", doc, re.S)
+    # 🔴 摘要锚点：原来是 `\noindent\textbf{Keywords`，而关键词已按 2027 投稿清单从摘要页删掉
+    #    ⟹ 锚点失效、abstract 变空、④ 整项**静默跳过**（2026-08-01 later-10 发现，
+    #    从 later-8 起就没真跑过）。改成按结构性锚点定位：\section*{Abstract} → 下一个 \newpage。
+    #    同 `03` L243-续55 B 的教训：锚点要选节命令，不要选内容行。
+    m = re.search(r"\\section\*\{Abstract\}(.*?)\\newpage", doc, re.S)
+    if m is None:   # 兼容旧稿
+        m = re.search(r"\\section\*\{Abstract\}(.*?)\\noindent\\textbf\{Keywords", doc, re.S)
     abstract = m.group(1) if m else ""
     # 🔴 正文 = 摘要的 Keywords 之后（标题页的作者块不是句子，算进去会把中位句长打成 100+）
     # 🔴 正文起点：优先按 §1 定位。原来靠 Keywords 行定位，而关键词已按 2027 投稿清单
@@ -285,7 +291,51 @@ def main():
             if h not in abstract:
                 hard(f"摘要缺小标题「{h}」")
     else:
-        warn("没找到摘要节，跳过")
+        hard("没找到摘要节 —— 锚点又失效了，别让这一项静默跳过（`03` L243-续57）")
+
+    print("\n④·二 承诺没兑现（正文说「另有报告」，稿里却没有那张表）")
+    # 2026-08-01 later-10：GPT 三份报告同时点到这条。TRB 不许附录 ⟹
+    # 稿里没有的东西就不能说「也报了」，要么给出数字、要么删掉承诺。
+    PROMISE = [r"(?:are|is) also reported", r"both reported", r"accompany the table",
+               r"reported in two versions", r"reported separately in"]
+    pr = [m_.group(0) for pat in PROMISE for m_ in re.finditer(pat, low)]
+    if pr:
+        warn(f"{len(pr)} 处「另有报告」承诺 {sorted(set(pr))} —— 逐处确认稿里真有对应的表/数字，"
+             "没有就把数字写进正文或删掉承诺")
+    else:
+        ok("没有悬空的「另有报告」承诺")
+
+    print("\n④·三 拼写与体例（美式拼写 · 度符号 · 引用逗号）")
+    BRIT = {r"\blabell(ed|ing)\b": "labeled / labeling", r"\bbehaviour": "behavior",
+            r"\banalys(e|ed|ing)\b": "analyze / analyzed / analyzing",
+            r"\bnormalis": "normaliz", r"\bmodelling\b": "modeling",
+            r"\bcounter-clockwise\b": "counterclockwise", r"\bcentre\b": "center"}
+    bs = [(len(re.findall(pat, low)), pat, fix) for pat, fix in BRIT.items()
+          if re.search(pat, low)]
+    if bs:
+        hard(f"{len(bs)} 类英式拼写 —— 全文统一美式：")
+        for n_, pat, fix in bs:
+            print(f"        · {pat} 出现 {n_} 次 → {fix}")
+    else:
+        ok(f"{len(BRIT)} 类英式拼写一个都没有")
+    # 度符号：`$20^\circ$` 对；`$20\ ^\circ$` / `20 ^\circ` 错（度符号不留空格，同百分号）
+    degsp = re.findall(r"\d\s*(?:\\,|\\ |~|\s)\s*\^\\circ", raw)
+    (hard if degsp else ok)(
+        f"{len(degsp)} 处度符号与数字之间有空格 —— 度符号不留空格（同百分号）"
+        if degsp else "度符号都紧跟数字")
+    # 🔴 引用体例 = **(Author Year)，作者与年份之间不加逗号**。
+    #    依据是**官方 Word 样例正文实测**（`_模板_官方Word原版_TAD_AMSamplePaper.docx` 的
+    #    document.xml 里写的是 `(Smith 2020)` / `(Smith and Jones 2020)` / `(Smith et al. 2020)`），
+    #    也与 0731 外部复审 C14 一致（Chicago 作者-年份制无逗号），上一轮已按此删过逗号。
+    #    ⚠️ 2026-08-01 later-10：GPT 复查报告第 1 条声称"TRB 指南示例使用逗号"并要求全文加逗号，
+    #    **经官方样例核对为错**，已驳回。此检查就是防这一条被再犯一次。
+    rawnc = re.sub(r"(?m)^\s*%.*$", " ", raw)          # 注释里有宏用法示例，别当正文查
+    withcomma = [t for t in re.findall(r"\\cit[lmp]?\{[^}]*\}\{([^}]*)\}", rawnc)
+                 if re.search(r"[A-Za-z.]\s*,\s+(1[89]|20)\d\d[a-z]?\b", t)]
+    (hard if withcomma else ok)(
+        f"{len(withcomma)} 处引用多了逗号 —— 官方样例是 (Author Year) 不加逗号："
+        f"{sorted(set(withcomma))[:4]}"
+        if withcomma else "引用都是 (Author Year)，与官方样例一致")
 
     print("\n⑤ COLREGs 拼写")
     variants = set(re.findall(r"\bCOLREG[Ss]?\b|\bColRegs?\b|\bColregs?\b", text)) - {"COLREGs"}

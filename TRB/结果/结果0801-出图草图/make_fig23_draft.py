@@ -32,7 +32,7 @@ def fig2(D):
     🔴 右格**不画中位点了事**——带盾的五条臂 40 个 run 里 39 个碰撞率恰为零，
        用中位数会把「每一颗种子都是零」这件事压成一个点。改成一颗种子一个点。
     """
-    fig, (a, b) = plt.subplots(1, 2, figsize=(PS.COL2, PS.COL2 * 0.35),
+    fig, (a, b) = plt.subplots(1, 2, figsize=(PS.COL2, PS.COL2 * 0.32),
                                gridspec_kw={"width_ratios": [1.0, 0.85]})
 
     # ── (a) 到达率 × 每局违规 ──────────────────────────────────────────────
@@ -121,7 +121,7 @@ def fig3(D):
     #: 🔴 与表 1 / 表 2 的行名逐字相同，只在逗号处换行（`03` L243-续51）
     XTICK = [R.ARMS[t][0].replace(", ", ",\n") for t in ORDER]
 
-    fig, AX = plt.subplots(1, 3, figsize=(PS.COL2, PS.COL2 * 0.30))
+    fig, AX = plt.subplots(1, 3, figsize=(PS.COL2, PS.COL2 * 0.28))
     rng = np.random.default_rng(3)
     PANELS = [("yaw", "(a) Yaw increment", "Yaw increment (norm.)", "bar"),
               ("违规次数/局", "(b) COLREGs violations", "Violations per episode", "bar"),
