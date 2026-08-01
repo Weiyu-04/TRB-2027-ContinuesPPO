@@ -83,6 +83,27 @@ def symlog_y(ax, linthresh, ticks, top):
     ax.yaxis.set_minor_locator(mt.NullLocator())
 
 
+def band(ax, runs, key, color, x_scale=1e6, lw=1.5):
+    """中位线 + 四分位带（user 2026-08-01 要求恢复置信区间）。
+
+    🔴 带子与逐种子细线**不同时画**——两者表达的是同一件事（分散度），叠在一起只会糊。
+    🔴 每一段用当时**有数据的全部种子**统计，不按最短 run 截断；末段种子数下降的情形
+       由图注披露（离散安全基线还有两颗在跑）。
+    返回第一个评估点的横坐标，供调用方把横轴左端对齐到它。
+    """
+    L = max(len(r["trend"]) for r in runs)
+    xs, lo, md, hi = [], [], [], []
+    for i in range(L):
+        v = [r["trend"][i][key] for r in runs if i < len(r["trend"])]
+        if not v:
+            continue
+        xs.append(next(r["trend"][i]["step"] for r in runs if i < len(r["trend"])) / x_scale)
+        lo.append(np.percentile(v, 25)); md.append(np.median(v)); hi.append(np.percentile(v, 75))
+    ax.fill_between(xs, lo, hi, color=color, alpha=0.16, linewidth=0, zorder=1)
+    ax.plot(xs, md, color=color, linewidth=lw, zorder=3)
+    return xs[0]
+
+
 def seed_lines(ax, runs, key, color, x_scale=1e6):
     """每颗种子一条细线 + 一条粗中位线。返回中位线末端坐标，供内联标签定位。
 
@@ -179,17 +200,27 @@ def fig4(D):
        ② **消融配置不进本图**。这里回答的是「安全盾要不要付学习速度的代价」，
           属于主对照的问题；消融另有图 3，混进来只是把线画多。
        ③ 六格用同一组配置 ⟹ 一个图例管全图，不必每格重复。
+       ④ **中位线 + 四分位带**（user 2026-08-01 要求恢复置信区间）；带子与逐种子细线
+          不同时画，两者说的是同一件事。
+       ⑤ **横轴左端对齐到第一个评估点（0.5M 步）**。此前从 0 起画，而最早的评估在 0.5M，
+          曲线与纵轴之间空一段，看起来像从原点直接跳到 40%——我们并没有 0 步的评估数据，
+          补一个 (0,0) 等于编点。
     """
     MAIN = ("base", "rr", "disc", "ours")
     fig, AX = plt.subplots(2, 3, figsize=(PS.COL2, PS.COL2 * 0.52))
     (a, b, c), (d, e, f) = AX
 
+    #: 🔴 第一个评估点在 0.5M 步，**没有 0 步的评估**。横轴若从 0 起画，
+    #   曲线与纵轴之间会空一段，读起来像「从原点直接跳到 40%」。
+    #   补一个 (0,0) 等于编数据；正确做法是**横轴左端对齐到第一个评估点**。
+    X0 = min(r["trend"][0]["step"] for t in MAIN for r in D[t].values()) / 1e6
+
     def trend_panel(ax, key, title, ylab, ylim):
         for tag in MAIN:
             runs = list(D[tag].values())
             if runs:
-                seed_lines(ax, runs, key, R.ARMS[tag][1])
-        ax.set_title(title); ax.set_ylim(*ylim); ax.set_xlim(0, XMAX)
+                band(ax, runs, key, R.ARMS[tag][1])
+        ax.set_title(title); ax.set_ylim(*ylim); ax.set_xlim(X0, XMAX)
         ax.set_ylabel(ylab); xaxis(ax)
 
     trend_panel(a, "到达率%", "(a) Arrival rate", "Arrival rate (%)", (-3, 103))
@@ -209,7 +240,7 @@ def fig4(D):
                   and r["trend"][i]["到达率%"] >= R.CRASH_ARR) for i in range(L)]
         d.plot(xs, ys, color=R.ARMS[tag][1], linewidth=1.4, drawstyle="steps-post")
     d.set_title("(d) Seeds reaching the 50% criterion")
-    d.set_ylim(-0.35, 8.5); d.set_xlim(0, XMAX)
+    d.set_ylim(-0.35, 8.5); d.set_xlim(X0, XMAX)
     d.set_ylabel("Seeds (of 8)"); d.set_yticks([0, 2, 4, 6, 8]); xaxis(d)
 
     # (f) 值函数可解释方差
@@ -219,6 +250,7 @@ def fig4(D):
             f.plot(x / 1e6, y, color=R.ARMS[tag][1], linewidth=1.3)
     f.set_title("(f) Value-function explained variance")
     f.set_xlim(0, XMAX); f.set_ylabel("Explained variance"); xaxis(f)
+    #: (f) 取自逐 rollout 遥测，第一个点就在训练最开头，故横轴仍从 0 起
 
     # ── 整图共用一个图例，放在顶部 ────────────────────────────────────────
     from matplotlib.lines import Line2D
