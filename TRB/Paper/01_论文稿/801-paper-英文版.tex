@@ -25,7 +25,12 @@
 % ▶ 英文行文（user 2026-08-01 明令）：严格学术英语，**只用简单句**，避免长难句，
 %   以「普通读者读得懂」为准。
 %==============================================================================
-\documentclass[11pt,letterpaper]{article}
+% 🔴 2026-08-01 later-6：由 11 pt 改 10 pt。
+%    §1/§2/§6/§7 补齐之后 11 pt 排出来 **23 页**，硬上限是 20 页。
+%    10 pt 实测 **20 页**（TRB 硬要求是 ≥10 pt，10 pt 合规，是 `04 §九` 早就写好的退路）。
+%    仍不够：图 1 总览、图 6 轨迹、致谢/作者贡献/利益冲突/资助 还没进来，约再占 2 页 ⟹ 还要砍。
+%    要退回 11 pt 就把下面这行的 10pt 改回 11pt，一行的事。
+\documentclass[10pt,letterpaper]{article}
 
 %--- 数学 ---------------------------------------------------------------------
 \usepackage{amsmath}
@@ -241,13 +246,196 @@ Submitted [Submission Date]\par
 
 
 %==============================================================================
+% §1 引言 —— 对应中文稿 249–266 行
+%==============================================================================
+\section{Introduction}
+\label{sec:intro}
+
+Two vessels meet at sea. Each turns to starboard, and they pass clear of one another. What
+makes this work is not the judgment of either bridge team. It is a set of rules that both
+sides follow, and that both sides know the other will follow. When no one is on board, that
+predictability becomes a technical requirement. A maritime inquiry does not only ask whether
+contact occurred. It also asks whether the vessel acted as the rules require. An encounter
+that ends without contact but passes on the wrong side is still recorded as a breach.
+
+Collision avoidance for autonomous surface vessels must therefore satisfy the International
+Regulations for Preventing Collisions at Sea \citl{imo1972}{IMO 1972}. One property of that
+rule set decides the shape of the problem. The give-way clauses are
+\textbf{directional}. In a head-on encounter both vessels turn to starboard. In a crossing
+encounter the give-way vessel turns to starboard and the stand-on vessel holds course and
+speed. In an overtaking encounter the overtaking vessel keeps clear. A control command can
+therefore avoid contact and still break the rules, because it turned the wrong way.
+Compliance cannot be verified from the outcome. It is a condition on which half-plane of the
+control plane each command falls in, and that is not the usual shape of a constraint in safe
+reinforcement learning.
+
+Existing work follows two routes, and each gives up one property. The first route
+discretizes the action space and applies action masking. A rule state machine computes the
+compliant subset at every step and the rest is removed
+\citl{krasowski2024}{Krasowski and Althoff 2024}. Compliance is then guaranteed by
+construction, and it does not depend on the training outcome or on the seed. The price is
+continuous control. Quantization fixes the control resolution at the grid spacing. For this
+task it also has a specific cost. The rules require a give-way turn to be readily apparent,
+which in the control plane is a smallest admissible turn rate. A finite grid cannot land on
+that value. It can only take the nearest grid point at or beyond it, so every compliant turn
+overshoots. The second route keeps continuous control and writes the rules into the reward
+as a penalty \citm{\cl{meyer2020}{Meyer et al. 2020}; \cl{heiberg2022}{Heiberg et al. 2022};
+\cl{mller2026}{M\"uller et al. 2026}}. Control resolution is preserved and the guarantee is
+lost, because a reward shapes expected behavior and cannot exclude any single violating
+command.
+
+The intersection of continuous action spaces, provable directional compliance and COLREGs
+has therefore been empty. This paper fills it with a projection-based safety shield. A rule
+state machine returns the half-plane of compliant directions. That half-plane is intersected
+with the action box and with a one-step collision-free condition, which gives a convex safe
+control set. A quadratic program projects the continuous command of the policy onto the
+nearest point of that set. The step that makes this possible is a change of premise. Action
+masking needs the safe set to be enumerable. Projection needs it only to be convex. The
+shield sits inside the environment transition, so the policy learns under its own corrected
+commands.
+
+The second concern of this paper is the scope of what is proved. The word provable covers
+different scopes in the safe reinforcement learning literature, and those scopes do not
+always match what a reader assumes. Each guarantee below is therefore stated with its
+assumptions, and the cases that are not covered are stated as well.
+
+\noindent\textbf{Contributions.}
+\begin{enumerate}\itemsep2pt
+ \item A projection-based COLREGs shield for continuous action spaces
+ (Section~\ref{sec:proj}).  The compliant direction enters the quadratic program as a hard constraint. Directional
+ compliance therefore holds by construction on every give-way step where the projection
+ is feasible. It does not depend on the training outcome or on the seed.
+ \item A graded safety statement (Section~\ref{sec:collfree}). One-step collision freedom in
+ the far field is a strict result. Directional compliance on every feasible give-way step
+ holds by construction. Imminent unavoidable collision is flagged by a sufficient
+ condition that never raises a false alarm. Each statement carries its assumptions, and the
+ uncovered cases are named.
+ \item An experimental design that separates the mechanisms (Section~\ref{sec:setup}). Nine
+ configurations form one connected single-variable ladder. Three steps of that ladder carry
+ a companion variable that cannot be separated, and those are listed with the ladder.
+\end{enumerate}
+
+%==============================================================================
+% §2 相关工作 —— 对应中文稿 268–320 行
+%==============================================================================
+\section{Related Work}
+\label{sec:related}
+
+\subsection{Maritime Collision Avoidance and COLREGs Compliance}
+
+Work on rule compliance began with model-driven methods. The velocity obstacle uses the
+relative velocity cone to detect risk and to select an avoiding velocity. It was given
+COLREGs semantics \citl{kuwata2014}{Kuwata et al. 2014} and later extended to more general
+encounters \citl{huang2019}{Huang et al. 2019}. Model predictive control scores candidate
+maneuvers over a finite horizon on both risk and compliance
+\citl{johansen2016}{Johansen et al. 2016}. Its branching-course variant has been tested at
+sea \citl{eriksen2019}{Eriksen et al. 2019} and at full scale
+\citl{kufoalor2020}{Kufoalor et al. 2020}. An earlier protocol-based method wrote the rules
+as an agreement negotiated between vessels
+\citl{benjamin2006}{Benjamin et al. 2006}. Recent work on this route uses control barrier
+functions and convex optimization \citm{\cl{lee2025}{Lee et al. 2025};
+\cl{patil2026}{Patil et al. 2026}}, mostly on standard maneuvering models
+\citl{fossen2011}{Fossen 2011}. Their guarantees come from explicit constraints. The control
+law is designed by hand and contains no learned policy.
+
+Deep reinforcement learning moved the policy into the data
+\citl{sarhadi2022}{Sarhadi et al. 2022}. Most of that work discretizes the command, for
+example into a finite set of rudder angles for multi-vessel encounters in confined water
+\citl{shen2019}{Shen et al. 2019}, or into compliant avoidance timing and paths
+\citm{\cl{zhao2019}{Zhao and Roh 2019}; \cl{chun2021}{Chun et al. 2021}}. Discretization
+helps optimization and fixes control resolution at the grid spacing. A second group keeps
+continuous control and writes COLREGs as a soft penalty that decays with bearing and range
+\citl{meyer2020}{Meyer et al. 2020}, or as a tunable risk gate
+\citl{heiberg2022}{Heiberg et al. 2022}. Compact reinforcement learning for obstacle
+avoidance has also been shown on underactuated craft
+\citl{cheng2018}{Cheng and Zhang 2018}. This group is usually built on proximal policy
+optimization \citl{schulman2017}{Schulman et al. 2017}, and a bounded Beta distribution
+\citl{chou2017}{Chou et al. 2017} can parameterize the continuous command so that samples
+are not clipped at the boundary of the action box. Control resolution is preserved. Rule
+compliance is induced by the reward, so no single violating command is excluded.
+
+\subsection{Safe Reinforcement Learning and Provable Compliance}
+
+Safe reinforcement learning \citl{garca2015}{Garc\'ia and Fern\'andez 2015} studies how to
+attach hard guarantees to a learned policy. Writing safety as a constrained Markov decision
+process and solving it with a Lagrangian method is a common route. What it guarantees is
+constraint satisfaction in expectation, which again excludes no single command. Action
+masking removes unsafe commands from a discrete action space according to a temporal logic
+specification \citl{alshiekh2018}{Alshiekh et al. 2018}. A realizable form of it has been
+extended to continuous action spaces for general tasks, without maritime rules
+\citl{kim2024}{Kim et al. 2024}. In continuous control, quadratic programs built on control
+barrier functions \citl{ames2019}{Ames et al. 2019} and predictive safety shields
+\citl{wabersich2021}{Wabersich and Zeilinger 2021} give per-step hard guarantees. The latter
+has been attached to maritime reinforcement learning, where it constrains collision only and
+carries no directional clause \citl{vaaler2024}{Vaaler et al. 2024}. The closest mechanism is a safety shield that linearizes the constraint at the current
+state. It then projects the command of the policy onto the resulting half-space in
+closed form \citl{dalal2018}{Dalal et al. 2018}. The projection used here has the same form. What is added is the encoding of the directional give-way clause as a half-plane in the
+control plane. The enforced object is then rule compliance rather than a state bound.
+
+Table~\ref{tab:related} places this work on four dimensions and shows where the gap is. A hard guarantee of rule compliance in a maritime setting had been demonstrated only on
+a discrete action space \citl{krasowski2024}{Krasowski and Althoff 2024}. That work
+provides the scenario library and the state machine thresholds used here. Action
+projection under continuous control is listed there as future work
+\citl{kochdumper2023}{Kochdumper et al. 2023}. Later work on that direction moved to
+continuous control but approximated compliance with a soft reward, without a hard guarantee
+\citl{mller2026}{M\"uller et al. 2026}. The present work gives a constructive guarantee of
+directional compliance under continuous control. The reachable set is represented by a
+convex over-approximation and the correction by a quadratic program
+\citl{markgraf2026}{Markgraf et al. 2026}, rather than by a higher-order set representation, which keeps
+the per-step cost small.
+
+A directional constraint tightens the feasible set in close quarters and can cost terminal
+efficiency, so potential-based shaping is used to recover it. Potential-based shaping does
+not change the set of optimal policies \citl{ng1999}{Ng et al. 1999}. A naive distance
+potential tends to stall near the goal \citl{trott2019}{Trott et al. 2019}, and a single
+continuous potential does not remove that behavior
+\citl{mller2025}{M\"uller and Kudenko 2025}. A linear kernel with arrival as a terminal
+condition is used instead \citl{de2024}{De Lellis et al. 2024}. The effect of a shield on
+performance has been studied separately. Including the filter during training and penalizing
+the correction improves sample efficiency
+\citl{pizarro2025}{Pizarro Bejarano et al. 2025}, a sufficiently permissive filter does not
+cost asymptotic optimality \citl{oh2025}{Oh et al. 2025}, and a safety term that opposes the
+goal term causes stalling short of the goal \citl{grover2023}{Grover et al. 2023}.
+
+%------------------------------------------------------------------------------
+\begin{table}[htbp]
+ \caption{Position of related work. \capnote{A per-step hard guarantee means the class of
+ commands the method can exclude at \emph{every} decision step, not constraint satisfaction
+ in expectation.}}
+ \label{tab:related}
+ \centering\small
+ \setlength{\tabcolsep}{3pt}
+ \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lllcc@{}}
+  \toprule
+  Representative work & Action space & Compliance is imposed by & Per-step guarantee & Learned \\
+  \midrule
+  \multicolumn{5}{@{}l}{\textit{Model-driven, no learning}}\\
+  \citl{kuwata2014}{Kuwata et al. 2014} & Continuous & Velocity obstacle geometry & Geometric & - \\
+  \citl{johansen2016}{Johansen et al. 2016} & Branches & Cost ranking & - & - \\
+  \citm{\cl{lee2025}{Lee et al. 2025}; \cl{patil2026}{Patil et al. 2026}} & Continuous & Barrier function & State bound & - \\
+  \midrule
+  \multicolumn{5}{@{}l}{\textit{Learning, compliance from a soft reward}}\\
+  \citl{meyer2020}{Meyer et al. 2020} & Continuous & Soft reward & - & $\checkmark$ \\
+  \citl{heiberg2022}{Heiberg et al. 2022} & Continuous & Soft reward, risk gate & - & $\checkmark$ \\
+  \citl{mller2026}{M\"uller et al. 2026} & Continuous & Soft reward, falsification & - & $\checkmark$ \\
+  \midrule
+  \multicolumn{5}{@{}l}{\textit{Learning, compliance from a hard constraint}}\\
+  \citl{alshiekh2018}{Alshiekh et al. 2018} & Discrete & Action masking & State bound & $\checkmark$ \\
+  \citl{dalal2018}{Dalal et al. 2018} & Continuous & Linearize, then project & State bound & $\checkmark$ \\
+  \citl{vaaler2024}{Vaaler et al. 2024} & Continuous & Predictive safety shield & Collision only & $\checkmark$ \\
+  \citl{krasowski2024}{Krasowski and Althoff 2024} & Discrete ($49$) & Action masking & \textbf{Direction} & $\checkmark$ \\
+  \midrule
+  \textbf{Ours} & \textbf{Continuous} & \textbf{Projection (QP)} & \textbf{Direction} & $\checkmark$ \\
+  \bottomrule
+ \end{tabular*}
+\end{table}
+%------------------------------------------------------------------------------
+
+%==============================================================================
 % §3 问题表述 —— 对应中文稿 323–422 行
 %   🔴 砍掉了中文稿的**符号表**（tab:notation，30 余行）。20 页无附录，一张符号表就吃掉近一页；
 %      改为符号在首次出现处随文交代。这是内容取舍，已记在 `英文写作规范.md`。
 %==============================================================================
-% 🔴 §1–§2 尚未译；先把计数器顶到 2，让本章显示为 3，编号与最终结构一致。
-%    §1–§2 写完后**删掉下面这一行**。
-\setcounter{section}{2}
 \section{Problem Formulation}
 \label{sec:problem-setup}
 
@@ -1045,8 +1233,8 @@ Figure~\ref{fig:ablation}.
 
 \noindent\textbf{Online cost.}\ The projection is one quadratic program with two variables
 and at most six constraints, so it is cheap enough to run at every step. The timings below come from a single
-thread of an Apple M4 in a $2025$ MacBook Air, over $1{,}872$ decision steps of the trained
-policy. The median solve time of the program is $4.11$~ms and the $99$th percentile is
+thread of the $32$-core Linux server that ran the evaluation (\TBD), over $1{,}872$ decision
+steps of the trained policy. The median solve time of the program is $4.11$~ms and the $99$th percentile is
 $8.85$~ms.
 The forward pass of the policy adds a median of $0.44$~ms. A whole decision step, including
 the environment, has a median of $5.30$~ms and a $99$th percentile of $10.14$~ms. The
@@ -1134,6 +1322,141 @@ Almost all of that gap is in stand-on violations, at $0.36$ against $4.48$.
 \end{table}
 %------------------------------------------------------------------------------
 
+
+%==============================================================================
+% §6 讨论 —— 对应中文稿 906–943 行
+%==============================================================================
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Three Points about the Mechanism}
+
+\noindent\textbf{A soft reward cannot exclude a command.}\ A soft reward can only shift the
+expected behavior of the policy. Masking and projection can remove a command outright. The
+difference between them is the premise. Masking needs the safe control set to be enumerable.
+This paper replaces that premise by convexity. The compliant direction is exactly one
+half-plane, and projecting onto its intersection with the action box is a quadratic program
+in two variables.
+
+\noindent\textbf{Both refinements belong to the continuous action space.}\ A quantized action
+space has no samples pushed past the action box, and it has no channel whose differential
+entropy is unbounded above. These two problems appear only after a COLREGs shield is moved
+into a continuous action space. The ablation is therefore not the tuning of two
+hyperparameters. It repairs two defects created by that move.
+
+\noindent\textbf{The mechanism complements the control-theoretic shields.}\ A reactive
+barrier function shield has no recursive feasibility proof under a $10$~s zero-order
+hold. The
+clearable set of this work suggests one route to that property, but the closed-loop
+integration and the recomputation under the official evaluation pipeline are not finished.
+It is stated here as a design direction and not as a guarantee that has been met.
+
+\subsection{What Projection Buys and What It Costs}
+\label{sec:disc-grid}
+
+Both sides of the exchange can be measured directly, and Figure~\ref{fig:grid} reports them.
+
+The gain is in the resolution of a compliant turn. The rules require the heading change over
+the maneuver window to reach a threshold, which converts to a smallest admissible
+turn rate $\omega_{\mathrm{turn}}$. A continuous command reaches that value exactly.
+A finite grid can only take the nearest grid point at or beyond it, so it always overshoots.
+On the $7\times7$ grid reproduced here, the smallest available compliant turn rate is
+$37.5\%$ above that value.
+
+\noindent\textbf{That gap does not shrink monotonically as the grid is refined.}\ The
+overshoot is set by the divisibility of $\omega_{\mathrm{turn}}$ by the grid spacing, not by
+the spacing itself. In Figure~\ref{fig:grid}a a $5\times5$ grid overshoots by $3.1\%$ while a
+$7\times7$ grid overshoots by $37.5\%$. The common statement that a finer grid approaches
+continuous control therefore does not hold for this task. Only a continuous command with
+projection reaches the smallest admissible turn rate.
+
+The cost is in computation, and it runs against intuition.
+Figure~\ref{fig:grid}b shows that enumerating and masking $K\times K$ commands grows
+with $K^2$. Even at $K=121$, which is $14{,}641$ commands, it stays well below the time
+of one projection. \textbf{Projection is not the cheaper option.} Its justification is capability
+rather than speed. Enumeration has no meaning on a continuous set, while projection is
+feasible and lands exactly on the boundary of the constraint. The deployment cost of one
+step is reported separately in Section~\ref{sec:res-shield}.
+
+The difference in throttle resolution, where the discrete configurations have only seven
+levels, is structural in the same way. It cannot be read directly from the throttle
+increment column, because that column is also affected by the action-increment penalty, and
+that penalty is active only in the continuous configurations. The attributable comparison
+holds only among configurations that run the same penalty.
+
+\begin{figure}[htbp]
+ \centering
+ \includegraphics[width=0.86\linewidth]{figs/fig7_grid_vs_projection.pdf}
+ \caption{Projection against enumeration. \capnote{(a) The amount by which the smallest
+ compliant turn rate available on a $K\times K$ grid exceeds the smallest admissible value
+ $\omega_{\mathrm{turn}}$. It is set by divisibility and \textbf{does not fall monotonically
+ with $K$}. A continuous command with projection reaches it exactly, shown by the red line. (b) Time for one decision step. Enumeration grows with $K^2$, while projection
+ does not depend on $K$. Panel (a) is exact arithmetic. Panel (b) is measured on one machine
+ and is used only for the growth in $K$, not as the deployment cost.}}
+ \label{fig:grid}
+\end{figure}
+
+\subsection{What This Means for Putting Autonomous Vessels into Service}
+
+Making compliance a projectable hard constraint changes more than the behavior of the
+policy. It changes how this layer can be reviewed. When compliance is induced by training,
+verification can only be statistical. A sample of scenarios is run, a violation frequency is
+reported, and the conclusion moves with every version of the policy. When compliance holds
+by construction, the object of verification becomes the constraint itself. A reviewer checks
+whether the state machine classifies the situation correctly, whether the half-plane points
+the way the clause requires, and whether the projection lands inside the feasible set. All
+three can be checked step by step, and none of them depends on the training outcome. For
+type approval and for accident review this is the more workable form. The reviewer does not
+need to reproduce the training run.
+
+The mechanism also does not require the existing control system to be replaced. It accepts a
+desired control command from any source and returns the nearest compliant command. It can
+therefore sit as a separate compliance layer above an existing autopilot or path-following
+controller. Its online cost is one quadratic program per step, with two variables and at most
+six constraints, and it needs no dedicated hardware. Deployment on current shipboard
+computing platforms is realistic.
+
+%==============================================================================
+% §7 结论 —— 对应中文稿 945–952 行
+%==============================================================================
+\section{Conclusions}
+\label{sec:conclusions}
+
+The give-way clauses of COLREGs require a vessel to turn to a stated side, so compliance
+cannot be verified from whether contact occurred. Existing work either buys a provable form
+of compliance with a discrete action space and masking, or buys control resolution with
+continuous commands and a soft reward. This paper shows that the exchange is not necessary.
+The give-way clause is exactly a half-plane in the control plane. The premise that the
+safe set must be enumerated can therefore be replaced by the premise that it is convex. A
+projection-based safety shield is therefore brought to maritime COLREGs under continuous
+control. Directional compliance on every give-way step where the projection is feasible holds
+by construction, independently of the training outcome and of the seed. Any behavioral rule
+that can be written as a convex constraint in the action space can follow the same route.
+
+On the official test set of $600$ scenarios the median violation count of Ours is $0.53$
+per episode. The discrete shielded baseline records $1.16$ and the strongest geometric
+baseline records $4.95$. It is the only shielded configuration that meets the
+convergence criterion on all eight seeds.
+
+The boundaries of these conclusions are as follows. The shield does not guarantee freedom
+from collision. Directional compliance holds on \textbf{every give-way step where the projection is
+feasible}, not on every step. An emergency situation bypasses the constraint by design,
+so the measured violation count is not zero. Propositions
+\ref{prop:farfield} and \ref{prop:imminent} both assume that the target vessel holds its
+velocity, and a maneuvering target vessel voids them. Neither the arrival rate nor smoothness
+is claimed as a benefit, and smoothness cannot be attributed across action spaces because the
+action-increment penalty is active only in the continuous configurations. Two biases in the reported numbers are known, namely checkpoint selection and
+machine-to-machine variation. The main table is therefore reported in two versions, and
+every configuration in one table is evaluated on one machine in one pass. On rule coverage, the directional requirements of Rules 13 to 17
+and the stand-on obligation to hold course and speed are implemented. The stand-on duty to
+take avoiding action on its own is not. The overtaking branch is implemented but the scenario
+library contains no overtaking case, so it is untested. The discrete baseline is a
+reimplementation, and its seed fragility is attributed to that reimplementation.
+
+Three lines of work follow. The terminal constraint of the backup maneuver should be
+wired into the deployed shield and verified in closed loop. Directional compliance
+should be extended to several target vessels with a conflict resolution rule. The
+far-field test should be implemented as an $O(1)$ early exit.
 
 %==============================================================================
 \FloatBarrier   % 🔴 参考文献之前把所有待排浮动体清空，否则图表会插进文献表中间
