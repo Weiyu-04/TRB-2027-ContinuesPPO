@@ -95,6 +95,22 @@ CRITIQUE = [
     r"\bpoorly\b", r"does not work", r"\bflawed?\b", r"\bnaive(ly)?\b",
 ]
 
+#: 🔴 圈外术语（user 2026-08-01：「要么是专业的名词，要么就是大家都熟知的表述」）
+#   这些词在形式化验证 / 优化圈里都是真术语，但**不是 TRB 读者的常用词**，
+#   而且 sound 的日常义（"合理的"）跟术语义（"只漏报不误报"）不一样，会被读反。
+#   左边=禁用，右边=改成什么（中文稿本来就是右边那个说法）。
+OUTSIDER = {
+    r"\bcertificates?\b":      "改说 criterion / test，并把「只漏报不误报」明写出来（中文稿：保守判据）",
+    r"\bcertifie[sd]\b":       "改说 applies to / covers",
+    r"\bsound(ness)?\b":       "术语义会被读成日常义「合理的」；改说 one-sided + 明写 never raises a false alarm",
+    r"\bzonotopes?\b":         "TRB 读者不认；改说 over-approximation / a convex set",
+    r"\binfimum\b":            "闭集上可取到；直接说 smallest",
+    r"\bsupremum\b":           "直接说 largest",
+    r"forward invarian":         "改说 does not extend to the steps after it",
+    r"\bepigraph\b":           "改写成不用它的说法",
+    r"\bsurjectiv|\binjectiv":  "改写成不用它的说法",
+}
+
 #: 对标论文的引用键；只准出现在这些节里
 ANCHOR_KEY = "krasowski2024"
 ANCHOR_OK_SECTIONS = ("Related Work", "Experiments")
@@ -205,6 +221,19 @@ def main():
         warn(f"novel 出现 {n_novel} 次 —— 只该在 Novelty 那一段出现一次")
     if re.search(r"(?<!knowledge, )this is the first|we are the first", low):
         hard("无 hedge 的 'the first' —— 写成 'To the best of the authors\' knowledge, this is the first…'")
+
+    print("\n③·七 圈外术语（不是 TRB 读者的常用词）")
+    outs = []
+    for pat, fix in OUTSIDER.items():
+        n = len(re.findall(pat, low))
+        if n:
+            outs.append((n, pat, fix))
+    if outs:
+        hard(f"{len(outs)} 类圈外术语 —— 换成读者熟的说法：")
+        for n, pat, fix in outs:
+            print(f"        · {pat}  出现 {n} 次 → {fix}")
+    else:
+        ok(f"{len(OUTSIDER)} 类圈外术语一个都没有")
 
     print("\n③·六 弱化对标论文（只准出现在 Related Work / Experiments）")
     secs = [(m.start(), m.group(1)) for m in re.finditer(r"\\section\*?\{([^}]*)\}", doc)]

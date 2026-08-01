@@ -32,7 +32,7 @@
 \usepackage{amssymb}
 \usepackage{bm}
 \usepackage{amsthm}
-\newtheorem{prop}{Property}
+\newtheorem{prop}{Proposition}
 
 %--- 字体：Times 风格（正文与公式）---------------------------------------------
 \usepackage[T1]{fontenc}
@@ -243,10 +243,10 @@ Submitted [Submission Date]\par
 \setcounter{section}{3}
 \section{Methodology}
 
-\noindent\textbf{A note on the guarantees.}\ Three properties are stated in this section.
-Each one is placed immediately after the mechanism it certifies, rather than collected in a
+\noindent\textbf{A note on the guarantees.}\ Three propositions are stated in this section.
+Each one is placed immediately after the mechanism it applies to, rather than collected in a
 separate block. Each is given as a statement, its assumptions, a proof sketch, and its
-scope. The scope paragraph names the cases that the property does not cover.
+scope. The scope paragraph names the cases that the proposition does not cover.
 
 \subsection{COLREGs Obligations as Half-Plane Constraints}
 \label{sec:rulesets}
@@ -256,7 +256,8 @@ The rule state machine sorts the current encounter into six situations,
 \rho\in\{\rho_0\ \text{conflict-free},\ \rho_1\ \text{stand-on},\ \rho_2\ \text{head-on},\
 \rho_3\ \text{crossing},\ \rho_4\ \text{overtaking},\ \rho_5\ \text{emergency}\},
 \end{equation*}
-and the decision is a conjunction of three groups of predicates.
+and the decision is a conjunction of three groups of conditions. Each condition is a
+predicate, that is, a named test on the two states that returns true or false.
 
 The first group is the bearing sector, taken along the sidelight boundaries of the
 convention. The second group is the heading relation, which separates nearly anti-parallel
@@ -312,7 +313,7 @@ of $20^\circ$,
  \omega_{\mathrm{turn}}=\frac{\Delta_{\mathrm{lt}}}{T_M}=\frac{20^\circ}{40~\mathrm{s}}\approx 0.008727~\mathrm{rad/s}.
  \label{eq:omegaturn}
 \end{equation}
-This is the infimum of the compliant turn rate. Any turn at least this large complies, and
+This is the smallest compliant turn rate. Any turn at least this large complies, and
 the bound cannot be lowered.
 
 The predicate structure and the numerical thresholds follow the temporal-logic
@@ -330,7 +331,7 @@ commands.
 \label{sec:collfree}
 
 At each decision step the applied command must keep the two hulls apart at the end of the
-next step. Written directly, that condition is not convex. We use a conservative convex inner approximation, built in three steps.
+next step. Written directly, that condition is not convex. We replace it by a convex subset of itself, built in three steps.
 
 First, the occupancy of the target vessel after one step is over-approximated by a disk.
 The center follows a constant-velocity extrapolation, and the radius includes a safety margin. The own vessel is over-approximated by its circumscribed circle. The two hulls then stay apart whenever the center distance is at least the sum of the two radii, written $d_{\mathrm{safe}}$.
@@ -376,8 +377,8 @@ at least $d_{\mathrm{safe}}$.
 
 \noindent\textbf{Scope.}\ The triangle inequality does not depend on direction, so a
 head-on encounter is the worst case. With the constants of this library the threshold is
-about $764$~m. The statement covers one step. It is not forward invariance, and it does
-not cover the near field.
+about $764$~m. The statement covers one step. It does not extend to the steps after it, and
+it does not cover the near field.
 
 \subsubsection{Projection as a Quadratic Program}
 
@@ -418,7 +419,7 @@ on the random seed.
 bypasses the compliance constraint by design. Steps on which the safe control set is empty
 and the fallback is used are not covered either.
 
-\subsubsection{Fallback and the Emergency Certificate}
+\subsubsection{Fallback and the Unavoidable-Collision Criterion}
 \label{sec:fallback}
 
 When the safe control set is empty, the projection has no solution. A substitute rule then
@@ -453,7 +454,7 @@ outcome is reported with the shield measurements.
 The emergency branch offers no guarantee. It can still decide whether the situation was
 already beyond recovery.
 
-\begin{prop}[Sound certificate for an unavoidable collision]\label{prop:imminent}
+\begin{prop}[Conservative criterion for an unavoidable collision]\label{prop:imminent}
 Consider a single target vessel at constant velocity. Let $R_{\mathrm{box}}(t)$ be an
 over-approximation of the reachable centers of the own vessel, and let $O(t)$ be the hull
 rectangle of the target vessel. If
@@ -475,10 +476,10 @@ over-approximates the true reachable centers. The inscribed circle under-approxi
 hull. Once every reachable center lies inside the inflated occupancy of the target vessel,
 no control command can avoid contact.
 
-\noindent\textbf{Scope.}\ The certificate is sound but not complete. It never reports a
-false positive, and a negative result does not mean that the collision is avoidable. It is
-a terminal classifier rather than an early warning, and maneuvering target vessels are not
-covered. On $20{,}000$ random scenarios and $735$ selected scenarios it produced no false
+\noindent\textbf{Scope.}\ The criterion is one-sided. It can miss a case, and it never
+raises a false alarm. A negative result therefore does not mean that the collision is
+avoidable. The criterion also acts late rather than early, and maneuvering target vessels
+are not covered. On $20{,}000$ random scenarios and $735$ selected scenarios it produced no false
 positive. After the envelope was hardened, $1{,}500$ further fuzz cases produced none
 either.
 
