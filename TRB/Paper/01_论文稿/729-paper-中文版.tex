@@ -266,6 +266,17 @@ Submitted [Submission Date]\par
 深度强化学习出现后，避碰策略开始从数据中学习 \citp{Sarhadi et al.}{2022}。多数工作把操纵指令离散化，如以有限档舵角在受限水域完成多船避碰 \citp{Shen et al.}{2019}，或面向多船生成合规的规避时机与路径 \cit{Zhao and Roh 2019; Chun et al. 2021}；离散化便于优化，代价是控制精度受网格分辨率限制。另一类保留连续控制，把 COLREGs 写成随方位与距离衰减的软性惩罚 \citp{Meyer et al.}{2020}，或做成可调的风险门控 \citp{Heiberg et al.}{2022}，亦有工作在欠驱动无人艇上验证简洁的强化学习避障 \citp{Cheng and Zhang}{2018}。这类工作多以近端策略优化 \citp{Schulman et al.}{2017} 为主干，可用有界的 Beta 分布 \citp{Chou et al.}{2017} 参数化连续动作以避开高斯策略在动作边界处的截断偏差。它们保住了控制精度，但合规只由奖励诱导，无法排除任何一个具体的违规动作。
 
 
+
+\subsection{安全强化学习与可证明合规}
+
+安全强化学习 \citp{García and Fernández}{2015} 研究如何为学习策略附加硬性保证。把安全写成约束马尔可夫决策过程并以拉格朗日方法求解是常见路线，但它保证的是期望意义下的约束满足，仍不能排除任何一个具体的违规动作。动作屏蔽在离散动作上按时序逻辑规范剔除不安全动作 \citp{Alshiekh et al.}{2018}，其可实现形式已被推广到连续动作空间，但针对通用任务、未涉及海事规则 \citp{Kim et al.}{2024}。在连续控制上，控制障碍函数的二次规划 \citp{Ames et al.}{2019} 与预测式安全滤波 \citp{Wabersich and Zeilinger}{2021} 提供逐步硬保证，后者也被接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向条款 \citp{Vaaler et al.}{2024}。与本文机制最接近的是安全层方法，它把约束在当前状态处线性化，再把策略动作解析地投影到由此得到的线性半空间上 \citp{Dalal et al.}{2018}；本文的投影与之同源，新增的部分是把让路条款的方向性编码为动作平面上的半平面，使被强制的对象由状态约束变为规则合规。
+
+表~\ref{tab:related} 把以上两节的工作放在同一组维度下对照，由此可见一处结构性空缺。海事场景中规则合规的硬保证此前只在离散动作空间上实现过 \citp{Krasowski and Althoff}{2024}，该工作也提供了本文使用的场景库与状态机阈值，并把连续动作下的动作投影列为未来方向 \citp{Kochdumper et al.}{2023}；沿该方向的后续工作虽转入连续动作，却以软性奖励逼近合规，没有给出硬保证 \citp{Müller et al.}{2026}。本文在连续控制上给出方向合规的构造式保证，并以 zonotope 加二次规划投影 \citp{Markgraf et al.}{2026} 替代多项式 zonotope 表示以降低单步求解开销。
+
+方向约束会在紧急与近域收紧可行动作集，可能损失终端效率，本文因此用势函数型塑形帮助策略追回效率。势函数型塑形不改变最优策略集 \citp{Ng et al.}{1999}，但朴素的距离型塑形容易停在目标附近 \citp{Trott et al.}{2019}，单一连续势也难以根治 \citp{Müller and Kudenko}{2025}，故本文改用线性核并把真正到达设为终端条件 \citp{De Lellis et al.}{2024}。安全盾对性能与终端行为的影响另有专门研究，训练中纳入滤波并惩罚修正量可提升样本效率 \citp{Pizarro Bejarano et al.}{2025}，足够宽松的滤波不损渐近最优 \citp{Oh et al.}{2025}，而安全项与目标项对冲会造成目标前停滞 \citp{Grover et al.}{2022}。
+
+
+
 %------------------------------------------------------------------------------
 \begin{table}[htbp]
  \caption{相关工作在四个维度上的定位}
@@ -276,36 +287,30 @@ Submitted [Submission Date]\par
   \toprule
   代表工作 & 动作空间 & 合规施加方式 & 逐步硬保证 & 含学习 \\
   \midrule
+  \multicolumn{5}{@{}l}{\textit{Model-driven, no learning}}\\
   \citp{Kuwata et al.}{2014} & 连续 & 速度障碍几何构造 & 几何充分条件 & --- \\
   \citp{Johansen et al.}{2016} & 离散分支 & 代价函数择优 & --- & --- \\
   \cit{Lee et al. 2025; Patil et al. 2026} & 连续 & 控制障碍函数 / 凸优化 & 状态量 & --- \\
-  \addlinespace
+  \midrule
+  \multicolumn{5}{@{}l}{\textit{Learning, compliance via soft reward}}\\
   \citp{Meyer et al.}{2020} & 连续 & 软性奖励 & --- & $\checkmark$ \\
   \citp{Heiberg et al.}{2022} & 连续 & 软性奖励 $+$ 风险门控 & --- & $\checkmark$ \\
   \citp{Müller et al.}{2026} & 连续 & 软性奖励 $+$ 证伪训练 & --- & $\checkmark$ \\
-  \addlinespace
+  \midrule
+  \multicolumn{5}{@{}l}{\textit{Learning, compliance via hard constraint}}\\
   \citp{Alshiekh et al.}{2018} & 离散 & 动作屏蔽 & 状态量 & $\checkmark$ \\
   \citp{Dalal et al.}{2018} & 连续 & 线性化后投影 & 状态量 & $\checkmark$ \\
   \citp{Vaaler et al.}{2024} & 连续 & 预测式安全滤波 & 仅碰撞 & $\checkmark$ \\
-  \addlinespace
   \citp{Krasowski and Althoff}{2024} & 离散（$49$ 点） & 动作屏蔽 & \textbf{方向合规} & $\checkmark$ \\
+  \midrule
   \textbf{本文} & \textbf{连续} & \textbf{投影（二次规划）} & \textbf{方向合规} & $\checkmark$ \\
   \bottomrule
  \end{tabular*}
 
  \vspace{4pt}\footnotesize
- \textbf{表注。}“逐步硬保证”指该方法在\textbf{每一个决策步}上能排除掉哪一类动作，而非期望意义下的约束满足；前三行为非学习方法。本文与其上一行只差动作空间一列。
+ \textbf{表注。}“逐步硬保证”指该方法在\textbf{每一个决策步}上能排除掉哪一类动作，而非期望意义下的约束满足。本文与其上一行只差动作空间一列。
 \end{table}
 %------------------------------------------------------------------------------
-
-\subsection{安全强化学习与可证明合规}
-
-安全强化学习 \citp{García and Fernández}{2015} 研究如何为学习策略附加硬性保证。把安全写成约束马尔可夫决策过程并以拉格朗日方法求解是常见路线，但它保证的是期望意义下的约束满足，仍不能排除任何一个具体的违规动作。动作屏蔽在离散动作上按时序逻辑规范剔除不安全动作 \citp{Alshiekh et al.}{2018}，其可实现形式已被推广到连续动作空间，但针对通用任务、未涉及海事规则 \citp{Kim et al.}{2024}。在连续控制上，控制障碍函数的二次规划 \citp{Ames et al.}{2019} 与预测式安全滤波 \citp{Wabersich and Zeilinger}{2021} 提供逐步硬保证，后者也被接到海事强化学习之上，但只约束碰撞、不含 COLREGs 的方向条款 \citp{Vaaler et al.}{2024}。与本文机制最接近的是安全层方法，它把约束在当前状态处线性化，再把策略动作解析地投影到由此得到的线性半空间上 \citp{Dalal et al.}{2018}；本文的投影与之同源，新增的部分是把让路条款的方向性编码为动作平面上的半平面，使被强制的对象由状态约束变为规则合规。
-
-表~\ref{tab:related} 汇总了上述工作在四个维度上的定位，由此可见一处结构性空缺。海事场景中规则合规的硬保证此前只在离散动作空间上实现过 \citp{Krasowski and Althoff}{2024}，该工作也提供了本文使用的场景库与状态机阈值，并把连续动作下的动作投影列为未来方向 \citp{Kochdumper et al.}{2023}；沿该方向的后续工作虽转入连续动作，却以软性奖励逼近合规，没有给出硬保证 \citp{Müller et al.}{2026}。本文在连续控制上给出方向合规的构造式保证，并以 zonotope 加二次规划投影 \citp{Markgraf et al.}{2026} 替代多项式 zonotope 表示以降低单步求解开销。
-
-方向约束会在紧急与近域收紧可行动作集，可能损失终端效率，本文因此用势函数型塑形帮助策略追回效率。势函数型塑形不改变最优策略集 \citp{Ng et al.}{1999}，但朴素的距离型塑形容易停在目标附近 \citp{Trott et al.}{2019}，单一连续势也难以根治 \citp{Müller and Kudenko}{2025}，故本文改用线性核并把真正到达设为终端条件 \citp{De Lellis et al.}{2024}。安全盾对性能与终端行为的影响另有专门研究，训练中纳入滤波并惩罚修正量可提升样本效率 \citp{Pizarro Bejarano et al.}{2025}，足够宽松的滤波不损渐近最优 \citp{Oh et al.}{2025}，而安全项与目标项对冲会造成目标前停滞 \citp{Grover et al.}{2022}。
-
 
 \section{Problem Formulation and Environment Modeling}
 \label{sec:problem-setup}
@@ -424,7 +429,7 @@ Submitted [Submission Date]\par
 %------------------------------------------------------------------------------
 
 
-\noindent\textbf{关于保证的统一说明。}\ 本文的三条性质分别附在其对应机制之后，每条按陈述、假设、证明要点与作用域四项给出，\textbf{作用域一项写明该性质没有覆盖的情形}；完整推导见补充材料。\label{sec:guarantee}
+\noindent\textbf{关于保证的统一说明。}\ 本文的三条性质分别附在其对应机制之后，每条按陈述、假设、证明要点与作用域四项给出，\textbf{作用域一项写明该性质没有覆盖的情形}；完整推导见随稿公开的技术报告。\label{sec:guarantee}
 
 \subsection{COLREGs 让路条款在动作空间中的形式化}
 \label{sec:rulesets}
