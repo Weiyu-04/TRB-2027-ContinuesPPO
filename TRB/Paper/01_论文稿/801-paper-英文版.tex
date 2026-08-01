@@ -381,6 +381,70 @@ on the random seed.
 bypasses the compliance constraint by design. Steps on which the safe control set is empty
 and the fallback is used are not covered either.
 
+\subsubsection{Fallback and the Emergency Certificate}
+\label{sec:fallback}
+
+When the safe control set is empty, the projection has no solution. A substitute rule then
+supplies the command. We call it the fallback, and it carries no guarantee. The fallback
+branches on the encounter situation. It does not try a fixed list of options in order. The
+two branches below are mutually exclusive.
+
+\noindent\textbf{Emergency branch.}\ An emergency situation takes a separate path. No
+collision-free constraint is built, and Equation~\eqref{eq:qp} is not solved. A stateful
+geometric controller supplies the command instead, and its lifetime is one emergency event.
+It has three modes. A near head-on approach ahead is handled by tracking a fixed lateral
+point fixed at the onset of the emergency. A target vessel astern that can be cleared by
+acceleration is handled by a straight-line escape inside the reaction window. Every other
+case tracks a point that moves with the target vessel. One position-tracking law converts
+all three into a control command. This controller offers no guarantee. Its purpose is a
+defined behavior once no compliant feasible command remains.
+
+\noindent\textbf{Other situations.}\ Outside an emergency situation the fallback is used
+only when the safe control set is empty. A degenerate case is tested first. If the
+linearization gives no usable separation direction, the command is projected onto the action
+box alone. Otherwise the direction constraint is relaxed, and the collision risk is
+minimized if that also fails. The last two branches solve on the actuator limits and drop
+the compliance constraint as a whole. The turn rate can then leave the policy action box, so
+saturation is reported against each box separately.
+
+These branches are needed in the implementation, and on the scenario library used here they
+almost never fire. If the own vessel holds course and speed, the median closest center distance
+to the target vessel is about $1{,}300$~m. The safe control set is therefore rarely empty.
+Purpose-built conflict cases are constructed so that the branches are exercised, and their
+outcome is reported with the shield measurements.
+
+The emergency branch offers no guarantee. It can still decide whether the situation was
+already beyond recovery.
+
+\begin{prop}[Sound certificate for an unavoidable collision]\label{prop:imminent}
+Consider a single target vessel at constant velocity. Let $R_{\mathrm{box}}(t)$ be an
+over-approximation of the reachable centers of the own vessel, and let $O(t)$ be the hull
+rectangle of the target vessel. If
+\begin{equation}
+ \exists\,t^\ast\in[0,T]:\quad R_{\mathrm{box}}(t^\ast)\subseteq\bigl(O(t^\ast)\oplus\mathrm{disk}(r_{\mathrm{insc}})\bigr),
+ \label{eq:imminent}
+\end{equation}
+then the collision is unavoidable, and every feasible control sequence meets that target
+vessel at $t^\ast$.
+\end{prop}
+
+\noindent\textbf{Assumptions.}\ A single target vessel at constant velocity. The hull size
+of the target vessel must not be overstated, since a beam larger than the true value makes
+the test unreliable. The horizon is $120$~s, evaluated at $241$ equally spaced instants.
+
+\noindent\textbf{Proof sketch.}\ The rate of change of the velocity vector is bounded. A
+double integration gives the two semi-axes of $R_{\mathrm{box}}$, which therefore
+over-approximates the true reachable centers. The inscribed circle under-approximates the
+hull. Once every reachable center lies inside the inflated occupancy of the target vessel,
+no control command can avoid contact.
+
+\noindent\textbf{Scope.}\ The certificate is sound but not complete. It never reports a
+false positive, and a negative result does not mean that the collision is avoidable. It is
+a terminal classifier rather than an early warning, and maneuvering target vessels are not
+covered. On $20{,}000$ random scenarios and $735$ selected scenarios it produced no false
+positive. After the envelope was hardened, $1{,}500$ further fuzz cases produced none
+either.
+
 
 \subsection{Shielded Policy Optimization}
 \label{sec:rl}
