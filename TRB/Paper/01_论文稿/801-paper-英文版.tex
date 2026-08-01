@@ -300,9 +300,7 @@ contact occurred. It also asks whether the vessel acted as the rules require. An
 that ends without contact but passes on the wrong side is still recorded as a breach.
 
 Collision avoidance for autonomous surface vessels must therefore satisfy the International Regulations for Preventing Collisions at Sea,
-or COLREGs \citl{imo1972}{IMO 1972}. One property of that
-rule set decides the shape of the problem. The give-way clauses are
-\textbf{directional}. In a head-on encounter both vessels turn to starboard. In a crossing
+or COLREGs \citl{imo1972}{IMO 1972}. The give-way clauses are directional. In a head-on encounter both vessels turn to starboard. In a crossing
 encounter the give-way vessel turns to starboard and the stand-on vessel holds course and
 speed. In an overtaking encounter the overtaking vessel keeps clear. A control command can
 therefore avoid contact and still break the rules, because it turned the wrong way.
@@ -1078,7 +1076,7 @@ accumulates the heading change over a whole obligation period, while the shield
 constrains the change inside a single maneuver window of a different length. Emergency
 and fallback steps also bypass the constraint by design. The shield therefore does not guarantee a violation count of zero, and this paper does
 not claim one. Proposition~\ref{prop:comply} guarantees the turn direction on every
-covered give-way step. That does \textbf{not} imply a give-way violation count of zero. How often the
+covered give-way step. A guaranteed turn direction does not imply a give-way violation count of zero. How often the
 mismatch occurs was not measured, so the counts below are an empirical trajectory-level
 measure rather than a direct test of that proposition. Violation counts in the figures
 are the sum of stand-on and give-way violations.
@@ -1162,8 +1160,7 @@ The four ablation configurations form a complete $2\times2$ design over the boun
 distribution and the give-way entry. Everything else is identical, and the comparison is
 paired by seed. The bounded distribution lowers the median turn increment by $65\%$, with
 all $8$ seeds moving in the same direction and a paired signed-rank value of $p=0.008$. It
-lowers the violations per episode by $41\%$, again $8$ of $8$, with $p=0.008$. The symmetric
-entry alone \textbf{raises} the turn increment by $19\%$, with $p=0.016$, and it lowers the
+lowers the violations per episode by $41\%$, again $8$ of $8$, with $p=0.008$. The symmetric entry alone raises the turn increment by $19\%$, with $p=0.016$, and it lowers the
 violations per episode by $27\%$, with $p=0.008$. With both changes on, the turn increment
 falls by $61\%$ and the violations by $53\%$. The combined configuration does not differ significantly from the bounded-only
 configuration in either turn increment or violations per episode, at $p=0.74$ and
