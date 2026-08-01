@@ -324,8 +324,8 @@ Section~\ref{sec:related} sets out both routes in detail.
 To the best of the authors' knowledge, continuous action spaces, provable directional compliance, and COLREGs have not been
 combined before. This paper addresses that
 combination with a projection-based safety shield. A rule state machine returns the
-half-plane of compliant directions. That half-plane is intersected with the actuator limits and with a one-step
-collision-free condition, which gives a convex safe control set. A
+half-plane of compliant directions. Intersecting that half-plane with the actuator limits and a one-step collision-free
+condition gives a convex safe control set. A
 quadratic program projects the continuous control command of the policy onto the nearest
 point of that set. Projection replaces enumeration because it needs the safe control set
 to be convex rather than enumerable. The shield sits inside the environment transition,
@@ -339,7 +339,7 @@ assumptions, and the cases that are not covered are stated as well.
 \noindent\textbf{Contributions.}
 \begin{enumerate}\itemsep2pt
  \item A projection-based COLREGs shield for continuous action spaces
- (Section~\ref{sec:proj}).  The compliant direction enters the quadratic program as a hard constraint. Directional compliance therefore holds by construction on every give-way step where the
+ (Section~\ref{sec:proj}). The compliant direction enters the quadratic program as a hard constraint. Directional compliance therefore holds by construction on every give-way step where the
 projection is feasible, and it does not depend on the training outcome or on the seed.
 Emergency steps and steps with an empty safe control set are excluded.
  \item Three scoped propositions (Sections~\ref{sec:collfree} to~\ref{sec:fallback}).
@@ -506,8 +506,7 @@ differ by vessel and are hard to identify. Wind, current, and waves are not mode
 length $175$~m and beam $25.4$~m. Its limits are $a_{\max}=0.24~\mathrm{m/s^2}$,
 $\omega_{\max}=0.03$~rad/s, and $v_{\max}=9.5$~m/s, and the decision period is $10$~s.
 The vessel model, these limits and the decision period are those reported by
-\citl{krasowski2024}{Krasowski and Althoff 2024}. An episode lasts at most $170$ steps,
-which is $1{,}700$~s. The circumscribed radius of the hull is $88.4$~m and the inscribed
+\citl{krasowski2024}{Krasowski and Althoff 2024}. The circumscribed radius of the hull is $88.4$~m and the inscribed
 radius is $12.7$~m, both computed from the stated rectangular hull dimensions.
 
 The turn rate limit is about $1.7^\circ$ per second. A readily apparent turn of $20^\circ$
@@ -529,9 +528,9 @@ situation, and five termination flags. The traffic group uses four bearing secto
 the nearest target vessel in it with its distance, its relative bearing, and the change
 of that distance over one step. The observation layer outputs raw physical quantities
 and the training wrapper normalizes them. Organizing traffic by
-sector keeps the dimension independent of the number of target vessels. This keeps the observation dimension fixed, but it does not extend the shield beyond one
-target vessel. The shield deployed here is implemented for a single target vessel, and
-it raises an error rather than running in a degraded mode when more are present.
+sector keeps the observation dimension fixed. The shield is implemented for a single
+target vessel, and it raises an error rather than running in a degraded mode when more
+are present.
 
 \noindent\textbf{Two action boxes.}\ The action is the two-dimensional command
 $u=(a,\omega)$, and two boxes have to be distinguished. The policy acts in the narrower
@@ -606,12 +605,6 @@ inside the training loop. The two bypasses are exclusive. MLP denotes a multilay
 \end{figure}
 %------------------------------------------------------------------------------
 
-Figure~\ref{fig:overview} summarizes the mechanism and its two bypasses.
-\noindent\textbf{A note on the guarantees.}\ Each proposition below is placed after the
-mechanism it applies to, and is given as a
-statement, its assumptions, a proof sketch, and its scope. The scope paragraph names the
-cases it does not cover.
-
 \subsection{COLREGs Obligations as Half-Plane Constraints}
 \label{sec:rulesets}
 
@@ -675,9 +668,9 @@ Head-on and crossing require a turn to starboard. The convention does not fix th
 the relative heading of the two vessels and returns the sign $\sigma\in\{+1,-1\}$. Only
 the selected side is allowed on that step. Stand-on holds course and speed. Each set is therefore a
 single half-plane or an interval on the plane of control commands, and none of them is a
-union. A set of this shape can be entered by projection, so the commands never have to be enumerated.
+union.
 
-\noindent\textbf{Quantifying a readily apparent action.}\ The convention asks a give-way
+ The convention asks a give-way
 action to be large enough to be seen in time. We quantify this as a course change of at
 least a given threshold within the maneuver window. With a window of $40$~s and a threshold
 of $20^\circ$,
@@ -686,8 +679,7 @@ of $20^\circ$,
  \label{eq:omegaturn}
 \end{equation}
 Under the adopted $20^\circ$-within-$40$~s definition this is the smallest turn rate
-that meets the threshold, and for that definition the value cannot be lowered. A command
-must still satisfy the required direction and the conditions of the state machine.
+that meets the threshold.
 
 Encounter classification uses the temporal-logic predicates and the numerical thresholds
 reported by \citl{krasowski2024}{Krasowski and Althoff 2024}. The present formulation states the collision-cone radius and the half-width of the speed
@@ -706,7 +698,8 @@ next step. Written directly, that condition is not convex. It is replaced by a c
 constraint, built as follows.
 
 The occupancy of the target vessel after one step is over-approximated by a disk.
-The center follows a constant-velocity extrapolation, and the radius includes a safety margin. The own vessel is over-approximated by its circumscribed circle. The two hulls then stay apart whenever the center distance is at least the sum of the two radii, written $d_{\mathrm{safe}}$.
+The center follows a constant-velocity extrapolation, and the radius includes a safety margin. The own vessel is over-approximated by its circumscribed circle. Whenever the center
+distance is at least the sum of the two radii, written $d_{\mathrm{safe}}$.
 
 Let $n$ be the unit vector from the target vessel to the nominal end point of the own
 vessel, and let $\delta$ be that distance. The end point follows from the policy command clipped to the action box.
@@ -773,7 +766,8 @@ projection of the policy command onto that set,
 The feasible set is an intersection of half-planes, so it can be written as $U_{\mathrm{safe}}=\{u:Au\le b\}$. The first four rows are the actuator limits. The fifth is the compliant-direction
 half-plane
 of Equation~\eqref{eq:ucolregs}, which is a single half-plane in every situation. The
-sixth is the collision-free constraint of Equation~\eqref{eq:ucf}. The program has two variables and at most six constraints. It is small enough to solve online at every decision step. Algorithm~\ref{alg:step} states one whole decision step, including the two branches that carry no guarantee.
+sixth is the collision-free constraint of Equation~\eqref{eq:ucf}. With two variables and at most six constraints, the program is small enough to solve
+online at every decision step. Algorithm~\ref{alg:step} states one whole decision step, including the two branches that carry no guarantee.
 
 \begin{algorithm}[htbp]
 \caption{One shielded decision step}
@@ -829,8 +823,7 @@ command, and its lifetime is one emergency event. It has three modes. A near hea
 onset. A target vessel astern that acceleration alone can clear takes a straight-line
 escape inside the reaction window. Every other case tracks a point that moves with the
 target vessel. One position-tracking
-law converts each mode into a control command. Its purpose is a defined behavior once
-the emergency situation has been declared.
+law converts each mode into a control command.
 
 \noindent\textbf{Fallback.}\ If the linearization gives no usable separation direction,
 the command is projected onto the actuator limits alone. Otherwise the direction
@@ -878,8 +871,7 @@ stress-test cases it produced no false positive.
 \subsection{Shielded Policy Optimization}
 \label{sec:rl}
 
-The shield is not applied after the policy as an after-the-fact correction. The projection of
-Equation~\eqref{eq:qp} is placed inside the environment transition. The policy emits
+The projection of Equation~\eqref{eq:qp} is placed inside the environment transition. The policy emits
 $u_{\mathrm{policy}}$, the environment applies $u_{\mathrm{safe}}$, and it returns the
 successor state and the reward. The policy therefore faces the composed transition
 \begin{equation}
@@ -1004,17 +996,17 @@ initial pose and speed of the own vessel. It also fixes the initial state and th
 planned track of the target vessel. Each scenario defines a goal region with a position
 gate, a heading gate, and a time limit. The encounter geometry is generated programmatically over a range
 of relative bearings, crossing angles, and closing speeds. Target vessels are $200$ to
-$300$~m long, and an episode lasts at most $170$ decision steps.
+$300$~m long, and an episode lasts at most $170$ decision steps, which is $1{,}700$~s.
 
 Classifying the library by the geometric predicates returns crossing and head-on only.
 \textbf{The library contains no overtaking scenario}, and the official test set holds $395$
 crossing and $205$ head-on cases. The overtaking branch of Equation~\eqref{eq:ucolregs}
-therefore cannot be tested empirically here. The conclusions state this.
+therefore cannot be tested empirically here.
 
-The official split of $1{,}400$ training and $600$ test scenarios is used. The training side
-is split again into $1{,}300$ for training and $100$ for validation. The validation set is
-used only for monitoring during training and for selecting a checkpoint. The test set is
-never accessed during training or tuning. The two sets are disjoint, so the evaluation sample size is $600$.
+Of the official split of $1{,}400$ training and $600$ test scenarios, the training side
+is divided again into $1{,}300$ for training and $100$ for validation. Validation serves
+only to monitor training and to select a checkpoint, and the test set is never accessed
+during training or tuning. The validation and test sets are disjoint.
 
 Table~\ref{tab:arms} lists nine configurations. They form one connected ladder. Most
 adjacent comparisons change one declared variable; the three bundled steps listed with
@@ -1054,7 +1046,7 @@ effects of those three steps can only be read jointly with their companion varia
 \end{table}
 %------------------------------------------------------------------------------
 
-\noindent\textbf{The unshielded continuous configuration.}\ Without a shield this
+ Without a shield this
 configuration can only take the plainest form: an unbounded Gaussian, an asymmetric
 give-way entry, and no shaping. Giving it the continuous-only shaping would break the
 symmetry with the discrete baseline. The measured difference between the discrete baseline and this configuration can
@@ -1081,14 +1073,15 @@ encounter, and only when no turn in the required direction reaches the readily a
 threshold. One scorer is applied to every method here, including the geometric
 controllers that have no state machine.
 
-\noindent\textbf{The counting window and the shield do not coincide.}\ The scorer
+The counting window and the shield do not coincide. The scorer
 accumulates the heading change over a whole obligation period, while the shield
 constrains the change inside a single maneuver window of a different length. Emergency
 and fallback steps also bypass the constraint by design. The shield therefore does not guarantee a violation count of zero, and this paper does
 not claim one. Proposition~\ref{prop:comply} guarantees the turn direction on every
 covered give-way step. That does \textbf{not} imply a give-way violation count of zero. How often the
 mismatch occurs was not measured, so the counts below are an empirical trajectory-level
-measure rather than a direct test of that proposition.
+measure rather than a direct test of that proposition. Violation counts in the figures
+are the sum of stand-on and give-way violations.
 
 \noindent\textbf{Training budget.}\ Each configuration is trained with $8$ random seeds,
 one run per seed, and the $72$ runs together cover about $730$ million environment
@@ -1101,17 +1094,12 @@ excluded.}
 \noindent\textbf{Checkpoint selection.}\ Twenty checkpoints are saved per run at even
 intervals and each is evaluated once on the validation set. The rule was fixed in advance and has no tunable part. The criterion is the highest
 arrival rate on the validation set, and ties go to the earlier checkpoint. The test set
-is never accessed.
-\textbf{The rule is itself biased.} The validation set holds only $100$ scenarios, and the binomial standard error of the
+is never accessed. The validation set holds only $100$ scenarios, and the binomial standard error of the
 arrival rate is about $4$ points. Taking the maximum over $20$ candidates therefore
 lifts the figure on that set. On the held-out test set the
 effect is small. Across the $72$ runs the arrival rate at the selected checkpoint exceeds the one at the
 last checkpoint by a median of $0.2$ points. It is lower for $31$ of them. The ordering of the configurations and the outcome of the paired tests are
 the same under both rules.
-
-\noindent\textbf{Reading the figures.}\ Violation counts in the figures are the sum of
-stand-on and give-way violations. Each caption states whether the panel comes from the
-test set or from training.
 
 \noindent\textbf{Statistics.}\ The nine-configuration comparisons use a per-seed paired
 sign test, whose smallest two-sided value with $8$ seeds is $p=2/2^{8}=0.0078$. The
@@ -1165,9 +1153,7 @@ criterion on all $8$ seeds. Its arrival rate is $88.2\%$, which is below the thr
 unshielded configurations and below the discrete shielded baseline. The lower arrival
 rate is an observed cost of the full shielded configuration, and it is not claimed as a
 benefit anywhere in this paper. The isolated shield comparison is the Continuous, no
-shield versus Continuous, shield pair. A nonconverged run shifts the per-episode
-averages, and the direction of the shift differs among configurations; restricting the
-table to converged runs leaves the ordering unchanged.
+shield versus Continuous, shield pair.
 
 \subsection{Ablation Study}
 \label{sec:res-ablation}
@@ -1212,9 +1198,8 @@ panel.}}
 \subsection{Training Reliability and Sample Efficiency}
 \label{sec:res-reliability}
 
-Figure~\ref{fig:curves} combines training-rollout metrics, validation-checkpoint
-metrics, and convergence counts, as labeled per panel. It reports learning speed among
-the converged runs and the number of runs that meet the convergence criterion.
+Figure~\ref{fig:curves} reports learning speed among the converged runs and the number
+of runs that meet the convergence criterion.
 
 There is a cost, and it appears in learning speed. On the training scenarios the
 unshielded discrete baseline reaches an arrival rate of $96\%$ by $2$ million steps. The
@@ -1233,10 +1218,9 @@ rule declared in advance, all $8$ runs of Ours meet the $50\%$ validation-arriva
 criterion, and it is the only shielded configuration for which this holds. The shielded ablation
 configurations reach $5$ to $7$ seeds, and the discrete safe baseline reaches $6$
 (Figure~\ref{fig:curves}e). In this eight-seed experiment the two changes therefore
-increase the number of runs meeting the criterion, as well as the final numbers.
-Nonconverged runs are counted in the main table as they are.
+increase the number of runs meeting the criterion.
 
-\noindent\textbf{Collision outcomes relative to the guarantee scope.}\ On the test set of $600$, $23$ of
+ On the test set of $600$, $23$ of
 the $48$ shielded runs have a collision rate of exactly zero, and $25$ do not. The largest is
 $1.50\%$, on two seeds of the discrete safe baseline. For Ours, $6$ of the $8$ seeds have no
 collision at all and the other two have exactly one collision each, which is $0.17\%$. A zero count on the $100$ validation scenarios cannot establish that the true rate is
@@ -1264,7 +1248,7 @@ separately. At the end of training,
 the projection produced $93.6\%$ of the control commands. The emergency controller produced
 $6.2\%$, and the three fallback branches produced $0.22\%$ in total
 (Figure~\ref{fig:shield}a). On the test set the share of emergency steps is $2.42\%$, against $4.64\%$ for the
-discrete safe baseline.  Collisions are rare enough that their source cannot be attributed with confidence. Ours
+discrete safe baseline. Collisions are rare enough that their source cannot be attributed with confidence. Ours
 records two collisions in $4{,}800$ test episodes. Neither contradicts
 Proposition~\ref{prop:farfield} unless its far-field condition held at the step that
 produced the collision.
@@ -1281,9 +1265,8 @@ is largest for the symmetric-only configuration, at $0.093$, and smallest for th
 bounded-only configuration, at $0.066$. That ordering matches the turn increments in
 Figure~\ref{fig:tradeoff}.
 
-\noindent\textbf{Online cost.}\ The projection is one quadratic program with two variables and at most six constraints.
-The timings below come from one thread of an AMD EPYC 9654 processor, on the Linux
-instance with $32$ allocated virtual cores that ran the evaluation. They cover $1{,}872$
+\noindent\textbf{Online cost.}\ The timings below come from one thread of an AMD EPYC
+9654 processor. They cover $1{,}872$
 decision steps of the trained policy. The median solve
 time is $4.11$~ms and the $99$th percentile is $8.85$~ms. The forward pass of the policy
 adds a median of $0.44$~ms. A whole decision step, including the environment, has a
@@ -1309,8 +1292,7 @@ than at evaluation.}}
 
 Three geometric collision-avoidance controllers that need no training are run through the
 same evaluation pipeline, on the same test set, at the same sample size
-(Table~\ref{tab:ext}). The comparison identifies the dimensions that the three geometric
-controllers evaluated here already cover.
+(Table~\ref{tab:ext}).
 
 The comparison narrows the defensible claim to one dimension. The collision rate does
 not separate the two families: the barrier function baseline also reaches $0.00\%$ here. The arrival rate and the smoothness columns are governed by the terminal
@@ -1319,9 +1301,8 @@ The largest observed difference is in COLREGs violations, and almost all of it c
 from stand-on violations. These three controllers impose collision-avoidance constraints but no course-and-speed
 constraint, so they keep maneuvering while the rules require course and speed to be
 held.
-The claim against the three geometric baselines evaluated here rests on this dimension
-alone. Ours records $0.53$ violations per episode against $4.49$ for the control barrier
-function at its lowest-violation setting, which is a factor of $8.5$. Almost all of that
+Ours records $0.53$ violations per episode against $4.49$ for the control barrier
+function at its lowest-violation setting. Almost all of that
 gap is in stand-on violations, at $0.36$ against $4.04$.
 Figure~\ref{fig:traj} shows tracks from two encounters of the test set, one head-on and
 one crossing. Three seeds were declared in advance for trajectory recording, and $s_0$ is the first of
@@ -1394,12 +1375,12 @@ $0.0110$ to $0.0131$ for those two.}}
 \section{Discussion}
 \label{sec:discussion}
 
-\subsection{Continuous-Action Refinements and Guarantee Scope} \noindent\textbf{What the two refinements address.}\ A quantized action space has no
+\subsection{Continuous-Action Refinements and Guarantee Scope}  A quantized action space has no
 samples pushed past the action box, and no distribution whose differential entropy is
 unbounded above. The bounded action distribution therefore addresses an issue specific
 to continuous actions. Symmetric entry addresses the state machine instead, and the same
 asymmetry can arise on a discrete action space. The ablation evaluates two
-implementation effects rather than two hyperparameters. \noindent\textbf{Feasibility at later steps is not claimed.}\ No proof is given that a
+implementation effects rather than two hyperparameters. Feasibility at later steps is not claimed. No proof is given that a
 feasible control command remains available at every subsequent decision step under a
 $10$~s zero-order hold. A terminal constraint on the fallback maneuver is one route to that property. The
 closed-loop integration is not finished, so it is stated as a design direction and not
@@ -1410,24 +1391,23 @@ the projection. None of the three depends on the training outcome.
 \subsection{Projection Versus Enumeration}
 \label{sec:disc-grid}
 
-This section compares control resolution and computation time.
-
 The gain is in the resolution of a compliant turn. The rules require the heading change over
 the maneuver window to reach a threshold, which converts to a smallest admissible
 turn rate $\omega_{\mathrm{turn}}$. A continuous command reaches that value exactly. On a fixed grid the smallest available
 compliant turn rate is the first grid point at or beyond it, which coincides with the
-threshold only when the two divide. On the $7\times7$ grid reproduced here it is
-$37.5\%$ above that value.
+threshold only when the two divide. On the $7\times7$ grid reproduced here it is $37.5\%$ above that value
+(Figure~\ref{fig:grid}a).
 
-\noindent\textbf{That gap does not shrink monotonically as the grid is refined.}\ The
+That gap does not shrink monotonically as the grid is refined. The
 overshoot is set by the divisibility of $\omega_{\mathrm{turn}}$ by the grid spacing, not by
-the spacing itself. A $5\times5$ grid overshoots by $3.1\%$ while a $7\times7$ grid overshoots by $37.5\%$,
-so for these two grids the overshoot is not monotone in the spacing. A continuous
+the spacing itself. A $5\times5$ grid overshoots by $3.1\%$ while a $7\times7$ grid overshoots by $37.5\%$.
+A continuous
 command with projection reaches the smallest admissible turn rate for any threshold.
 
 The cost is in computation. Enumerating and masking $K\times K$ commands scales with
 $K^2$, whereas the projection solves a fixed two-variable quadratic program.
-\textbf{Projection is not the cheaper option at the grid sizes used here.} Its
+\textbf{Projection is not the cheaper option at the grid sizes used here}
+(Figure~\ref{fig:grid}b). Its
 justification is capability rather than speed, since enumeration does not apply to a
 continuous set while the projection lands exactly on the boundary of the constraint. 
 
@@ -1436,6 +1416,15 @@ levels, is structural in the same way. It cannot be read directly from the throt
 increment column, because that column is also affected by the action-increment penalty, and
 that penalty is active only in the continuous configurations. The attributable comparison
 holds only among configurations that run the same penalty.
+
+%------------------------------------------------------------------------------
+\begin{figure}[htbp]
+ \centering
+ \includegraphics[width=0.86\linewidth]{figs/fig7_grid_vs_projection.pdf}
+ \caption{Projection against enumeration. \capnote{(a) The amount by which the smallest compliant turn rate available on a $K\times K$ grid exceeds the smallest admissible value $\omega_{\mathrm{turn}}$. It is set by divisibility and \textbf{does not fall monotonically with $K$}. A continuous command with projection reaches it exactly, shown by the red line. (b) Time for one decision step. Enumeration grows with $K^2$, while projection does not depend on $K$. Panel (a) is exact arithmetic. Panel (b) is measured on one machine and is used only for the growth in $K$, not as the deployment cost.}}
+ \label{fig:grid}
+\end{figure}
+%------------------------------------------------------------------------------
 
 %==============================================================================
 % §7 结论 —— 对应中文稿 945–952 行

@@ -79,6 +79,7 @@ def main():
     import make_fig23_draft as F23
     import make_fig45_draft as F45
     import make_fig6_traj as F6
+    import exp_grid_vs_projection as F7
 
     problems = []
     PS.apply()
@@ -90,15 +91,16 @@ def main():
         check_fig(fig, name, problems)
         return real_save(fig, name, outdirs, also_png)
 
-    PS.save = F23.PS.save = F45.PS.save = F6.PS.save = spy
+    PS.save = F23.PS.save = F45.PS.save = F6.PS.save = F7.PS.save = spy
     try:
         D = R.load_reeval("正式-最佳")
         F23.fig2(D)
         F23.fig3(D)
         F45.main()
         F6.main()
+        F7.main()
     finally:
-        PS.save = F23.PS.save = F45.PS.save = F6.PS.save = real_save
+        PS.save = F23.PS.save = F45.PS.save = F6.PS.save = F7.PS.save = real_save
         plt.close("all")
 
     if problems:

@@ -122,10 +122,16 @@ def main():
     a.bar([str(K) for K, _ in ok], [ex for _, ex in ok], width=0.66,
           color=PS.PALETTE["blue_main"], alpha=0.32,
           edgecolor=PS.PALETTE["blue_main"], linewidth=0.9)
+    #: 🔴 2026-08-01 later-16：原来标 (7, 21, 121)，最右那个 "3.1%" 与右下角红色
+    #   "projection" 压在一起（图 7 恢复进正文时看出来的）。K=121 与 K=21 是同一个值，
+    #   标一次就够；改标 (3, 7, 21) —— K=3 的 106% 是最极端的一格，本来就该标出来，
+    #   而且它在最左边，离 "projection" 最远。
     for i, (K, ex) in enumerate(ok):
-        if K in (7, 21, 121):
+        if K in (3, 7, 21):
             a.annotate(f"{ex:.1f}%", (i, ex), xytext=(0, 3), textcoords="offset points",
                        ha="center", fontsize=6.2)
+    #: K=3 那格的 106.3% 标签会顶出框线 ⟹ 上方留 15% 余量
+    a.set_ylim(0, max(ex for _, ex in ok) * 1.15)
     a.axhline(0, color=PS.PALETTE["red_strong"], linewidth=1.2, zorder=4)
     a.annotate("projection", (0.985, 0.045), xycoords="axes fraction", ha="right",
                fontsize=6.4, color=PS.PALETTE["red_strong"])
@@ -137,9 +143,12 @@ def main():
     b.plot(KS, [t_enum[K] for K in KS], marker="o", markersize=2.6,
            color=PS.PALETTE["neutral_black"], linewidth=1.2)
     b.axhline(t_qp, color=PS.PALETTE["blue_main"], linewidth=1.4)
+    #: 🔴 2026-08-01 later-16：原来标在蓝线**上方** 4 pt —— 而蓝线本身就贴着框顶，
+    #   结果这行字整个跑到框线外面（check_overlap.py 量出纵向探出 15.8 pt）。
+    #   改标在线的**下方**，留在框内。
     b.annotate("projection", (0.03, t_qp), xycoords=("axes fraction", "data"),
-               xytext=(0, 4), textcoords="offset points", fontsize=6.4,
-               color=PS.PALETTE["blue_main"])
+               xytext=(0, -3), textcoords="offset points", fontsize=6.4,
+               va="top", color=PS.PALETTE["blue_main"])
     b.annotate("enumerate $+$ mask", (KS[-1], t_enum[KS[-1]]), xytext=(-4, -9),
                textcoords="offset points", ha="right", fontsize=6.4,
                color=PS.PALETTE["neutral_black"])
