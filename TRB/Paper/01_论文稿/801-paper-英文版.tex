@@ -106,7 +106,12 @@
 \captionsetup[algorithm]{labelsep=space,labelfont=bf,font=small}
 \captionsetup{labelsep=space,font=bf,justification=raggedright,singlelinecheck=false}
 \captionsetup[table]{name=TABLE}
+% 图/表的【名字】随官方样例保持粗体正文号；后面的【说明】降一号（10 pt）且不加粗。
+% 🔴 TRB 硬要求是 Times New Roman ≥10 pt ⟹ \small（11pt 基准下 = 10 pt）是**下限**，
+%    再小就不合规。所以说明只能降到 10 pt，不能更小。
+\newcommand{\capnote}[1]{{\normalfont\small #1}}
 \captionsetup[figure]{name=Figure}
+\usepackage{placeins}   % \FloatBarrier：把待排的图表在此之前全部排掉，别溢进参考文献
 
 %--- 超链接：hidelinks = 可跳转但引用文字保持黑色（user 要求）-------------------
 \usepackage[hidelinks]{hyperref}
@@ -756,9 +761,9 @@ can therefore be read on its own.
 
 %------------------------------------------------------------------------------
 \begin{table}[htbp]
- \caption{The nine configurations and the single-variable ladder}
+ \caption{The nine configurations}
  \label{tab:arms}
- \centering\footnotesize
+ \centering\small
  \setlength{\tabcolsep}{3pt}
  \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}l ccccccc@{}}
   \toprule
@@ -772,14 +777,14 @@ can therefore be read on its own.
   Ablation reference       & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\times$ & $\times$ \\
   Ablation, bounded only   & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\checkmark$ & $\times$ \\
   Ablation, symmetric only & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\times$ & $\checkmark$ \\
-  Full method              & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
+  Ours                     & $\checkmark$ & $\checkmark$ & $\times$ & $\times$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
   \bottomrule
  \end{tabular*}
 
  \vspace{4pt}
- \begin{minipage}{\linewidth}\footnotesize
+ \begin{minipage}{\linewidth}\small
  \textbf{Notes.} A check mark is on, a cross is off, and a dash is not applicable. Rows run
- from the discrete baseline to the full method. Three steps of the ladder carry a companion
+ from the discrete baseline to the full method (Ours). Three steps of the ladder carry a companion
  variable that cannot be separated. The action space changes together with the policy
  distribution, the continuous-only shaping is a bundle of four items, and the bounded
  distribution also changes the initial exploration scale. Those three steps can only be
@@ -870,10 +875,11 @@ they are, and a converged-seeds-only version is also reported.
 
 %------------------------------------------------------------------------------
 \begin{table}[htbp]
- \caption{Main comparison, all seeds. \textbf{Values are provisional and come from the
- validation set. The table is replaced after the re-evaluation on the test set.}}
+ \caption{Main comparison, all seeds. \capnote{\textbf{Values are provisional and come
+ from the validation set. The table is replaced after the re-evaluation on the test
+ set.}}}
  \label{tab:main}
- \centering\footnotesize
+ \centering\small
  \setlength{\tabcolsep}{4pt}
  \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcccccccc@{}}
   \toprule
@@ -887,12 +893,12 @@ they are, and a converged-seeds-only version is also reported.
   Ablation reference    & \prov{8} & \prov{5/8} & \prov{86.0 [3,\,88]} & \prov{\textbf{0.00}} & \prov{1.09} & \prov{0.0142} & \prov{0.0109} & \prov{3.84} \\
   Ablation, bounded only& \prov{8} & \prov{7/8} & \prov{86.0 [50,\,91]} & \prov{\textbf{0.00}} & \prov{0.52} & \prov{0.0087} & \prov{0.0176} & \prov{1.97} \\
   Ablation, symmetric only& \prov{8} & \prov{5/8} & \prov{75.5 [0,\,82]} & \prov{\textbf{0.00}} & \prov{0.77} & \prov{0.0150} & \prov{0.0143} & \prov{3.02} \\
-  Full method           & \prov{8} & \prov{\textbf{8/8}} & \prov{88.5 [81,\,92]} & \prov{\textbf{0.00}} & \prov{\textbf{0.49}} & \prov{0.0085} & \prov{0.0193} & \prov{2.56} \\
+  Ours                  & \prov{8} & \prov{\textbf{8/8}} & \prov{88.5 [81,\,92]} & \prov{\textbf{0.00}} & \prov{\textbf{0.49}} & \prov{0.0085} & \prov{0.0193} & \prov{2.56} \\
   \bottomrule
  \end{tabular*}
 
  \vspace{4pt}
- \begin{minipage}{\linewidth}\footnotesize
+ \begin{minipage}{\linewidth}\small
  \textbf{Notes.} The best value in each column is in bold. The turn and throttle increment
  columns are \textbf{not} marked, because they cannot be compared across action spaces
  (Section~\ref{sec:train}). The share of emergency steps is descriptive and is neither good
@@ -909,11 +915,11 @@ accompany the table.
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig2_tradeoff.pdf}
- \caption{Safety and efficiency. Points are medians across seeds and error bars are
- bootstrap $95\%$ intervals resampled over seeds. Circles are continuous action spaces,
+ \caption{Safety and efficiency. \capnote{Points are medians across seeds and error bars
+ are bootstrap $95\%$ intervals resampled over seeds. Circles are continuous action spaces,
  triangles are discrete ones, and filled markers carry a shield. The lower right of panel
  (a) is the ideal region. The bars are wide because every configuration contains a diverged
- seed.}
+ seed.}}
  \label{fig:tradeoff}
 \end{figure}
 
@@ -945,11 +951,10 @@ as well.
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig3_ablation.pdf}
- \caption{Contribution of the two changes, as a $2\times2$ ablation paired by seed. Bars
- are medians across seeds and error bars are bootstrap $95\%$ intervals. Above each bar are
- the change relative to the leftmost bar, the paired signed-rank result, and the number of
- seeds that moved in the same direction. The arrival rate is bimodal, so it is drawn as a
- box plot.}
+ \caption{The $2\times2$ ablation. \capnote{Paired by seed. Bars are medians across seeds
+ and error bars are bootstrap $95\%$ intervals. Above each bar are the change relative to
+ the leftmost bar, the paired signed-rank result, and the number of seeds that moved in the
+ same direction. The arrival rate is bimodal, so it is drawn as a box plot.}}
  \label{fig:ablation}
 \end{figure}
 
@@ -960,21 +965,22 @@ Figure~\ref{fig:curves} is taken from training. It answers two questions that do
 the re-evaluation, namely whether the shield costs learning speed, and how many seeds of
 each configuration reach a working policy.
 
-First, there is a cost, and it appears in learning speed. The two shielded continuous
-configurations trail the unshielded discrete baseline over the first \prov{$4$} million
-steps, and their arrival rate catches up only near \prov{$8$} million steps
-(Figure~\ref{fig:curves}a). Panels (b) and (c) give what is bought. The unshielded
-configurations hold a collision rate of \prov{$2$} to \prov{$4\%$} and more than
-\prov{$2.4$} violations per episode throughout training. The shielded configurations sit
-against a collision rate of zero and near \prov{$0.5$} violations per episode. The shield removes
-risk from the outcome, and it narrows the exploration space at the same time. Slower
-learning is the direct consequence of that narrowing.
+First, there is a cost, and it appears in learning speed. On the training scenarios the
+unshielded discrete baseline reaches an arrival rate of $96\%$ by $2$ million steps. The
+shielded continuous configuration is at $33\%$ at that point, and it reaches $88\%$ at the
+end of training. The shielded discrete baseline lies between the two, at $51\%$ and $93\%$
+(Figure~\ref{fig:curves}b). Panels (c) and (d) give what is bought. The unshielded
+configurations hold a collision rate near $1.8\%$ throughout training and more than
+\prov{$2.4$} violations per episode. The shielded configurations sit at a collision rate of
+zero and near \prov{$0.5$} violations per episode. The shield removes risk from the outcome,
+and it narrows the exploration space at the same time. Slower learning is the direct
+consequence of that narrowing.
 
 Second, reliability differs a great deal among the shielded configurations. Under the
-convergence rule declared in advance, all \prov{$8$} seeds of the full method reach a
+convergence rule declared in advance, all \prov{$8$} seeds of Ours reach a
 working policy, and it is the only shielded configuration for which this holds. The shielded
 ablation configurations reach \prov{$5$} to \prov{$7$} seeds, and the discrete safe baseline
-reaches \prov{$6$} (Figure~\ref{fig:curves}d). The two changes therefore improve more than
+reaches \prov{$6$} (Figure~\ref{fig:curves}e). The two changes therefore improve more than
 the final numbers. They also lower the chance that training itself fails. Diverged seeds are
 counted as they are, and a converged-seeds-only version is given.
 
@@ -988,11 +994,14 @@ situations or the fallback. A collision rate of zero is therefore an observation
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig4_training_reliability.pdf}
- \caption{Sample efficiency and training reliability. Thick lines are medians and shaded
- bands are interquartile ranges over \textbf{converged seeds only}, because a diverged seed
- pulls the band to zero. The fraction in the legend is the number of converged seeds out of
- eight. Panel (d) counts all eight seeds. The ablation configurations are
- compared in Figure~\ref{fig:ablation} instead.}
+ \caption{Training curves. \capnote{Thick lines are medians and shaded bands are
+ interquartile ranges over \textbf{converged seeds only}, because a diverged seed pulls the
+ band to zero. The fraction in the legend is the number of converged seeds out of eight.
+ Panels (a) to (c) and (f) are recorded once per rollout on the training scenarios, so they
+ carry exploration noise. Panel (d) is measured on the validation set once per checkpoint,
+ which is why it has fewer points. Panel (e) counts all eight seeds. \textbf{The reward
+ function differs across configurations, so the level in panel (a) is not compared across
+ them.}}}
  \label{fig:curves}
 \end{figure}
 
@@ -1030,10 +1039,10 @@ increments in Figure~\ref{fig:ablation}. The full distribution of this quantity 
  % 3.9 in 试过，高度是齐了，但字号缩到原生 62%，(b)(d) 两格图例太小 ⟹ 退到 4.4 in 折中。
  % **图解冻后正解是重画成更扁的版面（2x2 改 1x4 或加宽），不是继续缩。**
  \includegraphics[width=\linewidth]{figs/fig5_shield_behaviour.pdf}
- \caption{Behavior of the shield during training. In panel (d) the angle is the sector in
- which the convention defines each situation, \textbf{not} the measured bearing
- distribution of target vessels, and the radius is logarithmic. This figure is collected
- during training rather than at evaluation.}
+ \caption{Behavior of the shield. \capnote{In panel (d) the angle is the sector in which
+ the convention defines each situation, \textbf{not} the measured bearing distribution of
+ target vessels, and the radius is logarithmic. This figure is collected during training
+ rather than at evaluation.}}
  \label{fig:shield}
 \end{figure}
 
@@ -1058,10 +1067,11 @@ rests on this dimension alone, and the specific difference is \TBD.
 
 %------------------------------------------------------------------------------
 \begin{table}[htbp]
- \caption{External geometric baselines on the official test set ($N=600$)}
+ \caption{External geometric baselines. \capnote{Official test set, $N=600$.}}
  \label{tab:ext}
- \centering\footnotesize
- \setlength{\tabcolsep}{4pt}
+ \centering\small
+ % 表体由 9 pt 提到 10 pt（TRB 硬要求 ≥10 pt）之后这张 9 列表会超宽 6.6 pt ⟹ 列间距收到 2 pt
+ \setlength{\tabcolsep}{2pt}
  \begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}llccccccc@{}}
   \toprule
   \multirow{2}{*}{Method} & \multirow{2}{*}{Control range} & \multirow{2}{*}{Arrival \%} & \multirow{2}{*}{Coll. \%}
@@ -1082,12 +1092,12 @@ rests on this dimension alone, and the specific difference is \TBD.
    & Policy range, margin & 57.00 & 0.00 & 8.20 & 0.50 & 7.70 & 0.00425 & 0.279 \\
    & Actuator limits      & 42.67 & 0.00 & 8.06 & 0.68 & 7.38 & 0.00128 & 0.071 \\
   \addlinespace
-  Full method (this paper) & Policy range & \multicolumn{7}{c}{(see Table~\ref{tab:main})} \\
+  Ours                     & Policy range & \multicolumn{7}{c}{(see Table~\ref{tab:main})} \\
   \bottomrule
  \end{tabular*}
 
  \vspace{4pt}
- \begin{minipage}{\linewidth}\footnotesize
+ \begin{minipage}{\linewidth}\small
  \textbf{Notes.} These controllers need no training and have no seed. Each is reported at its
  own best setting, tuned on a set that is disjoint from the one used here. The policy range
  is $\pm0.048$ and $\pm0.018$, the same authority as the policy of this paper, and the
@@ -1101,6 +1111,7 @@ rests on this dimension alone, and the specific difference is \TBD.
 
 
 %==============================================================================
+\FloatBarrier   % 🔴 参考文献之前把所有待排浮动体清空，否则图表会插进文献表中间
 \section*{References}
 
 \input{_refs}

@@ -140,6 +140,68 @@ def _bin(xs, ys, nbin=40):
     return bx[ok], by[ok]
 
 
+def _bin_q(xs, ys, nbin):
+    """按 step 分箱，每箱给出 25/50/75 分位。dense_band 用。"""
+    if not len(xs):
+        return (np.array([]),) * 4
+    xs, ys = np.asarray(xs, float), np.asarray(ys, float)
+    e = np.linspace(xs.min(), xs.max(), nbin + 1)
+    i = np.clip(np.digitize(xs, e) - 1, 0, nbin - 1)
+    bx, lo, md, hi = [], [], [], []
+    for j in range(nbin):
+        m = i == j
+        if not m.any():
+            continue
+        bx.append(xs[m].mean())
+        q = np.percentile(ys[m], [25, 50, 75])
+        lo.append(q[0]); md.append(q[1]); hi.append(q[2])
+    return (np.array(bx), np.array(lo), np.array(md), np.array(hi))
+
+
+def dense_band(ax, runs, get, color, nbin=80, lw=1.2):
+    """🔴 **每次 rollout 一个点**的密集曲线（每条 run 620 个点），中位线 + 四分位带。
+
+    user 2026-08-01 later-4：「现在的线段看起来比较有清晰的棱角，如果是比较密集的步下
+    线段样子应该不是这样的」—— 说的就是原来那几格用的是 `trend`（每条 run **只有 20 个点**，
+    因为验证集评估一段只跑一次），点少所以是折线。
+    训练遥测 `curves` 是每次 rollout 落一条（620 点 × 8 颗种子 = 4960 个样本），
+    分 80 箱就足够平滑，且**一个点都没有编**。
+    """
+    xs, ys = [], []
+    for r in runs:
+        for c in r["curves"]:
+            v = get(c)
+            if v is not None:
+                xs.append(c["step"]); ys.append(v)
+    bx, lo, md, hi = _bin_q(xs, ys, nbin)
+    if not len(bx):
+        return
+    ax.fill_between(bx / 1e6, lo, hi, color=color, alpha=0.15, linewidth=0, zorder=1)
+    ax.plot(bx / 1e6, md, color=color, linewidth=lw, zorder=3)
+
+
+def g_num(key):
+    def f(c):
+        v = c.get(key)
+        return float(v) if isinstance(v, (int, float)) else None
+    return f
+
+
+def g_flag(flag):
+    """训练 rollout 里该结局占本次 rollout 全部回合的比例（%）。
+
+    `roll_ep_flags` = {'goal': 到达, 'collision': 碰撞, 'time': 超时, 'stopped': 停住}，
+    `roll_eps` = 本次 rollout 结束的回合数。**这是训练场景上的、带探索噪声的口径**，
+    与验证集 100 场景（确定性策略）不是一回事 —— 图注必须写明。
+    """
+    def f(c):
+        fl, n = c.get("roll_ep_flags"), c.get("roll_eps")
+        if not isinstance(fl, dict) or not isinstance(n, (int, float)) or n <= 0:
+            return None
+        return 100.0 * float(fl.get(flag, 0)) / float(n)
+    return f
+
+
 def curve(runs, key, nbin=40):
     xs, ys = [], []
     for r in runs:
@@ -219,25 +281,36 @@ def fig4(D):
     fig, AX = plt.subplots(2, 3, figsize=(PS.COL2, PS.COL2 * 0.45))
     (a, b, c), (d, e, f) = AX
 
-    #: 🔴 第一个评估点在 0.5M 步，**没有 0 步的评估**。横轴若从 0 起画，
-    #   曲线与纵轴之间会空一段，读起来像「从原点直接跳到 40%」。
-    #   补一个 (0,0) 等于编数据；正确做法是**横轴左端对齐到第一个评估点**。
-    X0 = min(r["trend"][0]["step"] for t in MAIN for r in D[t].values()) / 1e6
-
-    def trend_panel(ax, key, title, ylab, ylim):
+    def dense_panel(ax, get, title, ylab, ylim=None):
+        """密集格：每次 rollout 一个点（620 点/run × 8 种子），80 箱中位 + 四分位带。"""
         for tag in MAIN:
             runs = [D[tag][sd] for sd in OK[tag]]
             if runs:
-                band(ax, runs, key, R.ARMS[tag][1])
-        ax.set_title(title); ax.set_ylim(*ylim); ax.set_xlim(X0, XMAX)
-        ax.set_ylabel(ylab); xaxis(ax)
+                dense_band(ax, runs, get, R.ARMS[tag][1])
+        ax.set_title(title)
+        if ylim:
+            ax.set_ylim(*ylim)
+        ax.set_xlim(0, XMAX); ax.set_ylabel(ylab); xaxis(ax)
 
-    trend_panel(a, "到达率%", "(a) Arrival rate", "Arrival rate (%)", (-3, 103))
-    trend_panel(b, "碰撞率%", "(b) Collision rate", "Collision rate (%)", (-0.4, 7.5))
-    trend_panel(c, "违规次数/局", "(c) COLREGs violations", "Violations per episode", (-0.15, 4.6))
-    trend_panel(e, "紧急步%", "(e) Emergency-control steps", "Emergency steps (%)", (-0.4, 10.5))
+    #: 🔴 (a) 各配置的奖励函数**不一样**（本方法多了连续动作专属整形、规则奖励臂多了合规项）
+    #   ⟹ 纵向高低**不可跨配置比较**，这一格看的是「收没收敛」，不是「谁的奖励高」。图注写死。
+    dense_panel(a, g_num("ep_rew_mean"), "(a) Mean episode return", "Return")
+    dense_panel(b, g_flag("goal"), "(b) Arrival rate (training)", "Arrival rate (%)", (-3, 103))
+    dense_panel(c, g_flag("collision"), "(c) Collision rate (training)", "Collision rate (%)", (-0.4, 12))
+    dense_panel(f, g_num("explained_variance"), "(f) Value-function explained variance",
+                "Explained variance", (0.90, 1.005))
 
-    # (d) 达到收敛判据的种子数
+    #: (d) 违规次数只有验证集口径 —— 训练遥测里没有逐 rollout 的违规计数（离线判分器只在评估侧跑）。
+    #   ⟹ 这一格**只有 20 个点**，形状本来就是折线，与密集格并列时靠格标题里的 (validation) 区分。
+    for tag in MAIN:
+        runs = [D[tag][sd] for sd in OK[tag]]
+        if runs:
+            band(d, runs, "违规次数/局", R.ARMS[tag][1])
+    d.set_title("(d) COLREGs violations (validation)")
+    d.set_ylim(-0.15, 4.6); d.set_xlim(0, XMAX)
+    d.set_ylabel("Violations per episode"); xaxis(d)
+
+    # (e) 达到收敛判据的种子数（阶梯图，本来就该是阶梯）
     for tag in MAIN:
         runs = list(D[tag].values())
         if not runs:
@@ -247,19 +320,10 @@ def fig4(D):
               for i in range(L)]
         ys = [sum(1 for r in runs if i < len(r["trend"])
                   and r["trend"][i]["到达率%"] >= R.CRASH_ARR) for i in range(L)]
-        d.plot(xs, ys, color=R.ARMS[tag][1], linewidth=1.4, drawstyle="steps-post")
-    d.set_title("(d) Seeds reaching the 50% criterion")
-    d.set_ylim(-0.35, 8.5); d.set_xlim(X0, XMAX)
-    d.set_ylabel("Seeds (of 8)"); d.set_yticks([0, 2, 4, 6, 8]); xaxis(d)
-
-    # (f) 值函数可解释方差
-    for tag in MAIN:
-        x, y = curve([D[tag][sd] for sd in OK[tag]], "explained_variance")
-        if len(x):
-            f.plot(x / 1e6, y, color=R.ARMS[tag][1], linewidth=1.3)
-    f.set_title("(f) Value-function explained variance")
-    f.set_xlim(0, XMAX); f.set_ylabel("Explained variance"); xaxis(f)
-    #: (f) 取自逐 rollout 遥测，第一个点就在训练最开头，故横轴仍从 0 起
+        e.plot(xs, ys, color=R.ARMS[tag][1], linewidth=1.4, drawstyle="steps-post")
+    e.set_title("(e) Seeds reaching the 50% criterion")
+    e.set_ylim(-0.35, 8.5); e.set_xlim(0, XMAX)
+    e.set_ylabel("Seeds (of 8)"); e.set_yticks([0, 2, 4, 6, 8]); xaxis(e)
 
     # ── 整图共用一个图例，放在顶部 ────────────────────────────────────────
     from matplotlib.lines import Line2D
