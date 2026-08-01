@@ -1,0 +1,212 @@
+%==============================================================================
+% TRB 2027 投稿 —— 英文正式版
+%
+% ▶ 本文件 = 英文投稿工作稿。中文工作稿 `729-paper-中文版.tex` 是内容真相源，
+%   本文件只做「选进 20 页的那部分」的英文表达，**不是逐句直译**。
+% ▶ 编译：`pdflatex 801-paper-英文版.tex`（跑两次更新交叉引用与 pagewise 行号）。
+%   纯英文 ⟹ 不需要 xelatex / xeCJK。
+%
+% ▶ 🔴 TRB 官方硬要求（逐条见 `04 §九`）：
+%   · 总共 20 页，标题页 + 摘要页 + 正文 + 致谢 + 参考文献 + 全部图表都算在内。
+%   · Times New Roman ≥10 pt · 单栏 · 单倍行距 · 8.5×11 in · 四边 1 in 页边距。
+%   · 每页行号从 1 重新计数 · 页码每页底部居中 · 图表嵌在讨论它的段落附近。
+%   · 引用 (Author, Year) · **不允许附录 / 补充材料**。
+%   · 摘要 ≤300 词、独占第 2 页、五个加粗小标题按序、不含图表公式与未定义缩写。
+%
+% ▶ 字号：官方 Word 样例 `_模板_官方Word原版_TAD_AMSamplePaper.docx` 实测
+%   正文 Normal = **11 pt**（styles.xml docDefaults w:sz=22 半磅）、Heading1 = 12 pt 加粗。
+%   中文工作稿用的是 12 pt（比官方样例大一号）。本文按官方样例取 11 pt。
+%
+% ▶ 🔴 写作红线（CLAUDE.md §0 · 一个字不能松）：
+%   能严证 = 远场单步无碰 + 每让路步方向合规 + 紧急迫近不可避的 sound 证书。
+%   绝不写 provably collision-free / 裸的 provably compliant / zero collisions。
+%   一律写 provable **directional** compliance，并写明作用域。
+%
+% ▶ 英文行文（user 2026-08-01 明令）：严格学术英语，**只用简单句**，避免长难句，
+%   以「普通读者读得懂」为准。
+%==============================================================================
+\documentclass[11pt,letterpaper]{article}
+
+%--- 数学 ---------------------------------------------------------------------
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{bm}
+\usepackage{amsthm}
+\newtheorem{prop}{Property}
+
+%--- 字体：Times 风格（正文与公式）---------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{mathptmx}
+
+%--- 页面：US Letter，四周 1 英寸页边距 ----------------------------------------
+\usepackage[letterpaper,margin=1in,headheight=15pt,headsep=0.25in,footskip=0.3in]{geometry}
+
+%--- 页眉（斜体 running head）+ 页脚（居中页码·官方硬要求）---------------------
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\itshape Tang, Xue, Yang, and Li}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+%--- 正文：左对齐、单倍行距、首行缩进 0.5 英寸、段间不额外加空 -------------------
+\usepackage{ragged2e}
+\setlength{\RaggedRightParindent}{0.5in}
+\RaggedRight
+\setlength{\parindent}{0.5in}
+\setlength{\parskip}{0pt}
+
+%--- 标题层级：**复原官方 TAD 模板**（中文工作稿为可读性加了编号与放大，投稿版不留）--
+\usepackage{titlesec}
+\setcounter{secnumdepth}{0}                                   % 官方样例：标题不编号
+% 一级标题 = 12 pt 加粗全大写（官方 Heading1 实测值）
+\titleformat{\section}{\normalfont\fontsize{12}{14}\selectfont\bfseries}{}{0pt}{\MakeUppercase}
+\titlespacing*{\section}{0pt}{12pt}{4pt}
+\titleformat{\subsection}{\normalfont\bfseries}{}{0pt}{}
+\titlespacing*{\subsection}{0pt}{12pt}{4pt}
+\titleformat{\subsubsection}{\normalfont\itshape}{}{0pt}{}
+\titlespacing*{\subsubsection}{0pt}{12pt}{4pt}
+
+%--- 图表 ---------------------------------------------------------------------
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\bottomfraction}{0.7}
+\renewcommand{\textfraction}{0.08}
+\renewcommand{\floatpagefraction}{0.8}
+\setcounter{topnumber}{3}
+\setcounter{totalnumber}{4}
+\captionsetup[algorithm]{labelsep=space,labelfont=bf,font=small}
+\captionsetup{labelsep=space,font=bf,justification=raggedright,singlelinecheck=false}
+\captionsetup[table]{name=TABLE}
+\captionsetup[figure]{name=Figure}
+
+%--- 超链接：hidelinks = 可跳转但引用文字保持黑色（user 要求）-------------------
+\usepackage[hidelinks]{hyperref}
+
+%--- 行号：TRB 硬要求，pagewise = 每页从 1 重新计数 ----------------------------
+\usepackage[left,pagewise]{lineno}
+\renewcommand{\linenumberfont}{\normalfont\small}
+
+%--- 摘要小标题 ---------------------------------------------------------------
+\newcommand{\abshead}[1]{\textbf{#1}\ }
+
+%--- 参考文献：Chicago 作者-年份、按第一作者姓氏字母序、悬挂缩进、不编号 ---------
+\newcommand{\refitem}[1]{\par\begingroup\emergencystretch=3em\sloppy\noindent\hangindent=0.5in\hangafter=1 #1\par\endgroup}
+\newcommand{\cit}[1]{(#1)}
+\newcommand{\citp}[2]{(#1 #2)}
+
+%--- 占位宏 -------------------------------------------------------------------
+\newcommand{\figplaceholder}[1]{\fbox{\parbox[c][6cm][c]{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\centering\textbf{[#1 placeholder]}}}}
+\newcommand{\TBD}{[TBD]}
+\newcommand{\prov}[1]{#1}
+
+%==============================================================================
+\begin{document}
+\linenumbers
+
+%------------------------------------------------------------------------------
+% 第 1 页：标题页（官方要求：标题 + 全部作者姓名/职称/单位/邮箱 + 总页数）
+%------------------------------------------------------------------------------
+\begin{flushleft}
+{\bfseries Projection-Based Safety Shielding for Provably Direction-Compliant COLREGs Collision Avoidance in Continuous Action Spaces}\par
+\vspace{12pt}
+
+{\bfseries Weiyu Tang}\par
+Graduate Research Assistant\par
+Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
+School of Naval Architecture, Ocean and Civil Engineering\par
+Shanghai Jiao Tong University, Shanghai, 200240, China\par
+Email: weiyutang@sjtu.edu.cn\par
+\vspace{12pt}
+
+{\bfseries Jie Xue, Ph.D.\textsuperscript{*}}\par
+Assistant Research Professor\par
+State Key Laboratory of Ocean Engineering\par
+School of Naval Architecture, Ocean and Civil Engineering\par
+Shanghai Jiao Tong University, Shanghai, 200240, China\par
+Email: j.xue@sjtu.edu.cn\par
+\vspace{12pt}
+
+{\bfseries Peijie Yang}\par
+Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
+School of Naval Architecture, Ocean and Civil Engineering\par
+Shanghai Jiao Tong University, Shanghai, 200240, China\par
+Email: yangpeijie21@sjtu.edu.cn\par
+\vspace{12pt}
+
+{\bfseries Qianbing Li}\par
+Shanghai Key Laboratory for Digital Maintenance of Buildings and Infrastructure,\par
+School of Naval Architecture, Ocean and Civil Engineering\par
+Shanghai Jiao Tong University, Shanghai, 200240, China\par
+Email: qianbing\_li@sjtu.edu.cn\par
+\vspace{12pt}
+
+Word Count: \TBD\ words + \TBD\ table(s) $\times$ 250 = \TBD\ words\par
+Total Number of Pages: \TBD\par
+\vspace{24pt}
+
+Submitted [Submission Date]\par
+\textsuperscript{*}Corresponding Author\par
+\end{flushleft}
+
+\newpage
+
+%------------------------------------------------------------------------------
+% 第 2 页：结构化摘要（≤300 词 · 独占一页 · 五个加粗小标题按序 · 不含图表公式）
+%------------------------------------------------------------------------------
+\section*{Abstract}
+
+\justifying
+
+\abshead{Objectives.}Autonomous surface vessels must obey the International Regulations for Preventing Collisions at Sea (COLREGs). The give-way rules are directional. A track that avoids a collision but passes on the wrong side is still a violation. This paper builds a per-step guarantee of directional compliance for continuous control commands.
+
+\abshead{Methods.}We write the give-way clause as a half-plane constraint on the plane of control commands. We intersect it with the actuator limits and a one-step collision-free condition, which gives a convex safe set. A small quadratic program projects the policy command onto the nearest point of that set. The projection sits inside the environment transition, so the policy learns under its own corrected commands. The data are 2,000 simulated two-ship encounters, split into 1,400 training and 600 test cases. Nine configurations form a single-variable ladder, each trained with eight fixed seeds.
+
+\abshead{Findings.}On every give-way step where the projection is feasible, directional compliance holds by construction. It does not depend on the training outcome or the random seed. Steps that switch to the fallback branch are not covered. On the test set, the violation count per episode is \TBD\ and the collision rate is \TBD. The ablation gains are significant under a paired signed-rank test. We do not claim the arrival rate as a benefit.
+
+\abshead{Novelty.}To our knowledge, this is the first projection-based safety mechanism that enforces directional COLREGs compliance on continuous control commands. We also give a graded statement of what is proved and of what is not.
+
+\abshead{Practical Applications.}The compliance check is independent of training. The mechanism can sit above an existing controller as a compliance layer for functional verification and liability assessment. The online cost is one small quadratic program per step, so it runs in real time without special hardware.
+
+\vspace{12pt}
+
+\noindent\textbf{Keywords:} COLREGs compliance, safe reinforcement learning, projection-based safety shield, continuous action space, quadratic programming, unmanned surface vehicle
+
+\RaggedRight
+
+\newpage
+
+%==============================================================================
+% 正文 —— 本轮**只做固定开销**（标题页 / 摘要页 / 参考文献），用来量真实剩余额度。
+%
+% 🔴 2026-08-01 实测（本文件这套版式，pdflatex 真编译，不是估算）：
+%   固定开销：11 pt = **5 页**（标题 1 + 摘要 1 + 参考文献 3）· 10 pt = **4 页**（参考文献 2）
+%   正文文字容量：10 pt ≈ 870 词/页 · 11 pt ≈ 644 词/页 · 12 pt ≈ 561 词/页
+%   中文正文 15,717 汉字（含图表标题与图注）· 实测折算率 1.71 汉字/词（本文摘要中英对照：505 字 = 296 词）
+%   ⟹ 中文正文全译 ≈ 9,200 英文词 ⟹ 11 pt 下要 14.3 页，10 pt 下要 10.6 页。
+%
+% ⟹ 20 页总额下的正文文字额度（图表按 04 §九 的 7 页估）：
+%   11 pt：20 − 5 − 7 = **8 页 ≈ 5,150 词** ⟹ 只装得下现有正文的约 **56%**
+%   10 pt：20 − 4 − 7 = **9 页 ≈ 7,830 词** ⟹ 装得下约 **85%**
+%   👉 砍多少取决于字号这个开关，**先定字号再定砍谁**。图表那 7 页要单独实测，别一直用估值。
+%
+% 正文按砍定的清单逐节补进来；节序沿用中文稿：
+%   Introduction / Related Work / Problem Formulation / Methodology /
+%   Experiments / Discussion / Conclusions / Acknowledgements /
+%   Author Contributions / Conflict of Interest / Funding
+%==============================================================================
+
+%==============================================================================
+\section*{References}
+
+\input{_refs}
+
+\end{document}

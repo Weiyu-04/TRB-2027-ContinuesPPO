@@ -16,6 +16,7 @@ __pycache__/
 *.fls
 # xelatex 的原始编译输出（临时）；跟踪的是 *_预览.pdf（人工更新的仓库预览版）
 TRB/Paper/01_论文稿/729-paper-中文版.pdf
+TRB/Paper/01_论文稿/801-paper-英文版.pdf
 
 # 仓库根目录保持干净：论文 PDF 只在 TRB/Paper/01_论文稿/ 下生成一份
 /*.pdf
