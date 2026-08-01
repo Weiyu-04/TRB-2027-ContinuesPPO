@@ -236,11 +236,136 @@ Submitted [Submission Date]\par
 
 
 %==============================================================================
-% 【样章】§4.2 安全动作集与投影 —— 先翻这一节给 user 验语气与句长
+% §3 问题表述 —— 对应中文稿 323–422 行
+%   🔴 砍掉了中文稿的**符号表**（tab:notation，30 余行）。20 页无附录，一张符号表就吃掉近一页；
+%      改为符号在首次出现处随文交代。这是内容取舍，已记在 `英文写作规范.md`。
 %==============================================================================
-% 🔴 §1–§3 尚未译；先把计数器顶到 3，让本章显示为 4，编号与最终结构一致。
-%    §1–§3 写完后**删掉下面这一行**。
-\setcounter{section}{3}
+% 🔴 §1–§2 尚未译；先把计数器顶到 2，让本章显示为 3，编号与最终结构一致。
+%    §1–§2 写完后**删掉下面这一行**。
+\setcounter{section}{2}
+\section{Problem Formulation}
+\label{sec:problem-setup}
+
+\subsection{Vessel Kinematics}
+\label{sec:model}
+
+The controlled vessel is modeled as a point mass with a yaw constraint. Its state is
+$s=[p_x,p_y,\theta,v]^{\!\top}\in\mathbb{R}^4$, which collects position, heading, and speed.
+Its controls are the longitudinal acceleration $a$ and the turn rate $\omega$,
+\begin{equation}
+ \dot s=\bigl[\,v\cos\theta,\ \ v\sin\theta,\ \ \omega,\ \ a\,\bigr]^{\!\top},
+ \qquad u=[a,\omega]^{\!\top}.
+ \label{eq:dyn}
+\end{equation}
+The controls obey $|a|\le a_{\max}$ and $|\omega|\le\omega_{\max}$, and the speed obeys
+$0\le v\le v_{\max}$. A command is held constant over one decision period $\Delta t$.
+Headings and bearings are wrapped to $(-\pi,\pi]$. A relative bearing is positive to
+starboard. The turn rate follows the usual mathematical convention and is positive
+counter-clockwise, so a turn to starboard has $\omega<0$.
+
+The speed bound is applied after the step is integrated, so the speed can briefly exceed
+$v_{\max}$ within a step. Every one-step displacement bound in this paper therefore uses
+$v_{\max}\Delta t+\tfrac12 a_{\max}\Delta t^2$, and the speed at the end of a step is at
+most $v_{\mathrm{bnd}}=v_{\max}+a_{\max}\Delta t$.
+
+Two reasons fix this level of detail. The give-way rules govern changes of course and of
+speed, and Equation~\eqref{eq:dyn} takes both as control commands. The rules can therefore be
+written as constraints on $u$ with nothing in between, and that is what lets the whole
+safety mechanism live in the action space. A finer hydrodynamic model would add
+coefficients that differ by vessel and are hard to identify, and the rule constraints would
+then be entangled with vessel parameters. Wind, current, and waves are not modeled.
+
+\noindent\textbf{Vessel and occupancy.}\ The subject is a large container vessel of length
+$175$~m and beam $25.4$~m. Its limits are $a_{\max}=0.24~\mathrm{m/s^2}$,
+$\omega_{\max}=0.03$~rad/s, and $v_{\max}=9.5$~m/s. The decision period is $10$~s, and an
+episode lasts at most $170$ steps, which is $1{,}700$~s. The circumscribed radius of the
+hull is $88.4$~m and the inscribed radius is $12.7$~m.
+
+The turn rate limit is about $1.7^\circ$ per second. A readily apparent turn of $20^\circ$
+therefore needs more than ten seconds, which is longer than one decision period. The vessel
+maneuvers more slowly than it decides. A safety constraint must look ahead for that reason
+alone.
+
+The hull is represented by a rectangle, and two circles approximate it for two different
+purposes. The circumscribed circle over-approximates the hull, and it supports conditions
+of the form ``contact is impossible''. The inscribed circle under-approximates the hull, and
+it supports conditions of the form ``contact is certain''. One circle in each direction is
+what keeps both kinds of conclusion one-sided. The target vessel is represented by a
+rectangle as well, and it is extrapolated at constant velocity whenever a prediction is
+needed.
+
+\subsection{Observation and Action Spaces}
+\label{sec:obsact}
+
+The observation is a real vector of $27$ entries in four groups. Four entries give the
+state of the own vessel. Six give the relation to the goal. Twelve give the traffic
+situation. Four bearing sectors are used, and each contributes the nearest target vessel in
+it. Each such vessel gives its distance, its relative bearing, and the change of that
+distance over one step. Five are
+termination flags. The observation layer outputs raw physical quantities, and normalization
+is done in the training wrapper. Organizing traffic by sector keeps the dimension
+independent of the number of target vessels. That solves the dimension only. The shield
+deployed here is implemented for a single target vessel, and it raises an error rather than
+running in a degraded mode when more are present.
+
+\noindent\textbf{Two action boxes.}\ The action is the two-dimensional command
+$u=(a,\omega)$, and two boxes have to be distinguished. The policy acts in the narrower
+operating box, whose half-widths are $0.048~\mathrm{m/s^2}$ and $0.018$~rad/s. These are
+exactly the span of the $7\times7$ grid used by the discrete configurations, so the two
+action spaces carry the same control authority and differ only in resolution. The shield
+and the emergency controller act in the wider box of the actuator limits,
+$U_{\mathrm{box}}=\{|a|\le a_{\max}\}\cap\{|\omega|\le\omega_{\max}\}$.
+
+The widening is necessary. A shield confined to the narrow box would declare a step
+infeasible whenever that box and the collision-free constraint disagree, even though the
+step is in fact solvable. The cost is that the applied command can fall outside the policy
+action box. That fact is returned in the observation, and saturation is counted against
+each box separately.
+
+\subsection{Compliance as a Per-Step Constraint}
+\label{sec:problem}
+
+We consider a two-vessel encounter in open water under five assumptions. (A1) Open water,
+with no traffic separation scheme, no static obstacle, and no shoreline constraint. (A2)
+One controlled vessel and one target vessel, both power-driven. (A3) The dynamics of the
+controlled vessel are Equation~\eqref{eq:dyn}, applied with zero-order hold at period
+$\Delta t$. (A4) The current state of the target vessel is available without measurement
+error. (A5) No give-way obligation is already in force at the initial instant.
+
+Assumption (A2) is not a simplification adopted for convenience. It is the scope of the
+convention itself. The rules are written for a pair of vessels
+\citl{imo1972}{IMO 1972}. Three or more vessels can meet at once, and their obligations can then
+conflict. One case is an obligation to hold course for one vessel and to give way to
+another. The convention does not say which obligation prevails.
+
+Let $\rho_t$ be the encounter situation at time $t$. Let
+$U_{\mathrm{colregs}}(\rho_t)\subseteq\mathbb{R}^2$ be the set of commands that the rules
+allow in that situation, and let $U_{\mathrm{cf}}(s_t)$ be the collision-free set. The
+problem is to find a policy
+\begin{equation}
+ \pi:\ S\rightarrow\mathbb{R}^2
+ \quad\text{such that}\quad
+ u_t\in U_{\mathrm{colregs}}(\rho_t)\cap U_{\mathrm{cf}}(s_t)
+ \quad \text{for all } t.
+ \label{eq:problem}
+\end{equation}
+Equation~\eqref{eq:problem} is not the same as writing compliance into the reward. It
+constrains every command that is executed. It does not ask for an expected value to be
+optimal.
+
+When the action set is finite, Equation~\eqref{eq:problem} has a direct solution. Every
+action is enumerated, tested, and masked out if it does not comply. That route needs the
+actions to be enumerable, so it is not compatible with continuous control. Rudder and
+propulsion are continuous quantities, and quantizing them costs both smoothness and
+resolution. This paper replaces enumeration by projection. The give-way clause is a
+half-plane constraint on the command (Section~\ref{sec:rulesets}). The collision-free
+condition can be written as a linear inequality (Section~\ref{sec:proj}). The feasible set
+of Equation~\eqref{eq:problem} is therefore the intersection of a rectangle with a few
+half-planes in the plane, which is a convex polygon. The projection onto a convex set
+exists and is unique, and it is obtained from a very small quadratic program.
+
+
+%==============================================================================
 \section{Methodology}
 
 \noindent\textbf{A note on the guarantees.}\ Three propositions are stated in this section.
