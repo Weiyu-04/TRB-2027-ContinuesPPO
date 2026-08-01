@@ -170,35 +170,35 @@ def xaxis(ax):
 
 # ══════════════════════════════════════════════════════════════════════════════
 def fig4(D):
-    """训练可靠性与样本效率（2×3）。细线＝逐种子，粗线＝中位数，不画分位色带。"""
-    fig, AX = plt.subplots(2, 3, figsize=(PS.COL2, PS.COL2 * 0.55))
-    (a, b, c), (d, e, f) = AX
-    MAIN = ("base", "rr", "disc", "ours")
+    """训练可靠性与样本效率（2×3）。
 
-    def trend_panel(ax, key, title, ylab, ylim, pad, gap=0.058):
-        ax.set_title(title)
-        ax.set_ylim(*ylim)
-        ax.set_xlim(0, XMAX * pad)
-        LS = LabelStack(ax, gap_frac=gap)
+    🔴 三处按 user 2026-08-01 的意见重做：
+       ① **用图例，不再自己在行末标名字**。行末标签要占横向空间，我原来把 xlim 拉到
+          数据末端的 1.6 倍去腾位置，结果右侧空出一大片白——为了标签牺牲画幅，本末倒置。
+          改成整图共用一个图例，横轴收紧到数据末端。
+       ② **消融配置不进本图**。这里回答的是「安全盾要不要付学习速度的代价」，
+          属于主对照的问题；消融另有图 3，混进来只是把线画多。
+       ③ 六格用同一组配置 ⟹ 一个图例管全图，不必每格重复。
+    """
+    MAIN = ("base", "rr", "disc", "ours")
+    fig, AX = plt.subplots(2, 3, figsize=(PS.COL2, PS.COL2 * 0.52))
+    (a, b, c), (d, e, f) = AX
+
+    def trend_panel(ax, key, title, ylab, ylim):
         for tag in MAIN:
             runs = list(D[tag].values())
             if runs:
-                x, y = seed_lines(ax, runs, key, R.ARMS[tag][1])
-                LS.add(x, y, short(tag), R.ARMS[tag][1])
-        LS.draw()
-        ax.set_ylabel(ylab)
-        xaxis(ax)
+                seed_lines(ax, runs, key, R.ARMS[tag][1])
+        ax.set_title(title); ax.set_ylim(*ylim); ax.set_xlim(0, XMAX)
+        ax.set_ylabel(ylab); xaxis(ax)
 
-    trend_panel(a, "到达率%", "(a) Arrival rate", "Arrival rate (%)", (-3, 112), 1.62)
-    trend_panel(b, "碰撞率%", "(b) Collision rate", "Collision rate (%)", (-0.5, 9.5), 1.62)
-    trend_panel(c, "违规次数/局", "(c) COLREGs violations",
-                "Violations per episode", (-0.2, 5.4), 1.62)
+    trend_panel(a, "到达率%", "(a) Arrival rate", "Arrival rate (%)", (-3, 103))
+    trend_panel(b, "碰撞率%", "(b) Collision rate", "Collision rate (%)", (-0.4, 7.5))
+    trend_panel(c, "违规次数/局", "(c) COLREGs violations", "Violations per episode", (-0.15, 4.6))
+    trend_panel(e, "紧急步%", "(e) Emergency-control steps", "Emergency steps (%)", (-0.4, 10.5))
 
     # (d) 达到收敛判据的种子数
-    d.set_title("(d) Seeds reaching the 50% arrival criterion")
-    d.set_ylim(-0.35, 8.7); d.set_xlim(0, XMAX * 1.72)
-    LSd = LabelStack(d, gap_frac=0.082)
-    for tag in ("ours", "disc", "abB", "abG", "ab0"):
+    for tag in MAIN:
         runs = list(D[tag].values())
         if not runs:
             continue
@@ -207,50 +207,37 @@ def fig4(D):
               for i in range(L)]
         ys = [sum(1 for r in runs if i < len(r["trend"])
                   and r["trend"][i]["到达率%"] >= R.CRASH_ARR) for i in range(L)]
-        d.plot(xs, ys, color=R.ARMS[tag][1], linewidth=1.2, drawstyle="steps-post")
-        LSd.add(xs[-1], ys[-1], short(tag), R.ARMS[tag][1])
-    LSd.draw()
-    d.set_ylabel("Seeds (of 8)")
-    d.set_yticks([0, 2, 4, 6, 8])
-    xaxis(d)
-
-    # (e) 紧急控制步占比
-    e.set_title("(e) Emergency-control steps")
-    e.set_ylim(-0.4, 11); e.set_xlim(0, XMAX * 1.66)
-    LSe = LabelStack(e, gap_frac=0.075)
-    for tag in ("disc", "ab0", "ours", "ush"):
-        runs = list(D[tag].values())
-        if runs:
-            x, y = seed_lines(e, runs, "紧急步%", R.ARMS[tag][1])
-            LSe.add(x, y, short(tag), R.ARMS[tag][1])
-    LSe.draw()
-    e.set_ylabel("Emergency steps (%)")
-    xaxis(e)
+        d.plot(xs, ys, color=R.ARMS[tag][1], linewidth=1.4, drawstyle="steps-post")
+    d.set_title("(d) Seeds reaching the 50% criterion")
+    d.set_ylim(-0.35, 8.5); d.set_xlim(0, XMAX)
+    d.set_ylabel("Seeds (of 8)"); d.set_yticks([0, 2, 4, 6, 8]); xaxis(d)
 
     # (f) 值函数可解释方差
-    f.set_title("(f) Value-function explained variance")
-    f.set_ylim(0.86, 1.02); f.set_xlim(0, XMAX * 1.86)
-    LSf = LabelStack(f, gap_frac=0.075)
-    for tag in ("uns", "ours", "ush", "ab0"):
+    for tag in MAIN:
         x, y = curve(list(D[tag].values()), "explained_variance")
         if len(x):
-            f.plot(x / 1e6, y, color=R.ARMS[tag][1], linewidth=1.2)
-            LSf.add(x[-1] / 1e6, y[-1], short(tag), R.ARMS[tag][1])
-    LSf.draw()
-    f.set_ylabel("Explained variance")
-    xaxis(f)
+            f.plot(x / 1e6, y, color=R.ARMS[tag][1], linewidth=1.3)
+    f.set_title("(f) Value-function explained variance")
+    f.set_xlim(0, XMAX); f.set_ylabel("Explained variance"); xaxis(f)
 
-    fig.tight_layout(w_pad=2.2, h_pad=1.4)
+    # ── 整图共用一个图例，放在顶部 ────────────────────────────────────────
+    from matplotlib.lines import Line2D
+    handles = [Line2D([], [], color=R.ARMS[t][1], linewidth=1.8, label=short(t))
+               for t in MAIN]
+    fig.legend(handles=handles, loc="upper center", ncol=len(MAIN),
+               bbox_to_anchor=(0.5, 1.005), frameon=False,
+               handlelength=1.8, columnspacing=1.8, fontsize=7)
+    fig.tight_layout(w_pad=2.0, h_pad=1.3, rect=(0, 0, 1, 0.955))
     PS.save(fig, "Fig4_training_reliability", R.OUT_DIRS)
     plt.close(fig)
 
 
-# ══════════════════════════════════════════════════════════════════════════════
 def fig5(D):
     """安全盾的行为随训练演化 —— 四格用四种图型（user 2026-08-01：组合可视化、信息表达最大化）。
 
-    (a) **堆叠面积**：每一步控制的归口。三条对数折线看不出「加起来是 100%」这层关系，
-        堆叠面积一眼看出投影占掉绝大部分、紧急与兜底只是薄薄两条边。
+    (a) **对数折线 + 图例**：每一步控制的归口。曾试过堆叠面积，但三支的量级差了三个数量级
+        （$93.6\\%$ / $6.2\\%$ / $0.2\\%$），面积图里后两支被压成两条看不清的边，
+        反而不如对数轴上三条线看得清楚。
     (b) **折线**：动作打满率本来就是时间序列，折线最合适，保留。
     (c) **雨云图**（半边密度 + 逐点散布）：投影修正量是一个分布，不是一条曲线；
         画成分布能同时看出中心与形状，比四条抖动的折线信息量大。
@@ -264,47 +251,33 @@ def fig5(D):
     a = fig.add_subplot(gs[0, 0]); b = fig.add_subplot(gs[0, 1])
     c = fig.add_subplot(gs[1, 0]); d = fig.add_subplot(gs[1, 1], projection="polar")
 
-    # ── (a) 控制归口：堆叠面积 ────────────────────────────────────────────
+    # ── (a) 控制归口：对数折线 + 图例 ────────────────────────────────────
     runs = list(D["ours"].values())
     GRP = [("projection", PS.PALETTE["blue_main"], "Projection (QP)"),
            ("emergency", PS.PALETTE["red_strong"], "Emergency"),
            ("fallback", PS.PALETTE["violet"], "Fallback")]
-    xs = None; ys = []
+    symlog_y(a, 0.1, [0, 0.1, 1, 10, 100], 200)
     for g, col, lab in GRP:
         x, y = src_share(runs, g)
-        if xs is None:
-            xs = x / 1e6
-        ys.append(np.interp(xs, x / 1e6, y))
-    a.stackplot(xs, *ys, colors=[g[1] for g in GRP], alpha=0.85,
-                edgecolor="white", linewidth=0.3)
-    a.set_ylim(0, 100); a.set_xlim(xs[0], xs[-1])
-    a.annotate("Projection (QP)", (0.05, 0.45), xycoords="axes fraction",
-               fontsize=6.6, color="white", zorder=6)
-    #: 紧急 6% / 兜底 0.2% 两层太薄，字放不进去 ⟹ 标到右侧轴外，并注明末期占比
-    fin = [y[-1] for y in ys]
-    a.annotate("Emergency  %.1f%%" % fin[1], (1.01, (100 - fin[1] / 2) / 100),
-               xycoords="axes fraction", fontsize=6.2,
-               color=PS.PALETTE["red_strong"], va="center", annotation_clip=False)
-    a.annotate("Fallback  %.2f%%" % fin[2], (1.01, 0.02), xycoords="axes fraction",
-               fontsize=6.2, color=PS.PALETTE["violet"], va="center",
-               annotation_clip=False)
+        if len(x):
+            a.plot(x / 1e6, y, color=col, linewidth=1.4, label=lab)
+    a.set_xlim(0, XMAX)
+    a.legend(loc="center left", fontsize=6.2)
     a.set_title("(a) Which branch produced the control")
     a.set_ylabel("Share of control steps (%)"); xaxis(a)
 
     # ── (b) 动作打满率：折线 ──────────────────────────────────────────────
     b.set_title("(b) Action saturation  (solid: yaw, dashed: accel.)")
-    b.set_xlim(0, XMAX * 1.50)
-    LSb = LabelStack(b, gap_frac=0.078)
+    b.set_xlim(0, XMAX)
     for tag in ("ours", "uns", "disc"):
         col = R.ARMS[tag][1]
         for key, ls in (("roll_yaw_sat_frac", "-"), ("roll_acc_sat_frac", (0, (2.2, 1.4)))):
             x, y = curve(list(D[tag].values()), key)
-            if not len(x):
-                continue
-            b.plot(x / 1e6, 100 * y, color=col, linestyle=ls, linewidth=1.1)
-            if key == "roll_yaw_sat_frac":
-                LSb.add(x[-1] / 1e6, 100 * y[-1], short(tag), col)
-    LSb.draw(); b.set_ylabel("Action saturation (%)"); xaxis(b)
+            if len(x):
+                b.plot(x / 1e6, 100 * y, color=col, linestyle=ls, linewidth=1.1,
+                       label=(short(tag) if key == "roll_yaw_sat_frac" else None))
+    b.legend(loc="center right", fontsize=6.2)
+    b.set_ylabel("Action saturation (%)"); xaxis(b)
 
     # ── (c) 投影修正量：雨云图（半边密度 + 散点）──────────────────────────
     c.set_title("(c) Projection correction magnitude")
@@ -361,11 +334,17 @@ def fig5(D):
     th = np.linspace(0, 2 * np.pi, 200)
     d.plot(th, np.full_like(th, np.log10(em / rmin)),
            color=PS.PALETTE["red_strong"], linewidth=1.1, linestyle=(0, (3, 2)), zorder=5)
-    LEG.append(("$\\rho_5$ emergency (any bearing)", em, PS.PALETTE["red_strong"]))
-    for i, (lab, share, col) in enumerate(LEG):
-        d.annotate("%s  %.2f%%" % (lab, share), (-0.22, 1.10 - 0.075 * i),
-                   xycoords="axes fraction", ha="left", va="top",
-                   fontsize=5.8, color=col, annotation_clip=False)
+    #: 图例（不自己标注）。紧急那条用虚线样式，与图上的虚线环对应
+    from matplotlib.patches import Patch
+    from matplotlib.lines import Line2D
+    hs = [Patch(facecolor=c, alpha=0.62, edgecolor=c, label="%s  %.2f%%" % (l, v))
+          for l, v, c in LEG]
+    hs.append(Line2D([], [], color=PS.PALETTE["red_strong"], linestyle=(0, (3, 2)),
+                     linewidth=1.1,
+                     label="$\\rho_5$ emergency (any bearing)  %.2f%%" % em))
+    d.legend(handles=hs, loc="upper left", bbox_to_anchor=(-0.32, 1.16),
+             frameon=False, fontsize=5.8, handlelength=1.4, handletextpad=0.5,
+             labelspacing=0.30)
     d.set_rlim(0, RMAX * 1.12)
     d.set_rticks([np.log10(x / rmin) for x in (0.01, 0.1, 1, 10, 100)])
     d.set_yticklabels(["", "0.1", "1", "10", "100%"], fontsize=5.0)
