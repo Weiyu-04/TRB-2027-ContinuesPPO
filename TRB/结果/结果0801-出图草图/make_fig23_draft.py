@@ -102,60 +102,79 @@ def fig2(D):
 
 
 def fig3(D):
-    """两项改进的贡献拆解：$2\\times2$ 消融，三个指标。
+    """两项改进的贡献拆解：$2\\times2$ 消融，三格用三种图型。
 
-    🔴 图内不写说明性文字与箭头（user 2026-08-01），编码约定一律进图注。
-    🔴 画法（user 2026-08-01：「我想要的是合理搭配柱状图」）：
-       柱子给中位数（读者一眼比高低），柱上叠**逐种子散点 + 同种子配对灰线**（不藏分散度），
-       误差棒为按种子重采样的自助法 $95\\%$ 区间。
-       柱状图单独用会把 8 颗种子压成一根柱，配对信息全丢——所以是柱 + 点，不是只有柱。
+    🔴 user 2026-08-01 的三条要求，逐条落实：
+       ① **去掉同种子配对连线**——四条配置之间连线把柱面糊住了，遮挡大于信息。
+          配对关系改由「显著性记号 + 同向种子数」承载，那才是配对检验真正的结论。
+       ② **(c) 到达率不再用柱+区间**。该指标有崩掉的种子（到达率 0），分布是双峰的，
+          用一根对称的自助法区间去概括它，误差棒必然拉到底——那不是画得丑，是图型选错。
+          改成**箱线 + 逐种子点**，双峰一眼可见。
+       ③ **补显著性**：每条消融配置与「两项都不改」做**配对 Wilcoxon 符号秩检验**，柱顶标记号。
+          🔴 不用符号检验——它只看方向、丢掉幅度，$n=8$ 时 7/8 同向就顶到 $p=0.07$，
+          会把「转艏增量降 39%」这种明显效应标成 n.s.，与数据说的正好相反。
+          同时标同向种子数（如 7/8），让读者看清 p 背后的样本量。
     """
     ORDER = ["ab0", "abB", "abG", "ours"]
     XTICK = ["neither", "bounded\nonly", "sym. entry\nonly", "both\n(ours)"]
-    PANELS = [("yaw", "(a) Yaw increment", "Yaw increment (norm.)", True),
-              ("违规次数/局", "(b) COLREGs violations", "Violations per episode", True),
-              ("到达率%", "(c) Arrival rate", "Arrival rate (%)", False)]
 
-    fig, AX = plt.subplots(1, 3, figsize=(PS.COL2, PS.COL2 * 0.32))
-    rng = np.random.default_rng(3)                       # 散点横向抖动写死
-    for ax, (key, title, ylab, annot) in zip(AX, PANELS):
+    fig, AX = plt.subplots(1, 3, figsize=(PS.COL2, PS.COL2 * 0.34))
+    rng = np.random.default_rng(3)
+    PANELS = [("yaw", "(a) Yaw increment", "Yaw increment (norm.)", "bar"),
+              ("违规次数/局", "(b) COLREGs violations", "Violations per episode", "bar"),
+              ("到达率%", "(c) Arrival rate", "Arrival rate (%)", "box")]
+
+    for ax, (key, title, ylab, kind) in zip(AX, PANELS):
         vals = [(R.yaw_incr(D, t) if key == "yaw" else R.final(D, t, key)) for t in ORDER]
         seeds = sorted(set.intersection(*[set(v) for v in vals]))
-        med = [float(np.median([v[sd] for sd in seeds])) for v in vals]
+        cols = [R.ARMS[t][1] for t in ORDER]
+        series = [[v[sd] for sd in seeds] for v in vals]
+        jit = rng.uniform(-0.12, 0.12, len(seeds))
 
-        # 柱：中位数
-        for i, t in enumerate(ORDER):
-            ax.bar(i, med[i], width=0.62, color=R.ARMS[t][1], alpha=0.30,
-                   edgecolor=R.ARMS[t][1], linewidth=0.9, zorder=1)
-
-        # 同种子配对灰线 + 逐种子散点（叠在柱面上）
-        jit = {sd: rng.uniform(-0.13, 0.13) for sd in seeds}
-        for sd in seeds:
-            ax.plot([i + jit[sd] for i in range(4)], [v[sd] for v in vals],
-                    color=PS.PALETTE["neutral_mid"], linewidth=0.45, alpha=0.45, zorder=2)
-        top = []
-        for i, t in enumerate(ORDER):
-            y = [vals[i][sd] for sd in seeds]
-            ax.scatter([i + jit[sd] for sd in seeds], y, s=9,
-                       facecolor="white", edgecolor=R.ARMS[t][1], linewidths=0.7, zorder=3)
-            lo, hi = R.boot_ci(y)
-            top.append(max(hi, max(y)))
-            ax.errorbar(i, med[i], yerr=[[med[i] - lo], [hi - med[i]]], fmt="none",
-                        ecolor=PS.PALETTE["neutral_black"], elinewidth=0.9,
-                        capsize=2.2, capthick=0.9, zorder=4)
-
-        # 相对基准配置的变化量，直接标在柱顶
-        if annot:
+        if kind == "bar":
+            med = [float(np.median(y)) for y in series]
+            top = []
+            for i, y in enumerate(series):
+                ax.bar(i, med[i], width=0.60, color=cols[i], alpha=0.28,
+                       edgecolor=cols[i], linewidth=0.9, zorder=1)
+                ax.scatter(i + jit, y, s=9, facecolor="white", edgecolor=cols[i],
+                           linewidths=0.7, zorder=3)
+                lo, hi = R.boot_ci(y)
+                top.append(max(hi, max(y)))
+                ax.errorbar(i, med[i], yerr=[[med[i] - lo], [hi - med[i]]], fmt="none",
+                            ecolor=PS.PALETTE["neutral_black"], elinewidth=0.9,
+                            capsize=2.2, capthick=0.9, zorder=4)
+            hi_all = max(top)
             for i in (1, 2, 3):
-                d = (med[i] / med[0] - 1) * 100
-                ax.annotate(f"{d:+.0f}%", (i, top[i]), xytext=(0, 4),
-                            textcoords="offset points", ha="center", fontsize=6.4,
+                dn, n, p = R.wilcoxon(series[i], series[0])
+                pct = (med[i] / med[0] - 1) * 100
+                ax.annotate("%+.0f%%\n%s  %d/%d" % (pct, R.stars(p), dn, n),
+                            (i, top[i]), xytext=(0, 4), textcoords="offset points",
+                            ha="center", va="bottom", fontsize=5.8, linespacing=1.15,
                             color=PS.PALETTE["neutral_black"])
-            ax.margins(y=0.14)
+            ax.set_ylim(0, hi_all * 1.34)
+        else:
+            bp = ax.boxplot(series, positions=range(4), widths=0.52, showfliers=False,
+                            medianprops=dict(color=PS.PALETTE["neutral_black"], linewidth=1.4),
+                            whiskerprops=dict(linewidth=0.8),
+                            capprops=dict(linewidth=0.8), patch_artist=True)
+            for patch, c in zip(bp["boxes"], cols):
+                patch.set_facecolor(c); patch.set_alpha(0.26)
+                patch.set_edgecolor(c); patch.set_linewidth(0.9)
+            for i, y in enumerate(series):
+                ax.scatter(i + jit, y, s=9, facecolor="white", edgecolor=cols[i],
+                           linewidths=0.7, zorder=3)
+            #: 崩掉的种子数直接标出来——这正是箱体被拉长的原因，不写清楚读者会以为是噪声
+            for i, y in enumerate(series):
+                nc = sum(1 for v in y if v < R.CRASH_ARR)
+                if nc:
+                    ax.annotate("%d collapsed" % nc, (i, min(y)), xytext=(0, -11),
+                                textcoords="offset points", ha="center", va="top",
+                                fontsize=5.6, color=PS.PALETTE["red_strong"])
+            ax.set_ylim(-16, 112)
         ax.set_xticks(range(4))
         ax.set_xticklabels(XTICK, fontsize=6.4)
         ax.set_xlim(-0.62, 3.62)
-        ax.set_ylim(bottom=0)
         ax.set_title(title)
         ax.set_ylabel(ylab)
         ax.grid(axis="x", visible=False)

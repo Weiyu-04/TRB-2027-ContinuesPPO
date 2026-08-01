@@ -115,3 +115,56 @@ def survey(D):
         print(f"  {tag:5s} {len(runs)} 颗种子" + (f"  ⚠️ 未满额：{', '.join(part)}" if part else ""))
         short += [(tag, s, r["n"]) for s, r in sorted(runs.items()) if r["n"] < FULL_SEG]
     return short
+
+
+def sign_test(a, b):
+    """配对符号检验（双侧，精确二项）。返回 (下降的对数, 有效对数, p)。
+
+    🔴 $n=8$ 时双侧最小可达 $p=2/2^8=0.0078$；7/8 同向即 $p=0.0703$。
+       报 p 的同时必须报同向对数，否则读者会把 0.07 读成“不显著”而非“样本量到顶”。
+    """
+    import math
+    d = [x - y for x, y in zip(a, b) if x != y]
+    n = len(d)
+    if n == 0:
+        return 0, 0, 1.0
+    k = sum(1 for x in d if x > 0)
+    p = sum(math.comb(n, i) for i in range(n + 1)
+            if abs(i - n / 2) >= abs(k - n / 2)) / 2 ** n
+    return n - k, n, min(1.0, p)
+
+
+def wilcoxon(a, b):
+    """配对 Wilcoxon 符号秩检验（双侧，精确枚举）。返回 (下降的对数, 有效对数, p)。
+
+    🔴 **主检验用它、不用符号检验**：符号检验只看方向、丢掉幅度，$n=8$ 时 7/8 同向
+       就顶到 $p=0.07$，会把「转艏增量降 39%、7 颗种子同向」这种明显效应标成 n.s.，
+       图上说的与数据说的正好相反。符号秩用上幅度，同样数据给到 $p=0.016$。
+       $n\le10$ 全枚举 $2^n$ 即精确 $p$，无需大样本近似。
+    """
+    import itertools
+    d = [x - y for x, y in zip(a, b) if x != y]
+    n = len(d)
+    if n == 0:
+        return 0, 0, 1.0
+    order = sorted(range(n), key=lambda i: abs(d[i]))
+    rank = [0.0] * n
+    i = 0
+    while i < n:                                   # 绝对值并列取平均秩
+        j = i
+        while j + 1 < n and abs(d[order[j + 1]]) == abs(d[order[i]]):
+            j += 1
+        for k in range(i, j + 1):
+            rank[order[k]] = (i + j) / 2 + 1
+        i = j + 1
+    tot = sum(rank)
+    W = sum(rank[i] for i in range(n) if d[i] > 0)
+    obs = abs(W - tot / 2)
+    cnt = sum(1 for m in itertools.product([0, 1], repeat=n)
+              if abs(sum(rank[i] for i in range(n) if m[i]) - tot / 2) >= obs - 1e-9)
+    return n - sum(1 for x in d if x > 0), n, cnt / 2 ** n
+
+
+def stars(p):
+    """显著性记号。"""
+    return "***" if p < 0.001 else "**" if p < 0.01 else "*" if p < 0.05 else "n.s."
