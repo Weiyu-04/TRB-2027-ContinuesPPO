@@ -1382,9 +1382,11 @@ $2$~m for T-$76$. Seed $s_0$, at the last checkpoint rather than the one selecte
 validation set. Each column is one encounter, with its range and turn rate below the
 track. In (a) and (b) the circle and the square are the starts of the own and the target
 vessel, and the dashed line is the recorded target track. In (c) and (d) the dashed line
-is the closest approach under constant velocity. The shaded band in (e) and (f) is the
-stand-on tolerance of the shield; the offline scorer applies a different test
-(Section~\ref{sec:metrics}).}}
+is the closest approach under constant velocity. The shaded band in (e) and (f) is the stand-on tolerance of the shield; the offline
+scorer applies a different test (Section~\ref{sec:metrics}). In (e) and (f) the two
+discrete configurations are drawn faint so that the turn rate of Ours reads against
+them. Its mean step-to-step change in turn rate is $0.0079$ and $0.0060$~rad/s, against
+$0.0110$ to $0.0131$ for those two.}}
  \label{fig:traj}
 \end{figure}
 %------------------------------------------------------------------------------
@@ -1481,11 +1483,9 @@ constant-time early exit.
 %==============================================================================
 \section*{Acknowledgements}
 
-The authors acknowledge the CommonOcean benchmark framework
-\citl{krasowski2022}{Krasowski and Althoff 2022}, together with the public scenario set
-and temporal-logic rule formalization of \citl{krasowski2024}{Krasowski and Althoff
-2024}. These resources made an evaluation on a common scenario set and a common
-rule-classification basis possible.
+The authors thank the developers of the CommonOcean benchmark framework for releasing
+its scenario database publicly. That database made an evaluation on a common scenario
+set possible.
 
 \section*{Author Contributions}
 

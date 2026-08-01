@@ -188,12 +188,25 @@ def main():
             axr.set_ylabel("Range (km)")
 
         # 行 3：转艏率
+        #: 🔴 2026-08-01 later-15（user：「(e)(f) 淡化对比算法的线，突出我们这条，
+        #   也能看出我们平滑一点」）：三条同样粗细时挤成一团，谁都读不出来。
+        #   两条离散臂降到 0.7 pt + 30% 不透明度压在底层，Ours 加粗到 1.5 pt 画在最上面。
+        #   🔴 **先量了再画**：一步一步的转艏率变化量 |Δω| 的均值
+        #     对遇 T-1848  基线 0.01253 · 掩码 0.01175 · Ours 0.00790
+        #     交叉 T-76    基线 0.01309 · 掩码 0.01102 · Ours 0.00602
+        #   ⟹ 「Ours 更平滑」两个场景都成立，突出它不是靠画法造出来的观感。
+        #   （注意：|ω| 的**均值**不是一律更低——对遇里 Ours 0.00791 反而高于基线 0.00704。
+        #     所以正文与图注只准说"逐步变化量"，不准说"转得更少"。）
         axw = AXW[col]
         axw.axhspan(-EPS_W, EPS_W, color=PS.PALETTE["neutral_mid"], alpha=0.16, zorder=1)
         for tag in SHOW:
             psi = np.array([q["ego_psi"] for q in T[tag][tid]])
             w = ((np.diff(psi) + np.pi) % (2 * np.pi) - np.pi) / DT
-            axw.plot(np.arange(len(w)) * DT / 60.0, w, color=R.ARMS[tag][1], linewidth=0.9)
+            hero = tag == "ours"
+            axw.plot(np.arange(len(w)) * DT / 60.0, w, color=R.ARMS[tag][1],
+                     linewidth=(1.5 if hero else 0.7),
+                     alpha=(1.0 if hero else 0.30),
+                     zorder=(4 if hero else 2))
         axw.set_ylim(-0.023, 0.023)
         axw.set_title(f"({'ef'[col]}) Turn rate")
         axw.set_xlabel("Time (min)")
