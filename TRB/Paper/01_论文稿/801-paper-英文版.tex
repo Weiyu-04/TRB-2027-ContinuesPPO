@@ -217,7 +217,7 @@ Submitted [Submission Date]\par
 %==============================================================================
 \section{Methodology}
 
-\subsection{The Give-Way Clause as a Half-Plane}
+\subsection{COLREGs Obligations as Half-Plane Constraints}
 \label{sec:rulesets}
 
 The rule state machine sorts the current encounter into six situations,
@@ -278,15 +278,19 @@ of $20^\circ$,
 This is the infimum of the compliant turn rate. Any turn at least this large complies, and
 the bound cannot be lowered.
 
-The structure and the thresholds of the predicates are taken from the temporal-logic
-formalization of the maritime rules \citl{krasowski2024}{Krasowski and Althoff 2024}. This paper states the inflation radius and the half-width of the speed set explicitly. It makes the entry into a give-way situation symmetric (Section~\ref{sec:sym}). It then connects the predicate set to a constraint set on continuous commands.
+The predicate structure and the numerical thresholds follow the temporal-logic
+formalization of the maritime rules \citl{krasowski2024}{Krasowski and Althoff 2024}. Three
+details are settled here. The inflation radius and the half-width of the speed set are
+stated explicitly. Entry into a give-way situation is made symmetric
+(Section~\ref{sec:sym}). The predicate set is then mapped to a constraint set on continuous
+commands.
 
 
 \subsection{Safe Control Set and Projection}
 \label{sec:proj}
 
 \subsubsection{One-Step Collision-Free Constraint}
-\label{sec:sym}% 占位：对称化那一节还没写，先把 label 挂这儿免得 undefined
+\label{sec:collfree}
 
 At each decision step the applied command must keep the two hulls apart at the end of the
 next step. Written directly, that condition is not convex. We use a conservative convex inner approximation, built in three steps.
@@ -338,7 +342,7 @@ head-on encounter is the worst case. With the constants of this library the thre
 about $764$~m. The statement covers one step. It is not forward invariance, and it does
 not cover the near field.
 
-\subsubsection{Safe Control Set and the Projection Operator}
+\subsubsection{Projection as a Quadratic Program}
 
 The safe control set is the intersection of three sets,
 \begin{equation}
@@ -376,6 +380,114 @@ on the random seed.
 \noindent\textbf{Scope.}\ Emergency situations are not covered, because their branch
 bypasses the compliance constraint by design. Steps on which the safe control set is empty
 and the fallback is used are not covered either.
+
+
+\subsection{Shielded Policy Optimization}
+\label{sec:rl}
+
+The shield is not applied after the policy as a post hoc correction. The projection of
+Equation~\eqref{eq:qp} is placed inside the environment transition. The policy emits
+$u_{\mathrm{policy}}$, the environment applies $u_{\mathrm{safe}}$, and it returns the
+successor state and the reward. The policy therefore faces the composed transition
+\begin{equation}
+ s_{t+1}\ \sim\ P\bigl(\,\cdot\,\bigm|\, s_t,\ \Pi_{U_{\mathrm{safe}}(s_t,\rho_t)}(u_t)\bigr),
+ \qquad u_t\sim\pi(\cdot\mid s_t),
+ \label{eq:shielded-mdp}
+\end{equation}
+rather than the $P(\cdot\mid s_t,u_t)$ of a post hoc filter. The policy learns on the
+transition it will actually meet, so it adapts to the projection during training instead of
+meeting an unfamiliar filter afterwards.
+
+\noindent\textbf{Learning algorithm.}\ All configurations are trained with proximal policy
+optimization \citl{schulman2017}{Schulman et al. 2017}. The continuous-action
+configurations use its standard form. The discrete-action baselines use its maskable
+variant, because action masking is what makes a discrete shield possible. Both action
+spaces therefore share one policy-gradient algorithm, which removes a source of difference
+between them. The masking itself remains a difference, and it is intrinsic to the discrete
+method rather than a choice made here.
+
+\subsubsection{Reward Function}
+
+The reward is a sum of five terms,
+\begin{equation}
+ r=r_{\mathrm{sparse}}+r_{\mathrm{goal}}+r_{\mathrm{velocity}}+r_{\mathrm{deviate}}+r_{\mathrm{colregs}}.
+ \label{eq:reward}
+\end{equation}
+A sparse terminal term scores arrival, timeout, stalling, and collision, and it charges a
+fixed penalty for every step that enters emergency control. A dense approach term rewards
+the change in distance to the goal over one step. A speed term penalizes speed outside the
+cruise band $[2.5,\,8.0]$~m/s. A cross-track term penalizes lateral deviation from the
+start-to-goal line and saturates at $2{,}000$~m. A soft compliance term decays with
+distance. It is active only in the reward-shaping baseline and in the discrete
+configurations. Every continuous configuration here sets it to zero, because compliance is
+carried by the hard constraint of Equation~\eqref{eq:ucolregs}.
+
+The five terms are taken from \citl{krasowski2024}{Krasowski and Althoff 2024}, with three
+deviations that we declare. The approach term uses the difference of distances between two
+steps. The soft compliance term is rescaled, because its original calibration is set at a
+scale about fifty times smaller than the scenarios used here. One clause of the
+emergency-release test is read by its physical meaning rather than by its literal sign,
+since the two disagree.
+
+\subsubsection{Bounded Action Distribution}
+
+A continuous policy usually emits an unbounded Gaussian and clips the sample to the action
+box before it reaches the environment. That combination conflicts with
+Equation~\eqref{eq:qp}, for two reasons that both come from the clipping. First, common
+implementations feed the clipped action to the environment but the unclipped action to the
+policy gradient. Once the mean leaves the box, moving further out changes no reward, the
+gradient reaches a plateau, and any penalty on action smoothness loses its grip. Second,
+the differential entropy of a Gaussian has no upper bound, while the entropy coefficient is
+a constant. The standard deviation therefore has a one-way channel to grow. Its growth
+pushes still more samples outside the box.
+
+We use a Beta distribution with support on a closed interval. Actions can then never leave
+the box, clipping becomes the identity map, both channels close, the smoothness penalty is
+differentiable everywhere, and the entropy is bounded above. The network emits two reals
+per control axis, and
+\begin{equation}
+ \alpha=\mathrm{softplus}(\tilde\alpha)+1,\quad \beta=\mathrm{softplus}(\tilde\beta)+1,\qquad
+ u=u_{\mathrm{lo}}+(u_{\mathrm{hi}}-u_{\mathrm{lo}})\,z,\quad z\sim\mathrm{Beta}(\alpha,\beta)
+ \label{eq:beta}
+\end{equation}
+gives the shape parameters and the applied action. Evaluation uses the mode instead of a
+sample. The offset of one keeps both shape parameters above unity, and that constraint
+cannot be dropped. Below unity the Beta density is U-shaped and diverges at the two ends,
+and the mode then sits at an endpoint. Because evaluation always takes the mode, such a
+policy would silently corrupt every reported number, and the aggregate metrics would give
+no sign of it.
+
+\subsubsection{Symmetric Entry into Give-Way Situations}
+\label{sec:sym}
+
+In the state machine, entry into a give-way situation is not symmetric. From the
+conflict-free situation it is triggered only by the persistence condition. From the
+stand-on situation a separate immediate condition also applies. We add the symmetric
+branch. When the persistence condition
+does not fire, the immediate condition is checked, and the give-way situation is entered if
+it already holds. The obligation is then recognized at the same moment on both routes. The
+change alters the command that the shield applies, so training and evaluation must use the
+same setting.
+
+A purpose-built case shows why the branch is needed. Suppose an encounter already satisfies
+a give-way predicate at the initial instant. The clause ``does not hold now'' can then never
+be satisfied. The persistence condition never fires, and the encounter is never recognized
+as a give-way situation. On a set of such adversarial cases the persistence route alone
+gives $0$ give-way decision steps. With the immediate branch it gives $201$. These cases are
+synthetic and illustrate the mechanism, so they are reported apart from the main results.
+
+\subsubsection{Training Setup}
+\label{sec:train}
+
+Apart from the entropy coefficient, which is set to $0.01$, and the bounded action
+distribution, every hyperparameter takes the default of the implementation library and is
+left untuned. The libraries are Stable-Baselines3 2.3.2
+\citl{raffin2021}{Raffin et al. 2021} and sb3-contrib 2.3.0, and the advantage is computed
+by generalized advantage estimation \citl{schulman2016}{Schulman et al. 2016}. The discrete
+and continuous configurations agree on every one of these values, so the hyperparameters are
+not a source of difference between them. Running normalization of the observation and the
+reward is not optional. Without it the large-scale approach term in
+Equation~\eqref{eq:reward} drives the policy to a degenerate solution that holds station.
 
 
 %==============================================================================
