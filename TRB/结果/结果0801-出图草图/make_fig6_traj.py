@@ -128,7 +128,19 @@ def main():
     print("载入轨迹…")
     T = load_tracks(tids)
 
-    fig, (a, b, c) = plt.subplots(1, 3, figsize=(PS.COL2, PS.COL2 * 0.30))
+    #: 🔴 2026-08-01 later-11（user）：加一行**拉长的动力学格**。
+    #  理由：全文此前**没有任何一张图画「执行的命令随时间怎么变」**——表 3 只给转艏增量一个
+    #  聚合数字，看不出过程。而这两个会遇里本船都是**直航船**，直航义务正是"保向保速"，
+    #  所以转艏率与航速的时间曲线，直接把「Ours 稳住、两条离散臂来回摆」画出来，
+    #  正是直航违规计数在数的那件事（本文违规量的大头）。
+    #  版面：上排三格（轨迹×2 + 距离），下排两格拉通（转艏率、航速）。
+    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.56))
+    gs = fig.add_gridspec(2, 6, height_ratios=[1.0, 0.82])
+    a = fig.add_subplot(gs[0, 0:2])
+    b = fig.add_subplot(gs[0, 2:4])
+    c = fig.add_subplot(gs[0, 4:6])
+    dax = fig.add_subplot(gs[1, 0:3])
+    eax = fig.add_subplot(gs[1, 3:6])
 
     for ax, ty in ((a, "head-on"), (b, "crossing")):
         tid = pick[ty]
@@ -173,6 +185,32 @@ def main():
     c.set_xlabel("Time (min)")
     c.set_ylabel("Range (km)")
     c.set_ylim(bottom=0)
+
+    # ── (d)(e) 执行命令随时间：转艏率与航速 ────────────────────────────────
+    #: 两个量都由轨迹产物**精确反推**（命令零阶保持 ⟹ ω=Δψ/Δt、v 直接存了）。
+    #  🔴 (d) 里那条淡带是**盾**的直航容差 |ω| ≤ ε_ω；离线判分器判违规用的是
+    #     **义务期内累计航向改变**，是另一个判据（§5.2）——图注必须写明，别让人读混。
+    EPS_W = 0.004363323129985824
+    dax.axhspan(-EPS_W, EPS_W, color=PS.PALETTE["neutral_mid"], alpha=0.16, zorder=1)
+    for tag in SHOW:
+        st = T[tag][tid]
+        psi = np.array([q["ego_psi"] for q in st])
+        dpsi = (np.diff(psi) + np.pi) % (2 * np.pi) - np.pi
+        w = dpsi / DT
+        t = np.arange(len(w)) * DT / 60.0
+        dax.plot(t, w, color=R.ARMS[tag][1], linewidth=1.0, zorder=3)
+        v = np.array([q["ego_v"] for q in st])
+        eax.plot(np.arange(len(v)) * DT / 60.0, v, color=R.ARMS[tag][1], linewidth=1.0,
+                 zorder=3)
+    dax.set_title(f"(d) Turn rate, T-{tid}")
+    dax.set_xlabel("Time (min)"); dax.set_ylabel(r"$\omega$ (rad/s)")
+    dax.annotate(r"$|\omega|\leq\varepsilon_\omega$ (shield, stand-on)", (0.985, EPS_W),
+                 xycoords=("axes fraction", "data"), xytext=(0, 3),
+                 textcoords="offset points", fontsize=5.0, ha="right", va="bottom",
+                 color=PS.PALETTE["neutral_black"])
+    eax.set_title(f"(e) Speed, T-{tid}")
+    eax.set_xlabel("Time (min)"); eax.set_ylabel("Speed (m/s)")
+    #: 图例整图只留一份（在 (c) 里），(a)(b)(d)(e) 共用同一套配色
     c.legend(loc="best", fontsize=5.6, borderpad=0.3)
 
     fig.tight_layout(w_pad=1.6)

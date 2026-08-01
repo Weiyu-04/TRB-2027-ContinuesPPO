@@ -383,10 +383,15 @@ def fig5(D):
     #  ⟹ 宽度必须**就是 COL2**（与图 2/3/4 同宽，缩放系数一致、字号才一致），
     #     "别太大" 要靠**压高宽比**来实现，不是靠缩宽度。
     #  高宽比 0.56 ⟹ 论文里 165×92 mm，与图 2（165×66）图 3（165×56）同一量级。
-    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.42))
+    #: 🔴 2026-08-01 later-11（user：「风玫瑰感觉还有点空」）：(d) 由极坐标玫瑰改**横条图**。
+    #  三条理由：① ρ4 追越在本场景库恒为 0.00%，艉向那半圈天然空着，改画法也填不满；
+    #  ② ρ5 紧急不属于任何方位扇区，只能画成一整圈虚线环——形式与数据对不上；
+    #  ③ 一整格版面只传达 5 个数。换条形后信息密度高得多，且极坐标那个正方形footprint
+    #  不再逼着整图用 0.42 的高宽比 ⟹ 压到 0.34（论文里 165×56 mm）。
+    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.34))
     gs = fig.add_gridspec(2, 2)
     a = fig.add_subplot(gs[0, 0]); b = fig.add_subplot(gs[0, 1])
-    c = fig.add_subplot(gs[1, 0]); d = fig.add_subplot(gs[1, 1], projection="polar")
+    c = fig.add_subplot(gs[1, 0]); d = fig.add_subplot(gs[1, 1])
 
     # ── (a) 控制归口：对数折线 + 图例 ────────────────────────────────────
     runs = list(D["ours"].values())
@@ -446,57 +451,30 @@ def fig5(D):
     c.set_ylabel("Correction (norm.)")
     c.grid(axis="x", visible=False)
 
-    # ── (d) 会遇态势：极坐标玫瑰图 ────────────────────────────────────────
-    #   角度 = 该态势的**定义方位扇区**（公约的舷灯分界），半径 = 实测占比（对数刻度）
-    ROSE = [("2", "$\\rho_2$ head-on",   0.0,  45.0, PS.PALETTE["blue_secondary"]),
-            ("3", "$\\rho_3$ crossing",  67.5,  90.0, PS.PALETTE["teal"]),
-            ("4", "$\\rho_4$ overtaking", 180.0, 90.0, PS.PALETTE["green_3"]),
-            ("1", "$\\rho_1$ stand-on", -67.5,  90.0, PS.PALETTE["blue_main"])]
+    # ── (d) 会遇态势：横条图 ──────────────────────────────────────────────
+    #: 半径改成条长（对数轴），角度这个维度本来就装不下数据（见上方说明）。
+    ROSE = [("2", r"$\rho_2$ head-on", PS.PALETTE["blue_secondary"]),
+            ("3", r"$\rho_3$ crossing", PS.PALETTE["teal"]),
+            ("4", r"$\rho_4$ overtaking", PS.PALETTE["green_3"]),
+            ("1", r"$\rho_1$ stand-on", PS.PALETTE["blue_main"]),
+            ("5", r"$\rho_5$ emergency", PS.PALETTE["red_strong"])]
     runs = list(D["ours"].values())
     tot = collections_counter(runs)
     T = sum(tot.values())
-    d.set_theta_zero_location("N"); d.set_theta_direction(-1)
-    rmin = 1e-3
-    RMAX = np.log10(100 / rmin)
-    #: 四个扇区几乎铺满整圈，圈外没有空位放标签 ⟹ 统一收成轴外的色标块
-    LEG = []
-    for k, lab, ang, width, col in ROSE:
+    ys = list(range(len(ROSE)))[::-1]
+    for y, (k, lab, col) in zip(ys, ROSE):
         share = 100.0 * tot.get(k, 0) / T
-        rr = np.log10(max(share, rmin) / rmin)
-        d.bar(np.radians(ang), rr, width=np.radians(width), color=col, alpha=0.62,
-              edgecolor=col, linewidth=0.8, zorder=3)
-        LEG.append((lab, share, col))
-    #: 紧急态由迫近判据触发、不属于任何方位扇区 ⟹ 画成一圈虚线环，不占扇形
-    em = 100.0 * tot.get("5", 0) / T
-    th = np.linspace(0, 2 * np.pi, 200)
-    d.plot(th, np.full_like(th, np.log10(em / rmin)),
-           color=PS.PALETTE["red_strong"], linewidth=1.1, linestyle=(0, (3, 2)), zorder=5)
-    #: 图例（不自己标注）。紧急那条用虚线样式，与图上的虚线环对应
-    from matplotlib.patches import Patch
-    from matplotlib.lines import Line2D
-    hs = [Patch(facecolor=c, alpha=0.62, edgecolor=c, label="%s  %.2f%%" % (l, v))
-          for l, v, c in LEG]
-    hs.append(Line2D([], [], color=PS.PALETTE["red_strong"], linestyle=(0, (3, 2)),
-                     linewidth=1.1,
-                     label="$\\rho_5$ emergency (any bearing)  %.2f%%" % em))
-    #: 🔴 图例移到极坐标**右侧**（原来在下方）：整图压扁之后纵向最紧、横向反而有余，
-    #  legend 放下面会把玫瑰图挤成一条；放右边正好吃掉极坐标（正方）留出的横向空档。
-    #: 🔴 2026-08-01 later-11：1.14 太近，图例把右侧的 `stbd` 轴标签压住了（user 发现）。
-    #  推到 1.30，图例与极坐标之间留出轴标签的位置。
-    d.legend(handles=hs, loc="center left", bbox_to_anchor=(1.30, 0.5),
-             frameon=False, fontsize=5.2, handlelength=1.1, handletextpad=0.35,
-             labelspacing=0.28, ncol=1)
-    d.set_rlim(0, RMAX * 1.12)
-    d.set_rticks([np.log10(x / rmin) for x in (0.01, 0.1, 1, 10, 100)])
-    d.set_yticklabels(["", "0.1", "1", "10", "100%"], fontsize=4.8)
-    #: 🔴 123° 落在右下，与 `stbd` 轴标签和图例挤成一团（三者叠字，user 发现）。
-    #  改到 205°（艉左）——ρ4 追越在本场景库恒为 0.00%，那一带本来就是空的。
-    d.set_rlabel_position(205)
-    d.set_xticks(np.radians([0, 90, 180, 270]))
-    d.set_xticklabels(["ahead", "stbd", "astern", "port"], fontsize=5.8)
-    d.tick_params(pad=1.0)
-    d.set_title("(d) Encounter situations", pad=8)
-    d.grid(color="#DDDDDD", linewidth=0.5)
+        d.barh(y, max(share, 1e-3), color=col, alpha=0.75, edgecolor=col,
+               linewidth=0.6, height=0.62, zorder=3)
+        d.text(max(share, 1e-3) * 1.25, y, ("%.2f%%" % share), va="center",
+               fontsize=5.4, color=PS.PALETTE["neutral_black"], zorder=4)
+    d.set_xscale("log")
+    d.set_xlim(8e-4, 60)
+    d.set_yticks(ys)
+    d.set_yticklabels([l for _, l, _ in ROSE], fontsize=5.8)
+    d.set_xlabel("Share of projection steps (%)")
+    d.set_title("(d) Encounter situations")
+    d.grid(axis="y", visible=False)
 
     fig.tight_layout(w_pad=1.8, h_pad=1.4)
     PS.save(fig, "Fig5_shield_behaviour", R.OUT_DIRS)

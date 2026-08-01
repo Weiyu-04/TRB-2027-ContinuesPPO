@@ -121,9 +121,9 @@
 % 🔴 2026-08-01 later-10 页数账：浮动体与正文之间默认留 ~12pt+glue，全稿 6 图 4 表 ⟹
 %    这一项就占掉十几行。收到 8pt（视觉上仍分得开），是「腾行数靠排版参数、不靠抠字」
 %    的又一次应用（`03` L243-续53 B / 续55 F）。caption 与图之间同理收到 4pt。
-\setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
-\setlength{\intextsep}{8pt plus 2pt minus 2pt}
-\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\setlength{\textfloatsep}{6pt plus 2pt minus 2pt}
+\setlength{\intextsep}{6pt plus 2pt minus 2pt}
+\setlength{\floatsep}{6pt plus 2pt minus 2pt}
 \setlength{\abovecaptionskip}{4pt}
 \setlength{\belowcaptionskip}{2pt}
 \usepackage{placeins}   % \FloatBarrier：把待排的图表在此之前全部排掉，别溢进参考文献
@@ -514,12 +514,12 @@ a rectangle as well, extrapolated at constant velocity whenever a prediction is 
 \subsection{Observation and Action Spaces}
 \label{sec:obsact}
 
-The observation is a real vector of $27$ entries in four groups. Four give the state of
-the own vessel, six the relation to the goal, twelve the traffic situation, and five are
-termination flags. The traffic group uses four bearing sectors. Each contributes the nearest target vessel
-in it, with its distance, its relative bearing, and the change of that distance over one
-step. The observation layer outputs raw
-physical quantities and the training wrapper normalizes them. Organizing traffic by
+The observation is a real vector of $27$ entries in four groups. They are four for the
+state of the own vessel, six for the relation to the goal, twelve for the traffic
+situation, and five termination flags. The traffic group uses four bearing sectors, each contributing
+the nearest target vessel in it with its distance, its relative bearing, and the change
+of that distance over one step. The observation layer outputs raw physical quantities
+and the training wrapper normalizes them. Organizing traffic by
 sector keeps the dimension independent of the number of target vessels. This keeps the observation dimension fixed, but it does not extend the shield beyond one
 target vessel. The shield deployed here is implemented for a single target vessel, and
 it raises an error rather than running in a degraded mode when more are present.
@@ -589,17 +589,12 @@ exists and is unique, and it is obtained from a very small quadratic program.
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig1_overview.pdf}
- \caption{Overview of the method. \capnote{A $27$-dimensional observation enters the policy
- network, which emits a desired control command $u_{\mathrm{policy}}$ from a Beta
- distribution with bounded support. The rule state machine assigns the encounter to one of
- six situations. The safe control set $U_{\mathrm{safe}}$ is the intersection of the actuator
- limits, the half-plane of compliant directions, and the one-step collision-free constraint.
- A quadratic program projects $u_{\mathrm{policy}}$ onto $u_{\mathrm{safe}}$, which is then
- passed to the environment. The projection is part of the environment transition, so the
- shield sits inside the training loop. The two bypasses are exclusive. An emergency situation
- goes straight to the emergency controller, and every other situation falls back only when
- $U_{\mathrm{safe}}$ is empty. The panel at the lower right sketches the three constraint sets in the control plane.
-MLP denotes a multilayer perceptron.}}
+ \caption{Overview of the method. \capnote{The safe control set $U_{\mathrm{safe}}$ is the intersection of the actuator
+limits, the half-plane of compliant directions, and the one-step collision-free
+constraint. The projection is part of the environment transition, so the shield sits
+inside the training loop. The two bypasses are exclusive: an emergency situation goes
+straight to the emergency controller, and every other situation falls back only when
+$U_{\mathrm{safe}}$ is empty. MLP denotes a multilayer perceptron.}}
  \label{fig:overview}
 \end{figure}
 %------------------------------------------------------------------------------
@@ -613,12 +608,12 @@ cases it does not cover.
 \subsection{COLREGs Obligations as Half-Plane Constraints}
 \label{sec:rulesets}
 
-The rule state machine sorts the current encounter into six situations,
+The rule state machine sorts the encounter into six situations,
 \begin{equation*}
 \rho\in\{\rho_0\ \text{conflict-free},\ \rho_1\ \text{stand-on},\ \rho_2\ \text{head-on},\
 \rho_3\ \text{crossing},\ \rho_4\ \text{overtaking},\ \rho_5\ \text{emergency}\},
 \end{equation*}
-and the decision is a conjunction of three groups of conditions. Each condition is a
+The decision is a conjunction of three groups of conditions. Each condition is a
 predicate, that is, a named test on the two states that returns true or false.
 
 The first group is the bearing sector, taken along the sidelight boundaries of the
@@ -771,7 +766,28 @@ projection of the policy command onto that set,
 The feasible set is an intersection of half-planes, so it can be written as $U_{\mathrm{safe}}=\{u:Au\le b\}$. The first four rows are the actuator limits. The fifth is the compliant-direction
 half-plane
 of Equation~\eqref{eq:ucolregs}, which is a single half-plane in every situation. The
-sixth is the collision-free constraint of Equation~\eqref{eq:ucf}. The program has two variables and at most six constraints. It is small enough to solve online at every decision step.
+sixth is the collision-free constraint of Equation~\eqref{eq:ucf}. The program has two variables and at most six constraints. It is small enough to solve online at every decision step. Algorithm~\ref{alg:step} states one whole decision step, including the two branches that carry no guarantee.
+
+\begin{algorithm}[htbp]
+\caption{One shielded decision step}
+\label{alg:step}
+\begin{algorithmic}[1]
+\Require own state $s_e$, target state $s_m$, policy command $u_{\mathrm{policy}}$
+\Ensure applied command $u_{\mathrm{applied}}$
+\State $\rho \gets \textproc{Situation}(s_e,s_m)$ \Comment{one of six, Equation~\eqref{eq:situations}}
+\If{$\rho=\rho_5$} \Comment{emergency, carries no guarantee}
+  \State \Return $\textproc{EmergencyController}(s_e,s_m)$
+\EndIf
+\State $U_{\mathrm{colregs}} \gets$ compliant set for $\rho$ \Comment{Equation~\eqref{eq:ucolregs}; a single half-plane or an interval}
+\State $u_{\mathrm{nom}} \gets \Pi_{U_{\mathrm{box}} \cap U_{\mathrm{colregs}}}(u_{\mathrm{policy}})$ \Comment{linearization point}
+\State $(g,h) \gets \textproc{CollisionFree}(s_e,s_m,u_{\mathrm{nom}})$ \Comment{Equation~\eqref{eq:ucf}}
+\State $U_{\mathrm{safe}} \gets U_{\mathrm{box}} \cap U_{\mathrm{colregs}} \cap \{u: g^{\!\top}u \le h\}$ \Comment{a convex polygon}
+\If{$U_{\mathrm{safe}}=\emptyset$} \Comment{fallback, carries no guarantee}
+  \State \Return $\textproc{Fallback}(s_e,s_m)$
+\EndIf
+\State \Return $\arg\min_{u \in U_{\mathrm{safe}}} \lVert u-u_{\mathrm{policy}}\rVert_2^2$ \Comment{Equation~\eqref{eq:qp}, two variables}
+\end{algorithmic}
+\end{algorithm}
 
 \begin{prop}[Directional compliance on every give-way step]\label{prop:comply}
 Consider any decision step that the rule state machine assigns to a give-way situation and
@@ -796,27 +812,23 @@ and the fallback is used are not covered either.
 \subsubsection{Fallback and the Unavoidable-Collision Criterion}
 \label{sec:fallback}
 
-When the safe control set is empty, the projection has no solution. A substitute rule then
-supplies the command. We call it the fallback, and it carries no guarantee. The fallback
-branches on the encounter situation. It does not try a fixed list of options in order. The
-two branches below are mutually exclusive.
+Lines 2 and 11 of Algorithm~\ref{alg:step} are the two branches that carry no guarantee.
+They are mutually exclusive.
 
-\noindent\textbf{Emergency branch.}\ An emergency situation takes a separate path. No
-collision-free constraint is built, and Equation~\eqref{eq:qp} is not solved. A stateful
-geometric controller supplies the command instead, and its lifetime is one emergency event.
-It has three modes. A near head-on approach ahead tracks a lateral point fixed at the
-onset of the emergency. If acceleration alone can clear a target vessel astern, the controller follows a
-straight-line escape inside the reaction window. Every other case tracks a point that
-moves with the target vessel. One position-tracking law converts each of the three modes
-into a control command. This controller offers no guarantee. Its purpose is a defined behavior once the
-emergency situation has been declared.
+\noindent\textbf{Emergency branch.}\ A stateful geometric controller supplies the
+command, and its lifetime is one emergency event. It has three modes. A near head-on approach ahead tracks a lateral point fixed at the
+onset. A target vessel astern that acceleration alone can clear takes a straight-line
+escape inside the reaction window. Every other case tracks a point that moves with the
+target vessel. One position-tracking
+law converts each mode into a control command. Its purpose is a defined behavior once
+the emergency situation has been declared.
 
-\noindent\textbf{Other situations.}\ Outside an emergency situation the fallback is used
-only when the safe control set is empty. If the linearization gives no usable separation direction, the command is projected onto
-the action box alone. Otherwise the direction constraint is relaxed, and if that still
-leaves no feasible command the fallback minimizes the collision risk. Both of those
-branches solve on the actuator limits, so the turn rate can leave the policy action box
-and saturation is reported against each box separately.
+\noindent\textbf{Fallback.}\ If the linearization gives no usable separation direction,
+the command is projected onto the actuator limits alone. Otherwise the direction
+constraint is relaxed, and if that still leaves no feasible command the fallback
+minimizes the collision risk. Both branches solve on the actuator limits, so the turn
+rate can leave the policy action box and saturation is reported against each box
+separately.
 
 These branches almost never fire on this scenario library. With course and speed held,
 the median closest center distance is about $1{,}300$~m, so the safe control set is
@@ -1033,15 +1045,12 @@ effects of those three steps can only be read jointly with their companion varia
 \end{table}
 %------------------------------------------------------------------------------
 
-\noindent\textbf{What the unshielded continuous configuration can show.}\ A
-continuous-action configuration without a shield can only take the plainest form, namely an
-unbounded Gaussian, an asymmetric give-way entry, and no shaping. Giving it the
-continuous-only shaping would break the symmetry with the discrete baseline and the
-attribution would fail. The unbounded Gaussian also pushes many samples past the action box. The shield
-comparison therefore uses the plainest continuous configuration, and the measured
-difference between the discrete baseline and that configuration can be negative. The
-comparison is specific to this baseline and is not a general bound on the effect of
-shielding.
+\noindent\textbf{The unshielded continuous configuration.}\ Without a shield this
+configuration can only take the plainest form: an unbounded Gaussian, an asymmetric
+give-way entry, and no shaping. Giving it the continuous-only shaping would break the
+symmetry with the discrete baseline. The measured difference between the discrete baseline and this configuration can
+therefore be negative. The comparison is specific to this baseline rather than a general
+bound on the effect of shielding.
 
 \subsection{Metrics and Evaluation Protocol}
 \label{sec:metrics}
@@ -1243,14 +1252,12 @@ zero is an observation and not a guarantee.
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig4_training_reliability.pdf}
- \caption{Training curves. \capnote{Thick lines are medians and shaded bands are
- interquartile ranges over \textbf{converged seeds only}, because a diverged seed pulls the
- band to zero. The fraction in the legend is the number of converged seeds out of eight.
- Panels (a) to (c) and (f) are recorded once per trajectory batch on the training
-scenarios, so they carry the variation caused by sampled actions. Panel (d) is measured
-on the validation set once per checkpoint, which is why it has fewer points. Panel (e)
-counts all eight runs. Because panels (a) to (d) and (f) exclude nonconverged runs, they
-describe learning speed among the converged runs only. \textbf{The reward
+ \caption{Training curves. \capnote{Thick lines are medians and shaded bands are interquartile ranges over \textbf{converged
+runs only}, so the panels describe learning speed among those runs. The fraction in the
+legend is the number of converged runs out of eight. Panels (a) to (c) and (f) are
+recorded once per trajectory batch on the training scenarios and carry the variation
+caused by sampled actions. Panel (d) is measured on the validation set once per
+checkpoint. Panel (e) counts all eight runs. \textbf{The reward
  function differs across configurations, so the level in panel (a) is not compared across
  them.}}}
  \label{fig:curves}
@@ -1298,10 +1305,9 @@ only. They are not a comparison against another method.}
  % 3.9 in 试过，高度是齐了，但字号缩到原生 62%，(b)(d) 两格图例太小 ⟹ 退到 4.4 in 折中。
  % **图解冻后正解是重画成更扁的版面（2x2 改 1x4 或加宽），不是继续缩。**
  \includegraphics[width=\linewidth]{figs/fig5_shield_behaviour.pdf}
- \caption{Behavior of the shield. \capnote{In panel (d) the angle is the sector in which
- the convention defines each situation, \textbf{not} the measured bearing distribution of
- target vessels, and the radius is logarithmic. This figure is collected during training
- rather than at evaluation.}}
+ \caption{Behavior of the shield. \capnote{Panel (d) is the share of projection steps in
+each situation, on a logarithmic scale. This figure is collected during training rather
+than at evaluation.}}
  \label{fig:shield}
 \end{figure}
 
@@ -1326,11 +1332,12 @@ alone. Ours records $0.53$ violations per episode against $4.95$
 for the control barrier function filter at its best setting, which is a factor of $9.3$.
 Almost all of that gap is in stand-on violations, at $0.36$ against $4.48$.
 Figure~\ref{fig:traj} shows tracks from two encounters of the test set, one head-on and
-one crossing. Three seeds were declared in advance for trajectory recording, and $s_0$
-is the first of them. In both encounters the own vessel is the stand-on vessel. Ours holds a straighter track
-while the two discrete configurations turn away and back, which is what the stand-on
-violation count measures. Panel (c) shows a similar closest approach for all three, so
-the difference is in the course held rather than in the clearance achieved.
+one crossing. Three seeds were declared in advance for trajectory recording, and $s_0$ is the first of
+them. Both scenarios are the tightest constant-velocity approaches of their type, so an
+avoiding action matters most there. The three configurations differ mainly in how much
+course they give up to keep clear. The unshielded discrete baseline stays within $21$
+and $28$ degrees of its initial heading and passes at $613$ and $718$~m. Ours turns by
+up to $53$ and $64$ degrees and passes at $1{,}150$ and $889$~m.
 
 %------------------------------------------------------------------------------
 \begin{table}[htbp]
@@ -1385,14 +1392,17 @@ terminal heading gate.
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig6_trajectories.pdf}
- \caption{Tracks of three configurations in two encounters. \capnote{Scenarios are picked by
- geometry alone and never by outcome. For each encounter situation the scenario was selected by the smallest closest approach
-under constant velocity. That distance is $7$~m for T-$1848$ and $2$~m for T-$76$. The seed is $s_0$, one of
- the three declared in advance, and the checkpoint is the last one of the run rather than the
- one selected on the validation set. The open circle marks the start of the own vessel. The square marks the start of the
-target vessel. The dashed line shows the recorded track of the target vessel. In (c) the dot marks the closest approach reached by each configuration and
- the dashed line is the closest approach under constant velocity. \textbf{This figure is a
- qualitative illustration and carries no quantitative claim.}}}
+ \caption{Tracks of three configurations in two encounters. \capnote{Scenarios are picked by geometry alone and never by outcome: for each encounter
+situation, the smallest closest approach under constant velocity, which is $7$~m for
+T-$1848$ and $2$~m for T-$76$. The seed is $s_0$ and the checkpoint is the last one of
+the run rather than the one selected on the validation set. The open circle and the
+square mark the start of the own vessel and of the target vessel, and the dashed line is
+the recorded track of the target vessel. In (c) the dot marks the closest approach reached by each configuration and the dashed
+line is the closest approach under constant velocity. Panels (d) and (e) give the turn
+rate and the speed of the own vessel over the same encounter, recovered from the
+recorded states. The shaded band in (d) is the stand-on tolerance used by the shield;
+the offline scorer counts a violation from the heading change accumulated over an
+obligation period, which is a different test (Section~\ref{sec:metrics}).}}
  \label{fig:traj}
 \end{figure}
 %------------------------------------------------------------------------------
