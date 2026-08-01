@@ -184,8 +184,11 @@ Shanghai Jiao Tong University, Shanghai, 200240, China\par
 Email: qianbing\_li@sjtu.edu.cn\par
 \vspace{12pt}
 
-Word Count: \TBD\ words + \TBD\ table(s) $\times$ 250 = \TBD\ words\par
-Total Number of Pages: \TBD\par
+% 🔴 这两行**不要手数**。改完稿子重新编译后跑：
+%    python3 结果/结果0801-英文版/count_words.py Paper/01_论文稿/801-paper-英文版.tex
+%    把它打出来的两行原样贴回来。口径写在那个脚本的文档字符串里。
+Word Count: 10,932 words + 4 table(s) $\times$ 250 = 11,932 words\par
+Total Number of Pages: 20\par
 \vspace{24pt}
 
 Submitted [Submission Date]\par
@@ -1242,8 +1245,9 @@ bounded-only configuration, at $0.066$. That ordering matches the turn increment
 Figure~\ref{fig:ablation}.
 
 \noindent\textbf{Online cost.}\ The projection is one quadratic program with two variables and at most six constraints.
-The timings below come from a single thread of the $32$-core Linux server that ran the
-evaluation (\TBD), over $1{,}872$ decision steps of the trained policy. The median solve
+The timings below come from one thread of an AMD EPYC 9654 processor, on the Linux
+instance with $32$ allocated virtual cores that ran the evaluation. They cover $1{,}872$
+decision steps of the trained policy. The median solve
 time is $4.11$~ms and the $99$th percentile is $8.85$~ms. The forward pass of the policy
 adds a median of $0.44$~ms. A whole decision step, including the environment, has a
 median of $5.30$~ms and a $99$th percentile of $10.14$~ms. The decision period is
