@@ -76,7 +76,8 @@ def fig2(D):
     a.yaxis.set_minor_locator(mt.NullLocator())
     a.set_xlabel("Arrival rate (%)")
     a.set_ylabel("COLREGs violations per episode")
-    a.set_title("(a) Safety\u2013efficiency trade-off")
+    #: 🔴 面板标题不用连接号（规范：破折号只准用在数字区间）；措辞与图注统一
+    a.set_title("(a) Safety and efficiency")
 
     # ── (b) 逐种子碰撞率 ──────────────────────────────────────────────────
     tags = list(R.ARMS)

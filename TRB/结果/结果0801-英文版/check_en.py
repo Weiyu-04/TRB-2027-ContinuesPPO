@@ -144,8 +144,15 @@ def main():
     m = re.search(r"\\section\*\{Abstract\}(.*?)\\noindent\\textbf\{Keywords", doc, re.S)
     abstract = m.group(1) if m else ""
     # 🔴 正文 = 摘要的 Keywords 之后（标题页的作者块不是句子，算进去会把中位句长打成 100+）
-    k = doc.find(r"\noindent\textbf{Keywords")
-    body = doc[doc.index("\\newpage", k):] if k > 0 and "\\newpage" in doc[k:] else doc
+    # 🔴 正文起点：优先按 §1 定位。原来靠 Keywords 行定位，而关键词已按 2027 投稿清单
+    #    从摘要页删掉（清单：摘要页除摘要外不得有其它信息）⟹ 那个锚点会失效，
+    #    失效后 body 退化成整份文档，标题页的作者块会被当成句子、句长检查全是假阳性。
+    k = doc.find(r"\section{Introduction}")
+    if k < 0:
+        k = doc.find(r"\noindent\textbf{Keywords")
+        body = doc[doc.index("\\newpage", k):] if k > 0 and "\\newpage" in doc[k:] else doc
+    else:
+        body = doc[k:]
 
     text = strip_tex(doc)
     low = text.lower()

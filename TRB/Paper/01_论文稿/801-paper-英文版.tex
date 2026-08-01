@@ -129,7 +129,9 @@
 \newcommand{\abshead}[1]{\textbf{#1}\ }
 
 %--- 参考文献：Chicago 作者-年份、按第一作者姓氏字母序、悬挂缩进、不编号 ---------
-\newcommand{\refitem}[1]{\par\begingroup\emergencystretch=3em\sloppy\noindent\hangindent=0.5in\hangafter=1 #1\par\endgroup}
+% 悬挂缩进 0.5in → 0.25in：40 条文献每条都在 0.5in 处折行，收窄后整表省下若干行，
+% 正好把最后那一行溢出的参考文献收回第 20 页。Chicago 体例没规定缩进宽度，0.25in 仍是清晰的悬挂缩进。
+\newcommand{\refitem}[1]{\par\begingroup\emergencystretch=3em\sloppy\noindent\hangindent=0.25in\hangafter=1 #1\par\endgroup}
 \newcommand{\cit}[1]{(#1)}
 \newcommand{\citp}[2]{(#1 #2)}
 %--- 可跳转引用（user 要求：文献可点击，引用文字保持黑色；hyperref 已是 hidelinks）------
@@ -188,6 +190,8 @@ Shanghai Jiao Tong University, Shanghai, 200240, China\par
 Email: qianbing\_li@sjtu.edu.cn\par
 \vspace{12pt}
 
+% 🔴 页数改了要跟着改。核数用：
+%    python3 结果/结果0801-英文版/count_words.py Paper/01_论文稿/801-paper-英文版.tex
 Total Number of Pages: 20\par
 \vspace{24pt}
 
@@ -222,7 +226,10 @@ Submitted July 31, 2026\par
 
 \endgroup
 
-\noindent\textbf{Keywords:} COLREGs compliance, safe reinforcement learning, projection-based safety shield, continuous action space, quadratic programming, unmanned surface vehicle
+% 🔴 关键词不放在摘要页 —— 2027 TRB 投稿清单：摘要页除摘要外不得有其它信息；
+%    官方 Word 样例的摘要页也没有 Keywords。关键词改在 Editorial Manager 里单独填：
+%    COLREGs compliance, safe reinforcement learning, projection-based safety shield,
+%    continuous action space, quadratic programming, unmanned surface vehicle
 
 
 \newpage
@@ -1023,12 +1030,10 @@ episode return is never compared across them.
 \noindent\textbf{How violations are counted.}\ Violations do not come from the situation
 decision of the shield. An offline scorer that sees only the trajectory re-decides at each step, from the bare
 situation predicates, whether the own vessel is under a stand-on or a give-way
-obligation. A stand-on
-violation is counted per step, once the signed heading change accumulated over the
-obligation period exceeds the stand-on tolerance, and the accumulator is reset when the
-obligation ends. A give-way violation is counted per encounter, and an encounter counts as
-a violation only when no turn in the required direction ever reaches the readily apparent
-threshold. The scorer applies one rule to this method and to every baseline, including the
+obligation. A stand-on violation is counted per step, once the signed heading change accumulated
+over the obligation period exceeds the tolerance. The accumulator resets when the
+obligation ends. A give-way violation is counted per encounter, and only when no turn in the required
+direction reaches the readily apparent threshold. The scorer applies one rule to this method and to every baseline, including the
 geometric controllers that have no state machine, so the comparison is made under one
 condition.
 
@@ -1283,8 +1288,8 @@ The answer narrows the defensible claim to one dimension. The collision rate doe
 also reaches $0.00\%$ here. The arrival rate and the smoothness columns are governed by
 the terminal constraint and by the control range, and neither supports a reading in
 favor of Ours. The real difference is in COLREGs violations, and almost all of it
-comes from stand-on violations. These controllers aim only at avoiding contact, so they keep
-maneuvering during periods in which the rules require course and speed to be held.
+comes from stand-on violations. These controllers aim only at avoiding contact, so they keep maneuvering while the rules
+require course and speed to be held.
 Violations are decided by the offline scorer from the bare situation predicates, so the
 comparison is made under one condition. The claim of this paper against geometric methods
 rests on this dimension alone. Ours records $0.53$ violations per episode against $4.95$
@@ -1363,11 +1368,10 @@ one crossing.
 \label{sec:discussion}
 
 \subsection{Two Points about the Mechanism} \noindent\textbf{Both refinements belong to
-the continuous action space.}\ A quantized action space has no samples pushed past the
-action box, and it has no channel whose differential entropy is unbounded above. Both
-problems appear only after a COLREGs shield is moved into a continuous action space. The
-ablation is therefore not the tuning of two hyperparameters. It repairs two defects
-created by that move. \noindent\textbf{Recursive feasibility is not claimed.}\ A
+the continuous action space.}\ A quantized action space has no samples pushed past the action box, and no channel whose
+differential entropy is unbounded above. Both problems appear only once a COLREGs shield
+is moved into a continuous action space. The ablation therefore repairs two defects
+created by that move, rather than tuning two hyperparameters. \noindent\textbf{Recursive feasibility is not claimed.}\ A
 reactive barrier function shield has no recursive feasibility proof under a $10$~s
 zero-order hold. The clearable set of this work suggests one route to that property. The closed-loop
 integration is not finished, so it is stated as a design direction and not as a
@@ -1409,22 +1413,19 @@ holds only among configurations that run the same penalty.
 \subsection{What This Means for Putting Autonomous Vessels into Service}
 
 Making compliance a projectable hard constraint changes more than the behavior of the
-policy. It changes how this layer can be reviewed. When compliance is induced by training,
-verification can only be statistical. A sample of scenarios is run, a violation frequency is
-reported, and the conclusion moves with every version of the policy. When compliance holds
-by construction, the object of verification becomes the constraint itself. A reviewer checks
-whether the state machine classifies the situation correctly, whether the half-plane points
-the way the clause requires, and whether the projection lands inside the feasible set. All
-three can be checked step by step, and none of them depends on the training outcome. For
-type approval and for accident review this is the more workable form. The reviewer does not
-need to reproduce the training run.
+policy. It changes how this layer can be reviewed. When compliance is induced by
+training, verification is statistical: a sample of scenarios is run, a violation
+frequency is reported, and the conclusion moves with every version of the policy. When compliance holds
+by construction, the object of verification becomes the constraint itself. A reviewer checks whether the state machine classifies the situation correctly, whether
+the half-plane points the way the clause requires, and whether the projection lands
+inside the feasible set. All three can be checked step by step and none depends on the
+training outcome, so the reviewer does not need to reproduce the training run. For type
+approval and accident review this is the more workable form.
 
-The mechanism also does not require the existing control system to be replaced. It accepts a
-desired control command from any source and returns the nearest compliant command. It can
-therefore sit as a separate compliance layer above an existing autopilot or path-following
-controller. Its online cost is one quadratic program per step, with two variables and at most
-six constraints, and it needs no dedicated hardware. Deployment on current shipboard
-computing platforms is realistic.
+The mechanism also does not require the existing control system to be replaced. It accepts a desired control command from any source and returns the nearest compliant
+one. It can therefore sit as a compliance layer above an existing autopilot or
+path-following controller. Its online cost is one quadratic program per step and it
+needs no dedicated hardware, so deployment on current shipboard platforms is realistic.
 
 %==============================================================================
 % §7 结论 —— 对应中文稿 945–952 行
@@ -1440,8 +1441,8 @@ The give-way clause is exactly a half-plane in the control plane. The premise th
 safe set must be enumerated can therefore be replaced by the premise that it is convex. A
 projection-based safety shield is therefore brought to maritime COLREGs under continuous
 control. Directional compliance on every give-way step where the projection is feasible holds
-by construction, independently of the training outcome and of the seed. Any behavioral rule
-that can be written as a convex constraint in the action space can follow the same route.
+by construction, independently of the training outcome and of the seed. Any rule that can be written as a convex constraint in the action space can follow the
+same route.
 
 On the official test set of $600$ scenarios the median violation count of Ours is $0.53$
 per episode. The discrete shielded baseline records $1.16$ and the strongest geometric
@@ -1457,9 +1458,9 @@ velocity, and a maneuvering target vessel voids them. Neither the arrival rate n
 is claimed as a benefit, and smoothness cannot be attributed across action spaces because the
 action-increment penalty is active only in the continuous configurations. Two biases in the reported numbers are known, namely checkpoint selection and
 machine-to-machine variation. The main table is therefore reported in two versions, and
-every configuration in one table is evaluated on one machine in one pass. On rule coverage, the directional requirements of Rules 13 to 17
-and the stand-on obligation to hold course and speed are implemented. The stand-on duty to
-take avoiding action on its own is not. The overtaking branch is implemented but the scenario
+every configuration in one table is evaluated on one machine in one pass. On rule coverage, the directional requirements of Rules 13 to 17 and the stand-on
+obligation to hold course and speed are implemented. The stand-on duty to act alone is
+not. The overtaking branch is implemented but the scenario
 library contains no overtaking case, so it is untested. The discrete baseline is a
 reimplementation, and its seed fragility is attributed to that reimplementation.
 
@@ -1479,12 +1480,17 @@ made a comparison under one condition possible.
 
 \section*{Author Contributions}
 
-The authors confirm contribution to the paper as follows. Study conception and design: all
-authors. Method and software: the first author. Data collection and analysis: the first and
-second authors. Interpretation of results: all authors. Draft preparation: the first author.
-All authors reviewed the results and approved the final version of the manuscript.
+Study conception and design: all authors. Method and software: the first author. Data
+collection and analysis: the first and second authors. Interpretation of results: all
+authors. Draft preparation: the first author. All authors reviewed the results and
+approved the final version.
 
-\section*{Conflict of Interest}
+\section*{Use of Generative Artificial Intelligence} The authors used Claude (Anthropic) and ChatGPT (OpenAI) while preparing this
+manuscript. The tools assisted with editing the English text from a draft written by the authors.
+They also produced the scripts that render the figures from the authors' data and
+checked the manuscript against the submission requirements. The study design, the
+software, the experiments and the interpretation are the work of the authors. The
+authors reviewed every AI-assisted output and take full responsibility for this paper. \section*{Conflict of Interest}
 
 The authors declare that they have no known competing financial interests or personal
 relationships that could have appeared to influence the work reported in this paper.
