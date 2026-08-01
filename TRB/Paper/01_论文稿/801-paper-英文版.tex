@@ -227,23 +227,24 @@ Submitted July 31, 2026\par
 \begingroup
 \setlength{\parindent}{0pt}
 
-\abshead{Objectives:}Autonomous surface vessels must obey the International Regulations for Preventing Collisions at Sea (COLREGs). The give-way rules are directional. A track that avoids a collision but passes on the wrong side still violates them. This paper builds a per-step guarantee of directional compliance for continuous control,
-on give-way steps where the correction is feasible.
+\abshead{Objectives:}Autonomous surface vessels must obey the International Regulations for Preventing Collisions at Sea (COLREGs). The give-way clauses are directional. A track that avoids a collision but passes on the wrong side still violates them. This paper establishes a per-step guarantee of directional compliance for continuous
+control on give-way steps where the projection is feasible.
 
 \abshead{Methods:}The give-way clause is written as a half-plane constraint on the control plane. It is intersected with the actuator limits and a one-step collision-free condition,
-giving a convex safe control set. A quadratic program with two variables and six linear constraints projects the policy
-control command onto the nearest point of that set. The projection sits inside the environment transition, so the policy learns under its
-corrected commands. The data are 2,000 simulated two-vessel encounters, split 1,400 for training and 600 for
-test. Nine configurations are compared, each trained with eight seeds.
+giving a convex safe control set. A quadratic program with two variables and at most six linear constraints projects the
+control command of the policy onto the nearest point of that set. The projection sits inside the environment transition, so the policy learns under its
+corrected commands. The scenario library holds 2,000 simulated two-vessel encounters, 1,400 for training and
+600 for test. Nine configurations are compared, each trained with eight seeds.
 
 \abshead{Findings:}On every give-way step where the projection is feasible, directional compliance holds by
-construction, whatever the training outcome and the seed. Fallback steps are not covered. On the 600 test scenarios the median violation count is 0.53 per episode, against 1.16 for a discrete shielded baseline, at a median collision rate of 0.00\%. In the ablation the bounded action distribution lowers the median turn increment by
-$65\%$ and the violation count by $41\%$ (paired signed-rank $p=0.008$). The arrival rate is not claimed as a benefit.
+construction, independently of the training outcome and the seed. Emergency and fallback steps are not covered. On the 600 test scenarios the median violation count is 0.53 per episode at a median
+collision rate of 0.00\%, against 1.16 for the discrete shielded baseline. In the ablation the bounded action distribution accounts for a $65\%$ lower median turn
+increment (paired signed-rank $p=0.008$). The arrival rate is lower and is not claimed as a benefit.
 
 \abshead{Novelty:}To the best of the authors' knowledge, this is the first projection-based safety shield for directional COLREGs compliance
 under continuous control. 
 
-\abshead{Practical Applications:}The safety shield is independent of training and can sit above an existing controller. The online cost is one quadratic program per step,
+\abshead{Practical Applications:}The safety shield is independent of the training outcome. The online cost is one quadratic program per step,
 with a median solve time of $4.11$~ms against a decision period of $10$~s.
 
 \vspace{12pt}
@@ -311,11 +312,11 @@ al. 2022}; \cl{mller2026}{M\"uller et al. 2026}}. The control resolution is pres
 reward acts on expected behavior, so it excludes no single violating command.
 Section~\ref{sec:related} sets out both routes in detail.
 
-To the best of the authors' knowledge, continuous action spaces, provable directional
-compliance and COLREGs have not been combined before. This paper addresses that
+To the best of the authors' knowledge, continuous action spaces, provable directional compliance, and COLREGs have not been
+combined before. This paper addresses that
 combination with a projection-based safety shield. A rule state machine returns the
-half-plane of compliant directions. That half-plane is intersected with the action box
-and with a one-step collision-free condition, which gives a convex safe control set. A
+half-plane of compliant directions. That half-plane is intersected with the actuator limits and with a one-step
+collision-free condition, which gives a convex safe control set. A
 quadratic program projects the continuous control command of the policy onto the nearest
 point of that set. Projection replaces enumeration because it needs the safe control set
 to be convex rather than enumerable. The shield sits inside the environment transition,
@@ -329,18 +330,16 @@ assumptions, and the cases that are not covered are stated as well.
 \noindent\textbf{Contributions.}
 \begin{enumerate}\itemsep2pt
  \item A projection-based COLREGs shield for continuous action spaces
- (Section~\ref{sec:proj}).  The compliant direction enters the quadratic program as a hard constraint. Directional
- compliance therefore holds by construction on every give-way step where the projection
- is feasible. It does not depend on the training outcome or on the seed.
- \item Three scoped safety statements (Sections~\ref{sec:collfree}
-to~\ref{sec:fallback}). They are a sufficient far-field condition for one-step collision
-freedom, directional compliance on feasible give-way steps, and a one-sided criterion
-for imminent unavoidable collision. Each carries its assumptions, and the uncovered
-cases are named.
- \item An experimental design that supports mechanism-level comparison
-(Section~\ref{sec:setup}). Nine configurations form one connected ladder. Three steps of
-that ladder carry a companion variable that cannot be separated, and those are listed
-with the ladder.
+ (Section~\ref{sec:proj}).  The compliant direction enters the quadratic program as a hard constraint. Directional compliance therefore holds by construction on every give-way step where the
+projection is feasible, and it does not depend on the training outcome or on the seed.
+Emergency steps and steps with an empty safe control set are excluded.
+ \item Three scoped propositions (Sections~\ref{sec:collfree} to~\ref{sec:fallback}).
+They are a sufficient far-field condition for one-step collision freedom, the compliance
+statement of the first contribution, and a one-sided criterion for an unavoidable
+collision. 
+ \item A nine-configuration ladder that isolates the mechanisms one at a time
+(Section~\ref{sec:setup}). Most adjacent pairs differ by one declared variable. Three
+steps change a second variable at the same time, and those three are named there.
 \end{enumerate}
 
 %==============================================================================
@@ -769,7 +768,8 @@ projection of the policy command onto that set,
  \label{eq:qp}
 \end{equation}
 
-The feasible set is an intersection of half-planes, so it can be written as $U_{\mathrm{safe}}=\{u:Au\le b\}$. The first four rows are the action box. The fifth is the compliant-direction half-plane
+The feasible set is an intersection of half-planes, so it can be written as $U_{\mathrm{safe}}=\{u:Au\le b\}$. The first four rows are the actuator limits. The fifth is the compliant-direction
+half-plane
 of Equation~\eqref{eq:ucolregs}, which is a single half-plane in every situation. The
 sixth is the collision-free constraint of Equation~\eqref{eq:ucf}. The program has two variables and at most six constraints. It is small enough to solve online at every decision step.
 
