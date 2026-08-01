@@ -110,10 +110,8 @@ def fig3(D):
        ② **(c) 到达率不再用柱+区间**。该指标有崩掉的种子（到达率 0），分布是双峰的，
           用一根对称的自助法区间去概括它，误差棒必然拉到底——那不是画得丑，是图型选错。
           改成**箱线 + 逐种子点**，双峰一眼可见。
-       ③ **补显著性**：每条消融配置与「两项都不改」做**配对 Wilcoxon 符号秩检验**，柱顶标记号。
-          🔴 不用符号检验——它只看方向、丢掉幅度，$n=8$ 时 7/8 同向就顶到 $p=0.07$，
-          会把「转艏增量降 39%」这种明显效应标成 n.s.，与数据说的正好相反。
-          同时标同向种子数（如 7/8），让读者看清 p 背后的样本量。
+       ③ **柱顶只标相对变化，不标显著性记号**（user 2026-08-01 决定）。
+          检验结果放正文里说，图上不挂星号。
     """
     ORDER = ["ab0", "abB", "abG", "ours"]
     XTICK = ["neither", "bounded\nonly", "sym. entry\nonly", "both\n(ours)"]
@@ -144,15 +142,12 @@ def fig3(D):
                 ax.errorbar(i, med[i], yerr=[[med[i] - lo], [hi - med[i]]], fmt="none",
                             ecolor=PS.PALETTE["neutral_black"], elinewidth=0.9,
                             capsize=2.2, capthick=0.9, zorder=4)
-            hi_all = max(top)
             for i in (1, 2, 3):
-                dn, n, p = R.wilcoxon(series[i], series[0])
                 pct = (med[i] / med[0] - 1) * 100
-                ax.annotate("%+.0f%%\n%s  %d/%d" % (pct, R.stars(p), dn, n),
-                            (i, top[i]), xytext=(0, 4), textcoords="offset points",
-                            ha="center", va="bottom", fontsize=5.8, linespacing=1.15,
-                            color=PS.PALETTE["neutral_black"])
-            ax.set_ylim(0, hi_all * 1.34)
+                ax.annotate("%+.0f%%" % pct, (i, top[i]), xytext=(0, 4),
+                            textcoords="offset points", ha="center", va="bottom",
+                            fontsize=6.4, color=PS.PALETTE["neutral_black"])
+            ax.set_ylim(0, max(top) * 1.22)
         else:
             bp = ax.boxplot(series, positions=range(4), widths=0.52, showfliers=False,
                             medianprops=dict(color=PS.PALETTE["neutral_black"], linewidth=1.4),

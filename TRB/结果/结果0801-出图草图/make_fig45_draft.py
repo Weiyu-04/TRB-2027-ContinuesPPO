@@ -247,27 +247,51 @@ def fig4(D):
 
 # ══════════════════════════════════════════════════════════════════════════════
 def fig5(D):
-    """安全盾的行为随训练演化（2×2）。"""
-    fig, AX = plt.subplots(2, 2, figsize=(PS.COL2, PS.COL2 * 0.58))
-    (a, b), (c, d) = AX
+    """安全盾的行为随训练演化 —— 四格用四种图型（user 2026-08-01：组合可视化、信息表达最大化）。
 
-    # (a) 每一步控制由哪一支产生（本文方法）
+    (a) **堆叠面积**：每一步控制的归口。三条对数折线看不出「加起来是 100%」这层关系，
+        堆叠面积一眼看出投影占掉绝大部分、紧急与兜底只是薄薄两条边。
+    (b) **折线**：动作打满率本来就是时间序列，折线最合适，保留。
+    (c) **雨云图**（半边密度 + 逐点散布）：投影修正量是一个分布，不是一条曲线；
+        画成分布能同时看出中心与形状，比四条抖动的折线信息量大。
+    (d) **极坐标玫瑰图**：会遇态势本来就按方位扇区判定，角度放该态势的\emph{定义方位}、
+        半径放实测占比，既贴海事语义又比对数折线好看。
+        🔴 角度是**该态势的定义扇区**，不是实测方位分布——图注必须写清楚，别让人误读成
+           「我们测了他船方位」。
+    """
+    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.60))
+    gs = fig.add_gridspec(2, 2)
+    a = fig.add_subplot(gs[0, 0]); b = fig.add_subplot(gs[0, 1])
+    c = fig.add_subplot(gs[1, 0]); d = fig.add_subplot(gs[1, 1], projection="polar")
+
+    # ── (a) 控制归口：堆叠面积 ────────────────────────────────────────────
+    runs = list(D["ours"].values())
+    GRP = [("projection", PS.PALETTE["blue_main"], "Projection (QP)"),
+           ("emergency", PS.PALETTE["red_strong"], "Emergency"),
+           ("fallback", PS.PALETTE["violet"], "Fallback")]
+    xs = None; ys = []
+    for g, col, lab in GRP:
+        x, y = src_share(runs, g)
+        if xs is None:
+            xs = x / 1e6
+        ys.append(np.interp(xs, x / 1e6, y))
+    a.stackplot(xs, *ys, colors=[g[1] for g in GRP], alpha=0.85,
+                edgecolor="white", linewidth=0.3)
+    a.set_ylim(0, 100); a.set_xlim(xs[0], xs[-1])
+    a.annotate("Projection (QP)", (0.05, 0.45), xycoords="axes fraction",
+               fontsize=6.6, color="white", zorder=6)
+    #: 紧急 6% / 兜底 0.2% 两层太薄，字放不进去 ⟹ 标到右侧轴外，并注明末期占比
+    fin = [y[-1] for y in ys]
+    a.annotate("Emergency  %.1f%%" % fin[1], (1.01, (100 - fin[1] / 2) / 100),
+               xycoords="axes fraction", fontsize=6.2,
+               color=PS.PALETTE["red_strong"], va="center", annotation_clip=False)
+    a.annotate("Fallback  %.2f%%" % fin[2], (1.01, 0.02), xycoords="axes fraction",
+               fontsize=6.2, color=PS.PALETTE["violet"], va="center",
+               annotation_clip=False)
     a.set_title("(a) Which branch produced the control")
-    symlog_y(a, 1.0, [0, 1, 10, 100], 150)
-    a.set_xlim(0, XMAX * 1.56)
-    LSa = LabelStack(a, gap_frac=0.078)
-    for grp, col, lab in (("projection", PS.PALETTE["blue_main"], "Projection (QP)"),
-                          ("emergency", PS.PALETTE["red_strong"], "Emergency"),
-                          ("fallback", PS.PALETTE["violet"], "Fallback")):
-        x, y = src_share(list(D["ours"].values()), grp)
-        if len(x):
-            a.plot(x / 1e6, y, color=col, linewidth=1.3)
-            LSa.add(x[-1] / 1e6, y[-1], lab, col)
-    LSa.draw()
-    a.set_ylabel("Share of control steps (%)")
-    xaxis(a)
+    a.set_ylabel("Share of control steps (%)"); xaxis(a)
 
-    # (b) 动作打满率：颜色区分配置、线型区分轴（六条线全挂标签会糊）
+    # ── (b) 动作打满率：折线 ──────────────────────────────────────────────
     b.set_title("(b) Action saturation  (solid: yaw, dashed: accel.)")
     b.set_xlim(0, XMAX * 1.50)
     LSb = LabelStack(b, gap_frac=0.078)
@@ -280,47 +304,95 @@ def fig5(D):
             b.plot(x / 1e6, 100 * y, color=col, linestyle=ls, linewidth=1.1)
             if key == "roll_yaw_sat_frac":
                 LSb.add(x[-1] / 1e6, 100 * y[-1], short(tag), col)
-    LSb.draw()
-    b.set_ylabel("Action saturation (%)")
-    xaxis(b)
+    LSb.draw(); b.set_ylabel("Action saturation (%)"); xaxis(b)
 
-    # (c) 投影修正量（按动作箱半宽归一化）
+    # ── (c) 投影修正量：雨云图（半边密度 + 散点）──────────────────────────
     c.set_title("(c) Projection correction magnitude")
-    c.set_xlim(0, XMAX * 1.50)
-    LSc = LabelStack(c, gap_frac=0.066)
-    for tag in ("ours", "ush", "abB", "abG"):
-        x, y = curve(list(D[tag].values()), "roll_shield_corr_norm_mean")
-        if len(x):
-            c.plot(x / 1e6, y, color=R.ARMS[tag][1], linewidth=1.3)
-            LSc.add(x[-1] / 1e6, y[-1], short(tag), R.ARMS[tag][1])
-    LSc.draw()
+    ARMS_C = ["ours", "ush", "abB", "abG"]
+    rng = np.random.default_rng(11)
+    for i, tag in enumerate(ARMS_C):
+        col = R.ARMS[tag][1]
+        v = np.array([cc["roll_shield_corr_norm_mean"] for r in D[tag].values()
+                      for cc in r["curves"][-60:]
+                      if isinstance(cc.get("roll_shield_corr_norm_mean"), (int, float))])
+        if not len(v):
+            continue
+        # 半边密度（高斯核，手写，免 scipy 依赖）
+        grid = np.linspace(v.min(), v.max(), 120)
+        h = 1.06 * v.std() * len(v) ** (-0.2)
+        dens = np.exp(-0.5 * ((grid[:, None] - v[None, :]) / h) ** 2).sum(1)
+        dens = dens / dens.max() * 0.34
+        c.fill_betweenx(grid, i, i + dens, color=col, alpha=0.42, linewidth=0)
+        c.plot(i + dens, grid, color=col, linewidth=0.8)
+        sub = rng.choice(v, size=min(120, len(v)), replace=False)
+        c.scatter(i - rng.uniform(0.06, 0.30, len(sub)), sub, s=2.0,
+                  color=col, alpha=0.45, linewidths=0)
+        c.plot([i - 0.34, i + 0.02], [np.median(v)] * 2,
+               color=PS.PALETTE["neutral_black"], linewidth=1.2, zorder=5)
+    c.set_xticks(range(len(ARMS_C)))
+    c.set_xticklabels([short(t).replace("Continuous", "Cont.").replace("abl. ", "abl.\n")
+                       for t in ARMS_C], fontsize=6.2)
+    c.set_xlim(-0.5, len(ARMS_C) - 0.4)
     c.set_ylabel("Correction (norm.)")
-    xaxis(c)
+    c.grid(axis="x", visible=False)
 
-    # (d) 会遇态势占比（本文方法）
-    d.set_title("(d) Encounter-situation profile")
-    symlog_y(d, 0.1, [0, 0.1, 1, 10, 100], 200)
-    d.set_xlim(0, XMAX * 1.40)
-    RHO = [("0", "$\\rho_0$ none", PS.PALETTE["neutral_light"]),
-           ("1", "$\\rho_1$ give-way", PS.PALETTE["blue_main"]),
-           ("2", "$\\rho_2$ give-way", PS.PALETTE["blue_secondary"]),
-           ("3", "$\\rho_3$ give-way", PS.PALETTE["teal"]),
-           ("4", "$\\rho_4$ stand-on", PS.PALETTE["green_3"]),
-           ("5", "$\\rho_5$ emergency", PS.PALETTE["red_strong"])]
-    LSd2 = LabelStack(d, gap_frac=0.082)
+    # ── (d) 会遇态势：极坐标玫瑰图 ────────────────────────────────────────
+    #   角度 = 该态势的**定义方位扇区**（公约的舷灯分界），半径 = 实测占比（对数刻度）
+    ROSE = [("2", "$\\rho_2$ head-on",   0.0,  45.0, PS.PALETTE["blue_secondary"]),
+            ("3", "$\\rho_3$ crossing",  67.5,  90.0, PS.PALETTE["teal"]),
+            ("4", "$\\rho_4$ overtaken", 180.0, 90.0, PS.PALETTE["green_3"]),
+            ("1", "$\\rho_1$ stand-on", -67.5,  90.0, PS.PALETTE["blue_main"])]
     runs = list(D["ours"].values())
-    for k, lab, col in RHO:
-        bx, by = rho_share(runs, k)
-        if len(bx):
-            d.plot(bx / 1e6, by, color=col, linewidth=1.2)
-            LSd2.add(bx[-1] / 1e6, by[-1], lab, col)
-    LSd2.draw()
-    d.set_ylabel("Share of steps (%)")
-    xaxis(d)
+    tot = collections_counter(runs)
+    T = sum(tot.values())
+    d.set_theta_zero_location("N"); d.set_theta_direction(-1)
+    rmin = 1e-3
+    RMAX = np.log10(100 / rmin)
+    #: 四个扇区几乎铺满整圈，圈外没有空位放标签 ⟹ 统一收成轴外的色标块
+    LEG = []
+    for k, lab, ang, width, col in ROSE:
+        share = 100.0 * tot.get(k, 0) / T
+        rr = np.log10(max(share, rmin) / rmin)
+        d.bar(np.radians(ang), rr, width=np.radians(width), color=col, alpha=0.62,
+              edgecolor=col, linewidth=0.8, zorder=3)
+        LEG.append((lab, share, col))
+    #: 紧急态由迫近判据触发、不属于任何方位扇区 ⟹ 画成一圈虚线环，不占扇形
+    em = 100.0 * tot.get("5", 0) / T
+    th = np.linspace(0, 2 * np.pi, 200)
+    d.plot(th, np.full_like(th, np.log10(em / rmin)),
+           color=PS.PALETTE["red_strong"], linewidth=1.1, linestyle=(0, (3, 2)), zorder=5)
+    LEG.append(("$\\rho_5$ emergency (any bearing)", em, PS.PALETTE["red_strong"]))
+    for i, (lab, share, col) in enumerate(LEG):
+        d.annotate("%s  %.2f%%" % (lab, share), (-0.22, 1.10 - 0.075 * i),
+                   xycoords="axes fraction", ha="left", va="top",
+                   fontsize=5.8, color=col, annotation_clip=False)
+    d.set_rlim(0, RMAX * 1.12)
+    d.set_rticks([np.log10(x / rmin) for x in (0.01, 0.1, 1, 10, 100)])
+    d.set_yticklabels(["", "0.1", "1", "10", "100%"], fontsize=5.0)
+    d.set_rlabel_position(123)
+    d.set_xticks(np.radians([0, 90, 180, 270]))
+    d.set_xticklabels(["ahead", "stbd", "astern", "port"], fontsize=6.2)
+    d.tick_params(pad=1.0)
+    d.set_title("(d) Encounter situations by defining sector", pad=26)
+    d.grid(color="#DDDDDD", linewidth=0.5)
 
-    fig.tight_layout(w_pad=2.2, h_pad=1.4)
+    fig.tight_layout(w_pad=2.4, h_pad=1.8)
     PS.save(fig, "Fig5_shield_behaviour", R.OUT_DIRS)
     plt.close(fig)
+
+
+def collections_counter(runs):
+    """整段训练里各会遇态势的累计步数。"""
+    import collections
+    tot = collections.Counter()
+    for r in runs:
+        for c in r["curves"]:
+            rh = c.get("roll_rho")
+            if isinstance(rh, dict):
+                for k, v in rh.items():
+                    if isinstance(v, (int, float)):
+                        tot[k] += v
+    return tot
 
 
 def main():
