@@ -336,17 +336,25 @@ assumptions, and the cases that are not covered are stated as well.
 
 \noindent\textit{Contributions.}
 \begin{enumerate}\itemsep2pt
+ \item The half-plane form of the give-way clause (Section~\ref{sec:rulesets}). Under the
+action-space formulation adopted here, the directional requirement is a single half-plane
+on the plane of control commands. Intersected with the actuator limits and a one-step
+collision-free condition it gives a convex safe control set, so the premise that the set
+must be enumerated can be replaced by the premise that it is convex.
  \item A projection-based COLREGs shield for continuous action spaces
- (Section~\ref{sec:proj}). The compliant direction enters the quadratic program as a hard constraint. Directional compliance therefore holds by construction on every give-way step where the
-projection is feasible, and it does not depend on the training outcome or on the seed.
-Emergency steps and steps with an empty safe control set are excluded.
- \item Three scoped propositions (Sections~\ref{sec:collfree} to~\ref{sec:fallback}).
-They are a sufficient far-field condition for one-step collision freedom, the compliance
-statement of the first contribution, and a one-sided criterion for an unavoidable
-collision. 
- \item A nine-configuration ladder that isolates the mechanisms one at a time
-(Section~\ref{sec:setup}). Most adjacent pairs differ by one declared variable. Three
-steps change a second variable at the same time, and those three are named there.
+(Section~\ref{sec:proj}). A two-variable quadratic program projects the policy command
+onto that set inside the environment transition. Directional compliance holds by
+construction on every give-way step where the projection is feasible, independently of
+the training outcome and of the seed. Emergency steps and steps with an empty safe
+control set are excluded.
+ \item Three scoped propositions (Sections~\ref{sec:collfree} to~\ref{sec:fallback}):
+a sufficient far-field condition for one-step collision freedom, the compliance statement
+above, and a one-sided criterion for an unavoidable collision. Each carries its assumptions.
+ \item Measured effect on the official CommonOcean split (Section~\ref{sec:exp}).
+Over eight seeds per configuration, the full method records $0.53$ COLREGs violations per
+episode against $1.16$ for the discrete shielded baseline and $4.49$ for the control
+barrier function at its lowest-violation setting. A nine-configuration ladder separates
+the effect of each mechanism.
 \end{enumerate}
 
 %==============================================================================
