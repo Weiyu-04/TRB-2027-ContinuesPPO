@@ -74,13 +74,6 @@ def fig2(D):
     a.set_xlabel("Arrival rate (%)")
     a.set_ylabel("COLREGs violations per episode")
     a.set_title("(a) Safety\u2013efficiency trade-off")
-    a.annotate("better", (0.845, 0.155), xycoords="axes fraction", fontsize=6.6,
-               style="italic", color=PS.PALETTE["neutral_mid"], ha="center")
-    a.annotate("", xy=(0.955, 0.045), xytext=(0.815, 0.135), xycoords="axes fraction",
-               arrowprops=dict(arrowstyle="->", lw=0.8, color=PS.PALETTE["neutral_mid"]))
-    a.annotate("circle: continuous   triangle: discrete   filled: shielded   open: unshielded",
-               (0.5, -0.235), xycoords="axes fraction", ha="center",
-               fontsize=6.2, color=PS.PALETTE["neutral_mid"])
 
     # ── (b) 逐种子碰撞率 ──────────────────────────────────────────────────
     tags = list(R.ARMS)
@@ -111,6 +104,7 @@ def fig2(D):
 def fig3(D):
     """两项改进的贡献拆解：$2\\times2$ 消融，三个指标。
 
+    🔴 图内不写说明性文字与箭头（user 2026-08-01），编码约定一律进图注。
     🔴 画法（user 2026-08-01：「我想要的是合理搭配柱状图」）：
        柱子给中位数（读者一眼比高低），柱上叠**逐种子散点 + 同种子配对灰线**（不藏分散度），
        误差棒为按种子重采样的自助法 $95\\%$ 区间。
@@ -165,10 +159,6 @@ def fig3(D):
         ax.set_title(title)
         ax.set_ylabel(ylab)
         ax.grid(axis="x", visible=False)
-        if key == "yaw":
-            ax.annotate("bar: median   dot: one seed   line: same seed",
-                        (0.5, -0.36), xycoords="axes fraction", ha="center",
-                        fontsize=6.0, color=PS.PALETTE["neutral_mid"])
     fig.tight_layout(w_pad=1.8)
     PS.save(fig, "Fig3_ablation", R.OUT_DIRS)
     plt.close(fig)

@@ -127,22 +127,21 @@ def main():
             a.annotate(f"{ex:.1f}%", (i, ex), xytext=(0, 3), textcoords="offset points",
                        ha="center", fontsize=6.2)
     a.axhline(0, color=PS.PALETTE["red_strong"], linewidth=1.2, zorder=4)
-    a.annotate("projection (continuous): exactly $\\omega_{\\mathrm{turn}}$", (0.97, 0.06),
-               xycoords="axes fraction", ha="right", fontsize=6.2,
-               color=PS.PALETTE["red_strong"])
+    a.annotate("projection", (0.985, 0.045), xycoords="axes fraction", ha="right",
+               fontsize=6.4, color=PS.PALETTE["red_strong"])
     a.set_xlabel("Discrete grid size $K$ (per axis)")
     a.set_ylabel("Excess over $\\omega_{\\mathrm{turn}}$ (%)")
-    a.set_title("(a) Compliance-turn granularity (not monotone in $K$)")
+    a.set_title("(a) Compliance-turn granularity")
     a.grid(axis="x", visible=False)
 
     b.plot(KS, [t_enum[K] for K in KS], marker="o", markersize=2.6,
            color=PS.PALETTE["neutral_black"], linewidth=1.2)
     b.axhline(t_qp, color=PS.PALETTE["blue_main"], linewidth=1.4)
-    b.annotate("projection (QP), independent of $K$", (0.04, t_qp), xycoords=("axes fraction", "data"),
-               xytext=(0, 4), textcoords="offset points", fontsize=6.2,
+    b.annotate("projection", (0.03, t_qp), xycoords=("axes fraction", "data"),
+               xytext=(0, 4), textcoords="offset points", fontsize=6.4,
                color=PS.PALETTE["blue_main"])
-    b.annotate("enumerate + mask, $O(K^2)$", (KS[-1], t_enum[KS[-1]]), xytext=(-4, -9),
-               textcoords="offset points", ha="right", fontsize=6.2,
+    b.annotate("enumerate $+$ mask", (KS[-1], t_enum[KS[-1]]), xytext=(-4, -9),
+               textcoords="offset points", ha="right", fontsize=6.4,
                color=PS.PALETTE["neutral_black"])
     b.set_xscale("log"); b.set_yscale("log")
     b.set_xlabel("Discrete grid size $K$ (per axis)")
