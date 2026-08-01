@@ -246,16 +246,9 @@ Four situations carry an obligation,
 \end{aligned}
 \label{eq:situations}
 \end{equation}
-and every other case falls into $\rho_0$. Overtaking and being overtaken both swap the two
-vessel arguments, because overtaking places the own vessel in the aft sector of the target
-vessel. The four predicates can hold at the same time in geometry. They are therefore
-applied in the order written above.
+and all other cases fall into $\rho_0$. Overtaking and being overtaken swap the two vessel arguments, because overtaking places the own vessel in the aft sector of the target vessel. The four predicates can hold at once, so they are applied in the order written above.
 
-Transitions are triggered by a persistence condition. Entry from the conflict-free situation
-into a give-way situation has two parts. A give-way predicate must not hold now. It must
-also hold at every decision step of a $60$~s reaction window under constant-velocity
-extrapolation. The first part separates ``about to hold'' from ``already holds''. It also
-creates one asymmetry, which Section~\ref{sec:sym} treats. The emergency situation is
+Entry into a give-way situation has two parts. A give-way predicate must not hold now. It must hold at every decision step of a $60$~s reaction window under constant-velocity extrapolation. The first part separates ``about to hold'' from ``already holds'', and it creates one asymmetry that Section~\ref{sec:sym} treats. The emergency situation is
 entered by a stronger set-based prediction with a horizon of $180$~s.
 
 \noindent\textbf{Compliant control set.}\ Each situation maps to an explicit constraint set
@@ -272,10 +265,7 @@ on the command,
  \label{eq:ucolregs}
 \end{equation}
 Head-on and crossing require a turn to starboard. Overtaking allows a turn to either side.
-Stand-on requires the course and the speed to be held. Each of these sets is a half-plane or
-an interval on the plane of control commands. That shape is what the rest of this paper
-builds on. A set of this shape can be entered by projection, so the commands do not have to
-be enumerated.
+Stand-on holds course and speed. Each set is a half-plane or an interval on the plane of control commands. A set of this shape can be entered by projection, so the commands never have to be enumerated.
 
 \noindent\textbf{Quantifying a readily apparent action.}\ The convention asks a give-way
 action to be large enough to be seen in time. We quantify this as a course change of at
@@ -289,11 +279,7 @@ This is the infimum of the compliant turn rate. Any turn at least this large com
 the bound cannot be lowered.
 
 The structure and the thresholds of the predicates are taken from the temporal-logic
-formalization of the maritime rules \citl{krasowski2024}{Krasowski and Althoff 2024}. This
-paper adds three things. The inflation radius and the half-width of the speed set are stated
-explicitly. The entry into a give-way situation is made symmetric
-(Section~\ref{sec:sym}). The predicate set is then connected to a constraint set on
-continuous commands.
+formalization of the maritime rules \citl{krasowski2024}{Krasowski and Althoff 2024}. This paper states the inflation radius and the half-width of the speed set explicitly. It makes the entry into a give-way situation symmetric (Section~\ref{sec:sym}). It then connects the predicate set to a constraint set on continuous commands.
 
 
 \subsection{Safe Control Set and Projection}
@@ -303,18 +289,13 @@ continuous commands.
 \label{sec:sym}% 占位：对称化那一节还没写，先把 label 挂这儿免得 undefined
 
 At each decision step the applied command must keep the two hulls apart at the end of the
-next step. Written directly, that condition is not convex. We therefore use a conservative
-convex inner approximation. The construction has three parts.
+next step. Written directly, that condition is not convex. We use a conservative convex inner approximation, built in three steps.
 
 First, the occupancy of the target vessel after one step is over-approximated by a disk.
-Its center follows a constant-velocity extrapolation. Its radius already contains a safety
-margin. The own vessel is over-approximated by its circumscribed circle. A sufficient
-condition for the two hulls to stay apart is then simple. The distance between the two
-centers must be at least the sum of the two radii, written $d_{\mathrm{safe}}$.
+The center follows a constant-velocity extrapolation, and the radius includes a safety margin. The own vessel is over-approximated by its circumscribed circle. The two hulls then stay apart whenever the center distance is at least the sum of the two radii, written $d_{\mathrm{safe}}$.
 
 Second, let $n$ be the unit vector from the target vessel to the nominal end point of the
-own vessel, and let $\delta$ be that distance. The nominal end point follows from the
-policy command after clipping to the action box.
+own vessel, and let $\delta$ be that distance. The end point follows from the policy command clipped to the action box.
 
 Third, the end point is expanded to first order in the command,
 $p_e(u)\approx p_{\mathrm{nom}}+J(u-u_{\mathrm{nom}})$. The end point must lie on the safe
@@ -328,14 +309,9 @@ side of the separating hyperplane. This gives one linear inequality in the comma
 
 A first-order expansion is neither an inner nor an outer approximation. The sign of the
 remainder changes with the curvature. Equation~\eqref{eq:ucf} alone therefore does not
-establish conservatism. The margin inside the safety distance is what does. With that
-margin the constraint acts at a center distance of about $590$--$840$~m. The median over
-this scenario library is about $714$~m. Hull contact needs a much smaller distance. The
-margin thus absorbs the linearization residual. The cost is a tighter constraint. Some
-commands that are in fact safe are rejected.
+establish conservatism. The margin inside the safety distance is what does. With that margin the constraint acts at a center distance of $590$--$840$~m, with a median of $714$~m over this library. Hull contact needs a much smaller distance. The margin absorbs the linearization residual. The cost is a tighter constraint that rejects some commands which are in fact safe.
 
-The linearization in Equation~\eqref{eq:ucf} holds only locally. In the far field a
-sufficient condition is available that does not rely on it.
+The linearization holds only locally. In the far field a sufficient condition is available that does not rely on it.
 
 \begin{prop}[One-step collision freedom in the far field]\label{prop:farfield}
 Let $d$ be the center distance between the own vessel and a single target vessel. If
@@ -377,13 +353,9 @@ projection of the policy command onto that set,
  \label{eq:qp}
 \end{equation}
 
-The feasible set is an intersection of half-planes. It can be written as
-$U_{\mathrm{safe}}=\{u:Au\le b\}$. The first four rows are the action box. The fifth row is
-the compliant-direction half-plane. The sixth row is the collision-free constraint of
-Equation~\eqref{eq:ucf}. This is a quadratic program in two variables with at most six
-constraints. It is small enough to solve online at every decision step.
+The feasible set is an intersection of half-planes, so it can be written as $U_{\mathrm{safe}}=\{u:Au\le b\}$. The first four rows are the action box, the fifth is the compliant-direction half-plane, and the sixth is the collision-free constraint of Equation~\eqref{eq:ucf}. The program has two variables and at most six constraints. It is small enough to solve online at every decision step.
 
-This construction gives the central guarantee of the paper.
+
 
 \begin{prop}[Directional compliance on every give-way step]\label{prop:comply}
 Consider any decision step that the rule state machine assigns to a give-way situation and
