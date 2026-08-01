@@ -338,9 +338,9 @@ assumptions, and the cases that are not covered are stated as well.
 \begin{enumerate}\itemsep2pt
  \item The half-plane form of the give-way clause (Section~\ref{sec:rulesets}). Under the
 action-space formulation adopted here, the directional requirement is a single half-plane
-on the plane of control commands. Intersected with the actuator limits and a one-step
-collision-free condition it gives a convex safe control set, so the premise that the set
-must be enumerated can be replaced by the premise that it is convex.
+on the plane of control commands. Intersected with the actuator limits and a one-step collision-free condition, it gives a
+convex safe control set. The premise that the set must be enumerated can therefore be
+replaced by the premise that it is convex.
  \item A projection-based COLREGs shield for continuous action spaces
 (Section~\ref{sec:proj}). A two-variable quadratic program projects the policy command
 onto that set inside the environment transition. Directional compliance holds by
@@ -351,9 +351,9 @@ control set are excluded.
 a sufficient far-field condition for one-step collision freedom, the compliance statement
 above, and a one-sided criterion for an unavoidable collision. Each carries its assumptions.
  \item Measured effect on the official CommonOcean split (Section~\ref{sec:exp}).
-Over eight seeds per configuration, the full method records $0.53$ COLREGs violations per
-episode against $1.16$ for the discrete shielded baseline and $4.49$ for the control
-barrier function at its lowest-violation setting. A nine-configuration ladder separates
+Over eight seeds per configuration, the full method records $0.53$ COLREGs violations
+per episode. The discrete shielded baseline records $1.16$, and the control barrier
+function at its lowest-violation setting records $4.49$. A nine-configuration ladder separates
 the effect of each mechanism.
 \end{enumerate}
 
