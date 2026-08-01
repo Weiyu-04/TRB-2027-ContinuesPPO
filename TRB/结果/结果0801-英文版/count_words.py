@@ -36,7 +36,7 @@ def main():
         elif stopped:
             continue
         #: 去掉行号与页码（纯数字的 token）与页眉
-        txt = txt.replace("Tang, Xue, Yang, and Li", " ")
+        txt = txt.replace("Tang, Xue, Yang, Li, and Hu", " ")
         words += sum(1 for w in txt.split() if not re.fullmatch(r"[\d,.]+", w))
     n_tab = len(re.findall(r"\\begin\{table\}", open(tex, encoding="utf-8").read()))
     print(f"正文词数（摘要+正文+收尾，不含参考文献/行号/页码）= {words}")
