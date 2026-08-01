@@ -334,7 +334,7 @@ different scopes in the safe reinforcement learning literature, and those scopes
 always match what a reader assumes. Each guarantee below is therefore stated with its
 assumptions, and the cases that are not covered are stated as well.
 
-\noindent\textbf{Contributions.}
+\noindent\textit{Contributions.}
 \begin{enumerate}\itemsep2pt
  \item A projection-based COLREGs shield for continuous action spaces
  (Section~\ref{sec:proj}). The compliant direction enters the quadratic program as a hard constraint. Directional compliance therefore holds by construction on every give-way step where the
@@ -500,7 +500,7 @@ therefore be written directly as constraints on $u$, which is what lets the safe
 shield live in the action space. A finer hydrodynamic model would add coefficients that
 differ by vessel and are hard to identify. Wind, current, and waves are not modeled.
 
-\noindent\textbf{Vessel and occupancy.}\ The own vessel is a large container vessel of
+ The own vessel is a large container vessel of
 length $175$~m and beam $25.4$~m. Its limits are $a_{\max}=0.24~\mathrm{m/s^2}$,
 $\omega_{\max}=0.03$~rad/s, and $v_{\max}=9.5$~m/s, and the decision period is $10$~s.
 The vessel model, these limits and the decision period are those reported by
@@ -530,7 +530,7 @@ sector keeps the observation dimension fixed. The shield is implemented for a si
 target vessel, and it raises an error rather than running in a degraded mode when more
 are present.
 
-\noindent\textbf{Two action boxes.}\ The action is the two-dimensional command
+ The action is the two-dimensional command
 $u=(a,\omega)$, and two boxes have to be distinguished. The policy acts in the narrower
 operating box, whose half-widths are $0.048~\mathrm{m/s^2}$ and $0.018$~rad/s. These reproduce the span of the $7\times7$ discrete action grid reported by
 \citl{krasowski2024}{Krasowski and Althoff 2024}. The two action spaces therefore carry
@@ -650,7 +650,7 @@ persistence route alone distinguishes an obligation that is about to apply from 
 already applies, which leaves the asymmetry that Section~\ref{sec:sym} removes. The emergency situation is
 entered by a stronger set-based prediction with a horizon of $180$~s.
 
-\noindent\textbf{Compliant control set.}\ Each situation maps to an explicit constraint set
+ Each situation maps to an explicit constraint set
 on the command,
 \begin{equation}
  U_{\mathrm{colregs}}(\rho)=
@@ -733,16 +733,16 @@ step. Here $d_{\mathrm{safe}}$ is the sum of the two circumscribed radii, and
 $\rho_{\mathrm{ego}}$ is the largest displacement of the own vessel in one step.
 \end{prop}
 
-\noindent\textbf{Assumptions.}\ A single target vessel. The speed of the target vessel is
+\noindent\textit{Assumptions.}\ A single target vessel. The speed of the target vessel is
 at most $9.5$~m/s. That bound is not implied by the dynamics and is stated separately. The largest value
 measured over the $2{,}000$ scenarios of the library is $7.10$~m/s. The
 target vessel holds its speed within the step.
 
-\noindent\textbf{Proof sketch.}\ By the triangle inequality, the center distance after the
+\noindent\textit{Proof sketch.}\ By the triangle inequality, the center distance after the
 step is at least $d$ minus the one-step displacement bound of each vessel. It is therefore
 at least $d_{\mathrm{safe}}$.
 
-\noindent\textbf{Scope.}\ The triangle inequality does not depend on direction, so a
+\noindent\textit{Scope.}\ The triangle inequality does not depend on direction, so a
 head-on encounter is the worst case. With the constants of this library the threshold is
 about $764$~m. The statement covers one step. It does not extend to the steps after it, and
 it does not cover the near field.
@@ -797,17 +797,17 @@ on which the projection is feasible. The applied command $u_{\mathrm{safe}}$ the
 the compliant-direction half-plane.
 \end{prop}
 
-\noindent\textbf{Assumptions.}\ A single target vessel, and a correct decision by the state
+\noindent\textit{Assumptions.}\ A single target vessel, and a correct decision by the state
 machine. The second assumption inherits one conservative bias of the collision-possibility
 predicate. That predicate uses the center distance, and it can miss a trailing encounter in
 which the two speeds are close.
 
-\noindent\textbf{Proof sketch.}\ The compliant half-plane enters the quadratic program as a
+\noindent\textit{Proof sketch.}\ The compliant half-plane enters the quadratic program as a
 hard constraint. Any feasible point satisfies it, and the projection returns a feasible
 point. The statement holds by construction. It does not depend on the training outcome or
 on the random seed.
 
-\noindent\textbf{Scope.}\ Emergency situations are not covered, because their branch
+\noindent\textit{Scope.}\ Emergency situations are not covered, because their branch
 bypasses the compliance constraint by design. Steps on which the safe control set is empty
 and the fallback is used are not covered either.
 
@@ -817,14 +817,14 @@ and the fallback is used are not covered either.
 Lines 2 and 11 of Algorithm~\ref{alg:step} are the two branches that carry no guarantee.
 They are mutually exclusive.
 
-\noindent\textbf{Emergency branch.}\ A stateful geometric controller supplies the
+\noindent\textit{Emergency branch.}\ A stateful geometric controller supplies the
 command, and its lifetime is one emergency event. It has three modes. A near head-on approach ahead tracks a lateral point fixed at the
 onset. A target vessel astern that acceleration alone can clear takes a straight-line
 escape inside the reaction window. Every other case tracks a point that moves with the
 target vessel. One position-tracking
 law converts each mode into a control command.
 
-\noindent\textbf{Fallback.}\ If the linearization gives no usable separation direction,
+\noindent\textit{Fallback.}\ If the linearization gives no usable separation direction,
 the command is projected onto the actuator limits alone. Otherwise the direction
 constraint is relaxed, and if that still leaves no feasible command the fallback
 minimizes the collision risk. Both branches solve on the actuator limits, so the turn
@@ -851,17 +851,17 @@ then the collision is unavoidable, and every feasible control sequence meets tha
 vessel at $t^\ast$.
 \end{prop}
 
-\noindent\textbf{Assumptions.}\ A single target vessel at constant velocity. The hull size
+\noindent\textit{Assumptions.}\ A single target vessel at constant velocity. The hull size
 of the target vessel must not be overstated, since a beam larger than the true value makes
 the test unreliable. The horizon is $120$~s, evaluated at $241$ equally spaced instants.
 
-\noindent\textbf{Proof sketch.}\ The rate of change of the velocity vector is bounded. A
+\noindent\textit{Proof sketch.}\ The rate of change of the velocity vector is bounded. A
 double integration gives the two semi-axes of $R_{\mathrm{box}}$, which therefore
 over-approximates the true reachable centers. The inscribed circle under-approximates the
 hull. Once every reachable center lies inside the inflated occupancy of the target vessel,
 no control command can avoid contact.
 
-\noindent\textbf{Scope.}\ The criterion is one-sided. It can miss a case, and it never
+\noindent\textit{Scope.}\ The criterion is one-sided. It can miss a case, and it never
 raises a false alarm. A negative result therefore does not mean that the collision is
 avoidable. The criterion also acts late rather than early, and maneuvering target vessels
 are not covered. On $20{,}000$ random scenarios, $735$ selected scenarios, and $1{,}500$ randomized
@@ -885,7 +885,7 @@ control set it comes from the fallback (Section~\ref{sec:fallback}). The policy 
 trained on the transition it will meet at deployment, so it adapts to the projection
 during training rather than to a shield introduced afterwards.
 
-\noindent\textbf{Learning algorithm.}\ All configurations are trained with proximal policy
+ All configurations are trained with proximal policy
 optimization \citl{schulman2017}{Schulman et al. 2017}. The continuous-action configurations use its standard form and the discrete-action
 baselines its maskable variant, since masking is what makes a discrete shield possible.
 Both action spaces therefore share one policy-gradient algorithm. The masking is
@@ -1055,14 +1055,14 @@ bound on the effect of shielding.
 \subsection{Metrics and Evaluation Protocol}
 \label{sec:metrics}
 
-\noindent\textbf{Metrics.}\ The main metrics are the arrival rate, the collision rate, the COLREGs violations per
+\noindent\textit{Metrics.}\ The main metrics are the arrival rate, the collision rate, the COLREGs violations per
 episode, and the share of steps under emergency control. The violation count is split
 into give-way and stand-on violations. Control quality appears in Table~\ref{tab:main},
 and the behavior of the shield and the single-step solve time in
 Section~\ref{sec:res-shield}. The reward function differs across configurations, so the
 episode return is never compared across them.
 
-\noindent\textbf{How violations are counted.}\ Violations do not come from the situation
+\noindent\textit{How violations are counted.}\ Violations do not come from the situation
 decision of the shield. An offline scorer that sees only the trajectory re-decides at
 each step, from the bare situation predicates, whether the own vessel is under a
 stand-on or a give-way obligation. A stand-on violation is counted per step once the
@@ -1082,14 +1082,14 @@ mismatch occurs was not measured, so the counts below are an empirical trajector
 measure rather than a direct test of that proposition. Violation counts in the figures
 are the sum of stand-on and give-way violations.
 
-\noindent\textbf{Training budget.}\ Each configuration is trained with $8$ random seeds,
+\noindent\textit{Training budget.}\ Each configuration is trained with $8$ random seeds,
 one run per seed, and the $72$ runs together cover about $730$ million environment
 steps. A separate seed fixes the scenario split, so every run sees the same scenarios,
 and every configuration inside one table is evaluated on one machine in one pass.
 Training was spread over several machines running the same software image and code.
 No bit-level cross-machine check was run, so machine differences are not excluded.
 
-\noindent\textbf{Checkpoint selection.}\ Twenty checkpoints are saved per run at even
+\noindent\textit{Checkpoint selection.}\ Twenty checkpoints are saved per run at even
 intervals and each is evaluated once on the validation set. The rule was fixed in advance and has no tunable part. The criterion is the highest
 arrival rate on the validation set, and ties go to the earlier checkpoint. The test set
 is never accessed. The validation set holds only $100$ scenarios, and the binomial standard error of the
@@ -1099,7 +1099,7 @@ effect is small. Across the $72$ runs the arrival rate at the selected checkpoin
 last checkpoint by a median of $0.2$ points. It is lower for $31$ of them. The ordering of the configurations and the outcome of the paired tests are
 the same under both rules.
 
-\noindent\textbf{Statistics.}\ The nine-configuration comparisons use a per-seed paired
+\noindent\textit{Statistics.}\ The nine-configuration comparisons use a per-seed paired
 sign test, whose smallest two-sided value with $8$ seeds is $p=2/2^{8}=0.0078$. The
 $2\times2$ ablation comparisons use a per-seed paired Wilcoxon signed-rank test. Error bars are bootstrap $95\%$ intervals over seeds. A run counts as converged when its
 arrival rate on the validation set reaches $50\%$; the same runs are selected if the
@@ -1134,9 +1134,8 @@ they are, and restricting it to converged runs leaves the ordering unchanged.
 
  \vspace{4pt}
  \begin{minipage}{\linewidth}\capsize
- \textbf{Notes.} The best value in each column is in bold. The turn and throttle increment
- columns are \textbf{not} marked, because they cannot be compared across action spaces
- (Section~\ref{sec:train}). The share of emergency steps is descriptive and is neither good
+ \textbf{Notes.} The best value in each column is in bold, except in the turn and throttle increment
+columns, which cannot be compared across action spaces (Section~\ref{sec:train}). The share of emergency steps is descriptive and is neither good
  nor bad.
  \end{minipage}
 \end{table}
@@ -1226,12 +1225,11 @@ zero is an observation and not a guarantee.
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig4_training_reliability.pdf}
- \caption{Training curves. \capnote{Medians with interquartile bands over \textbf{converged runs only}, so the panels
+ \caption{Training curves. \capnote{Medians with interquartile bands over converged runs only, so the panels
 describe learning speed among those runs; the legend gives the number of converged runs
 out of eight. Panels (a) to (c) and (f) come from training rollouts, (d) is measured on
-the validation set once per checkpoint, and (e) counts all eight runs. \textbf{The reward
- function differs across configurations, so the level in panel (a) is not compared across
- them.}}}
+the validation set once per checkpoint, and (e) counts all eight runs. The reward function differs across configurations, so the level in panel (a) is not
+compared across them.}}
  \label{fig:curves}
 \end{figure}
 
@@ -1260,7 +1258,7 @@ is largest for the symmetric-only configuration, at $0.093$, and smallest for th
 bounded-only configuration, at $0.066$. That ordering matches the turn increments in
 Figure~\ref{fig:tradeoff}.
 
-\noindent\textbf{Online cost.}\ The timings below come from one thread of an AMD EPYC
+ The timings below come from one thread of an AMD EPYC
 9654 processor. They cover $1{,}872$
 decision steps of the trained policy. The median solve
 time is $4.11$~ms and the $99$th percentile is $8.85$~ms. The forward pass of the policy
@@ -1337,8 +1335,7 @@ the three methods unchanged. The policy range is $\pm0.048~\mathrm{m/s^2}$ and $
 output range of the trained policies, and the actuator limits are
 $\pm0.24~\mathrm{m/s^2}$ and $\pm0.03$~rad/s. For Ours the shield and the emergency
 controller may use the actuator limits, so the executed range is not identical. Both are reported so that a difference in
- authority is not a confounder. \textbf{The arrival rate is not a measure of collision
- avoidance.} These controllers have no terminal alignment stage. Across the seven settings in this
+ authority is not a confounder. The arrival rate is not a measure of collision avoidance. These controllers have no terminal alignment stage. Across the seven settings in this
 table they reach the goal position in $96.8\%$ to $99.7\%$ of episodes and then fail the
 terminal heading gate.
  \end{minipage}
@@ -1416,7 +1413,7 @@ holds only among configurations that run the same penalty.
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=0.86\linewidth]{figs/fig7_grid_vs_projection.pdf}
- \caption{Projection against enumeration. \capnote{(a) The amount by which the smallest compliant turn rate available on a $K\times K$ grid exceeds the smallest admissible value $\omega_{\mathrm{turn}}$. It is set by divisibility and \textbf{does not fall monotonically with $K$}. A continuous command with projection reaches it exactly, shown by the red line. (b) Time for one decision step. Enumeration grows with $K^2$, while projection does not depend on $K$. Panel (a) is exact arithmetic. Panel (b) is measured on one machine and is used only for the growth in $K$, not as the deployment cost.}}
+ \caption{Projection against enumeration. \capnote{(a) The amount by which the smallest compliant turn rate available on a $K\times K$ grid exceeds the smallest admissible value $\omega_{\mathrm{turn}}$. It is set by divisibility and does not fall monotonically with $K$. A continuous command with projection reaches it exactly, shown by the red line. (b) Time for one decision step. Enumeration grows with $K^2$, while projection does not depend on $K$. Panel (a) is exact arithmetic. Panel (b) is measured on one machine and is used only for the growth in $K$, not as the deployment cost.}}
  \label{fig:grid}
 \end{figure}
 %------------------------------------------------------------------------------
