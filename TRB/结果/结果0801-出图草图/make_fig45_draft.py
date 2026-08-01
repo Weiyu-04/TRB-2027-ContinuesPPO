@@ -278,7 +278,7 @@ def fig4(D):
     #: 🔴 高宽比 0.52→0.45（2026-08-01 later-3）：论文里按 `width=\linewidth` 收，
     #  高度 = 165 mm × 高宽比 ⟹ 0.52 时 86 mm，比图 2（66）图 3（56）高出一截。
     #  格子仍是 2×3，内容一格没减，只把每格压扁一点。
-    fig, AX = plt.subplots(2, 3, figsize=(PS.COL2, PS.COL2 * 0.45))
+    fig, AX = plt.subplots(2, 3, figsize=(PS.COL2, PS.COL2 * 0.40))
     (a, b, c), (d, e, f) = AX
 
     def dense_panel(ax, get, title, ylab, ylim=None, inset=None):
@@ -383,7 +383,7 @@ def fig5(D):
     #  ⟹ 宽度必须**就是 COL2**（与图 2/3/4 同宽，缩放系数一致、字号才一致），
     #     "别太大" 要靠**压高宽比**来实现，不是靠缩宽度。
     #  高宽比 0.56 ⟹ 论文里 165×92 mm，与图 2（165×66）图 3（165×56）同一量级。
-    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.56))
+    fig = plt.figure(figsize=(PS.COL2, PS.COL2 * 0.48))
     gs = fig.add_gridspec(2, 2)
     a = fig.add_subplot(gs[0, 0]); b = fig.add_subplot(gs[0, 1])
     c = fig.add_subplot(gs[1, 0]); d = fig.add_subplot(gs[1, 1], projection="polar")

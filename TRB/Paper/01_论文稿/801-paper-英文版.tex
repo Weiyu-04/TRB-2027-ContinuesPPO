@@ -269,20 +269,17 @@ Compliance cannot be verified from the outcome. It is a condition on which half-
 control plane each command falls in, and that is not the usual shape of a constraint in safe
 reinforcement learning.
 
-Existing work follows two routes, and each gives up one property. The first route
-discretizes the action space and applies action masking. A rule state machine computes the
-compliant subset at every step and the rest is removed
-\citl{krasowski2024}{Krasowski and Althoff 2024}. Compliance is then guaranteed by
-construction, and it does not depend on the training outcome or on the seed. The price is
-continuous control. Quantization fixes the control resolution at the grid spacing. For this
-task it also has a specific cost. The rules require a give-way turn to be readily apparent,
-which in the control plane is a smallest admissible turn rate. A finite grid cannot land on
-that value. It can only take the nearest grid point at or beyond it, so every compliant turn
-overshoots. The second route keeps continuous control and writes the rules into the reward
-as a penalty \citm{\cl{meyer2020}{Meyer et al. 2020}; \cl{heiberg2022}{Heiberg et al. 2022};
-\cl{mller2026}{M\"uller et al. 2026}}. Control resolution is preserved and the guarantee is
-lost, because a reward shapes expected behavior and cannot exclude any single violating
-command.
+Existing work follows two routes, and each gives up one property. The first discretizes
+the action space and masks the non-compliant commands \citl{krasowski2024}{Krasowski and
+Althoff 2024}. Compliance then holds by construction, and it does not depend on the
+training outcome or on the seed. The price is continuous control. Quantization fixes the control resolution at the grid spacing. A give-way turn that must
+be readily apparent has a smallest admissible turn rate, and no finite grid lands on it,
+so every compliant turn overshoots. The second route keeps continuous control and writes the
+rules into the reward as a penalty \citm{\cl{meyer2020}{Meyer et al. 2020};
+\cl{heiberg2022}{Heiberg et al. 2022}; \cl{mller2026}{M\"uller et al. 2026}}. Control
+resolution is preserved and the guarantee is lost, because a reward shapes expected
+behavior and cannot exclude any single violating command. Section~\ref{sec:related} sets
+out both routes in detail.
 
 The intersection of continuous action spaces, provable directional compliance and COLREGs
 has therefore been empty. This paper fills it with a projection-based safety shield. A rule
@@ -324,8 +321,8 @@ assumptions, and the cases that are not covered are stated as well.
 \subsection{Maritime Collision Avoidance and COLREGs Compliance}
 
 Work on rule compliance began with model-driven methods. The velocity obstacle uses the
-relative velocity cone to detect risk and to select an avoiding velocity. It was given
-COLREGs semantics \citl{kuwata2014}{Kuwata et al. 2014} and later extended to more general
+relative velocity cone to select an avoiding velocity, and it was given COLREGs
+semantics \citl{kuwata2014}{Kuwata et al. 2014} and later extended to more general
 encounters \citl{huang2019}{Huang et al. 2019}. Model predictive control scores candidate
 maneuvers over a finite horizon on both risk and compliance
 \citl{johansen2016}{Johansen et al. 2016}. Its branching-course variant has been tested at
@@ -338,10 +335,10 @@ functions and convex optimization \citm{\cl{lee2025}{Lee et al. 2025};
 \citl{fossen2011}{Fossen 2011}. Their guarantees come from explicit constraints. The control
 law is designed by hand and contains no learned policy.
 
-Deep reinforcement learning moved the policy into the data
-\citl{sarhadi2022}{Sarhadi et al. 2022}. Most of that work discretizes the command, for
-example into a finite set of rudder angles for multi-vessel encounters in confined water
-\citl{shen2019}{Shen et al. 2019}, or into compliant avoidance timing and paths
+Deep reinforcement learning moved the policy into the data \citl{sarhadi2022}{Sarhadi et
+al. 2022}. Most of that work discretizes the command, into a finite set of rudder angles
+for confined water \citl{shen2019}{Shen et al. 2019}, or into compliant avoidance timing
+and paths
 \citm{\cl{zhao2019}{Zhao and Roh 2019}; \cl{chun2021}{Chun et al. 2021}}. Discretization
 helps optimization and fixes control resolution at the grid spacing. A second group keeps
 continuous control and writes COLREGs as a soft penalty that decays with bearing and range
@@ -356,10 +353,10 @@ compliance is induced by the reward, so no single violating command is excluded.
 
 \subsection{Safe Reinforcement Learning and Provable Compliance}
 
-Safe reinforcement learning \citl{garca2015}{Garc\'ia and Fern\'andez 2015} studies how to
-attach hard guarantees to a learned policy. Writing safety as a constrained Markov decision
-process and solving it with a Lagrangian method is a common route. What it guarantees is
-constraint satisfaction in expectation, which again excludes no single command. Action
+Safe reinforcement learning \citl{garca2015}{Garc\'ia and Fern\'andez 2015} attaches
+hard guarantees to a learned policy. Writing safety as a constrained Markov decision
+process and solving it with a Lagrangian method guarantees constraint satisfaction in
+expectation, which again excludes no single command. Action
 masking removes unsafe commands from a discrete action space according to a temporal logic
 specification \citl{alshiekh2018}{Alshiekh et al. 2018}. A realizable form of it has been
 extended to continuous action spaces for general tasks, without maritime rules
@@ -384,11 +381,10 @@ convex over-approximation and the correction by a quadratic program
 \citl{markgraf2026}{Markgraf et al. 2026}, rather than by a higher-order set representation, which keeps
 the per-step cost small.
 
-A directional constraint tightens the feasible set in close quarters and can cost terminal
-efficiency, so potential-based shaping is used to recover it. Potential-based shaping does
-not change the set of optimal policies \citl{ng1999}{Ng et al. 1999}. A naive distance
-potential tends to stall near the goal \citl{trott2019}{Trott et al. 2019}, and a single
-continuous potential does not remove that behavior
+A directional constraint tightens the feasible set in close quarters and can cost
+terminal efficiency. Potential-based shaping recovers it without changing the set of
+optimal policies \citl{ng1999}{Ng et al. 1999}. A distance potential alone leaves a stalling mode near the goal \citl{trott2019}{Trott
+et al. 2019}, which a single continuous potential does not remove
 \citl{mller2025}{M\"uller and Kudenko 2025}. A linear kernel with arrival as a terminal
 condition is used instead \citl{de2024}{De Lellis et al. 2024}. The effect of a shield on
 performance has been studied separately. Including the filter during training and penalizing
@@ -456,8 +452,8 @@ Headings and bearings are wrapped to $(-\pi,\pi]$. A relative bearing is positiv
 starboard. The turn rate follows the usual mathematical convention and is positive
 counter-clockwise, so a turn to starboard has $\omega<0$.
 
-The speed bound is applied after the step is integrated, so the speed can briefly exceed
-$v_{\max}$ within a step. Every one-step displacement bound in this paper therefore uses
+The speed bound is applied after integration, so the speed can briefly exceed $v_{\max}$
+within a step. Every one-step displacement bound in this paper therefore uses
 $v_{\max}\Delta t+\tfrac12 a_{\max}\Delta t^2$, and the speed at the end of a step is at
 most $v_{\mathrm{bnd}}=v_{\max}+a_{\max}\Delta t$.
 
@@ -479,10 +475,10 @@ therefore needs more than ten seconds, which is longer than one decision period.
 maneuvers more slowly than it decides. A safety constraint must look ahead for that reason
 alone.
 
-The hull is represented by a rectangle, and two circles approximate it for two different
-purposes. The circumscribed circle over-approximates the hull, and it supports conditions
-of the form ``contact is impossible''. The inscribed circle under-approximates the hull, and
-it supports conditions of the form ``contact is certain''. One circle in each direction is
+The hull is a rectangle, and two circles approximate it for two purposes. The circumscribed
+circle over-approximates it and supports conditions of the form ``contact is impossible''.
+The inscribed circle under-approximates it and supports conditions of the form ``contact is
+certain''. One circle in each direction is
 what keeps both kinds of conclusion one-sided. The target vessel is represented by a
 rectangle as well, and it is extrapolated at constant velocity whenever a prediction is
 needed.
@@ -490,14 +486,13 @@ needed.
 \subsection{Observation and Action Spaces}
 \label{sec:obsact}
 
-The observation is a real vector of $27$ entries in four groups. Four entries give the
-state of the own vessel. Six give the relation to the goal. Twelve give the traffic
-situation. Four bearing sectors are used, and each contributes the nearest target vessel in
-it. Each such vessel gives its distance, its relative bearing, and the change of that
-distance over one step. Five are
-termination flags. The observation layer outputs raw physical quantities, and normalization
-is done in the training wrapper. Organizing traffic by sector keeps the dimension
-independent of the number of target vessels. That solves the dimension only. The shield
+The observation is a real vector of $27$ entries in four groups. Four give the state of
+the own vessel, six the relation to the goal, twelve the traffic situation, and five are
+termination flags. The traffic group uses four bearing sectors. Each contributes the nearest target vessel
+in it, with its distance, its relative bearing, and the change of that distance over one
+step. The observation layer outputs raw
+physical quantities and the training wrapper normalizes them. Organizing traffic by
+sector keeps the dimension independent of the number of target vessels. That solves the dimension only. The shield
 deployed here is implemented for a single target vessel, and it raises an error rather than
 running in a degraded mode when more are present.
 
@@ -526,7 +521,7 @@ $\Delta t$. (A4) The current state of the target vessel is available without mea
 error. (A5) No give-way obligation is already in force at the initial instant.
 
 Assumption (A2) is not a simplification adopted for convenience. It is the scope of the
-convention itself. The rules are written for a pair of vessels
+convention. The rules are written for a pair of vessels
 \citl{imo1972}{IMO 1972}. Three or more vessels can meet at once, and their obligations can then
 conflict. One case is an obligation to hold course for one vessel and to give way to
 another. The convention does not say which obligation prevails.
@@ -546,10 +541,9 @@ Equation~\eqref{eq:problem} is not the same as writing compliance into the rewar
 constrains every command that is executed. It does not ask for an expected value to be
 optimal.
 
-When the action set is finite, Equation~\eqref{eq:problem} has a direct solution. Every
-action is enumerated, tested, and masked out if it does not comply. That route needs the
-actions to be enumerable, so it is not compatible with continuous control. Rudder and
-propulsion are continuous quantities, and quantizing them costs both smoothness and
+When the action set is finite, Equation~\eqref{eq:problem} has a direct solution:
+enumerate every action, test it, and mask out what does not comply. That route needs enumerable actions, so it is not compatible with continuous control.
+Rudder and propulsion are continuous, and quantizing them costs both smoothness and
 resolution. This paper replaces enumeration by projection. The give-way clause is a
 half-plane constraint on the command (Section~\ref{sec:rulesets}). The collision-free
 condition can be written as a linear inequality (Section~\ref{sec:proj}). The feasible set
@@ -562,10 +556,30 @@ exists and is unique, and it is obtained from a very small quadratic program.
 \section{Methodology}
 \label{sec:method}
 
-\noindent\textbf{A note on the guarantees.}\ Three propositions are stated in this section.
-Each one is placed immediately after the mechanism it applies to, rather than collected in a
-separate block. Each is given as a statement, its assumptions, a proof sketch, and its
-scope. The scope paragraph names the cases that the proposition does not cover.
+%------------------------------------------------------------------------------
+\begin{figure}[htbp]
+ \centering
+ \includegraphics[width=\linewidth]{figs/fig1_overview.pdf}
+ \caption{Overview of the method. \capnote{A $27$-dimensional observation enters the policy
+ network, which emits a desired control command $u_{\mathrm{policy}}$ from a Beta
+ distribution with bounded support. The rule state machine assigns the encounter to one of
+ six situations. The safe control set $U_{\mathrm{safe}}$ is the intersection of the actuator
+ limits, the half-plane of compliant directions, and the one-step collision-free constraint.
+ A quadratic program projects $u_{\mathrm{policy}}$ onto $u_{\mathrm{safe}}$, which is then
+ passed to the environment. The projection is part of the environment transition, so the
+ shield sits inside the training loop. The two bypasses are exclusive. An emergency situation
+ goes straight to the emergency controller, and every other situation falls back only when
+ $U_{\mathrm{safe}}$ is empty. The panel at the lower right sketches the three constraint sets
+ in the control plane.}}
+ \label{fig:overview}
+\end{figure}
+%------------------------------------------------------------------------------
+
+
+
+\noindent\textbf{A note on the guarantees.}\ Each proposition below is placed after the mechanism it applies to, and is given as a
+statement, its assumptions, a proof sketch, and its scope. The scope paragraph names the
+cases it does not cover.
 
 \subsection{COLREGs Obligations as Half-Plane Constraints}
 \label{sec:rulesets}
@@ -749,11 +763,11 @@ two branches below are mutually exclusive.
 \noindent\textbf{Emergency branch.}\ An emergency situation takes a separate path. No
 collision-free constraint is built, and Equation~\eqref{eq:qp} is not solved. A stateful
 geometric controller supplies the command instead, and its lifetime is one emergency event.
-It has three modes. A near head-on approach ahead is handled by tracking a fixed lateral
-point fixed at the onset of the emergency. A target vessel astern that can be cleared by
-acceleration is handled by a straight-line escape inside the reaction window. Every other
-case tracks a point that moves with the target vessel. One position-tracking law converts
-all three into a control command. This controller offers no guarantee. Its purpose is a
+It has three modes. A near head-on approach ahead tracks a lateral point fixed at the
+onset of the emergency. A target vessel astern that acceleration can clear takes a
+straight-line escape inside the reaction window. Every other case tracks a point that
+moves with the target vessel. One position-tracking law turns all three into a control
+command. This controller offers no guarantee. Its purpose is a
 defined behavior once no compliant feasible command remains.
 
 \noindent\textbf{Other situations.}\ Outside an emergency situation the fallback is used
@@ -764,11 +778,10 @@ minimized if that also fails. The last two branches solve on the actuator limits
 the compliance constraint as a whole. The turn rate can then leave the policy action box, so
 saturation is reported against each box separately.
 
-These branches are needed in the implementation, and on the scenario library used here they
-almost never fire. If the own vessel holds course and speed, the median closest center distance
-to the target vessel is about $1{,}300$~m. The safe control set is therefore rarely empty.
-Purpose-built conflict cases are constructed so that the branches are exercised, and their
-outcome is reported with the shield measurements.
+These branches almost never fire on this scenario library. With course and speed held,
+the median closest center distance is about $1{,}300$~m, so the safe control set is
+rarely empty. Purpose-built conflict cases exercise the branches, and their outcome is
+reported with the shield measurements.
 
 The emergency branch offers no guarantee. It can still decide whether the situation was
 already beyond recovery.
@@ -834,9 +847,9 @@ The reward is a sum of five terms,
  r=r_{\mathrm{sparse}}+r_{\mathrm{goal}}+r_{\mathrm{velocity}}+r_{\mathrm{deviate}}+r_{\mathrm{colregs}}.
  \label{eq:reward}
 \end{equation}
-A sparse terminal term scores arrival, timeout, stalling, and collision, and it charges a
-fixed penalty for every step that enters emergency control. A dense approach term rewards
-the change in distance to the goal over one step. A speed term penalizes speed outside the
+A sparse terminal term scores arrival, timeout, stalling and collision, and charges a
+fixed penalty for every step under emergency control. A dense approach term rewards the
+change in distance to the goal over one step. A speed term penalizes speed outside the
 cruise band $[2.5,\,8.0]$~m/s. A cross-track term penalizes lateral deviation from the
 start-to-goal line and saturates at $2{,}000$~m. A soft compliance term decays with
 distance. It is active only in the reward-shaping baseline and in the discrete
@@ -844,23 +857,22 @@ configurations. Every continuous configuration here sets it to zero, because com
 carried by the hard constraint of Equation~\eqref{eq:ucolregs}.
 
 The five terms are taken from \citl{krasowski2024}{Krasowski and Althoff 2024}, with three
-deviations that we declare. The approach term uses the difference of distances between two
-steps. The soft compliance term is rescaled, because its original calibration is set at a
-scale about fifty times smaller than the scenarios used here. One clause of the
-emergency-release test is read by its physical meaning rather than by its literal sign,
+declared deviations. The approach term uses the difference of distances between two
+steps. The soft compliance term is rescaled, because its original calibration sits at a
+scale about fifty times smaller than these scenarios. One clause of the
+emergency-release test is read by its physical meaning rather than its literal sign,
 since the two disagree.
 
 \subsubsection{Bounded Action Distribution}
 
-A continuous policy usually emits an unbounded Gaussian and clips the sample to the action
-box before it reaches the environment. That combination conflicts with
-Equation~\eqref{eq:qp}, for two reasons that both come from the clipping. First, common
-implementations feed the clipped action to the environment but the unclipped action to the
-policy gradient. Once the mean leaves the box, moving further out changes no reward, the
-gradient reaches a plateau, and any penalty on action smoothness loses its grip. Second,
-the differential entropy of a Gaussian has no upper bound, while the entropy coefficient is
-a constant. The standard deviation therefore has a one-way channel to grow. Its growth
-pushes still more samples outside the box.
+A continuous policy usually emits an unbounded Gaussian and clips the sample to the
+action box. That conflicts with Equation~\eqref{eq:qp} for two reasons, both from the
+clipping. First, common implementations feed the clipped action to the environment and
+the unclipped action to the policy gradient. Once the mean leaves the box, moving
+further out changes no reward, the
+gradient reaches a plateau, and any penalty on action smoothness loses its grip. Second, the differential entropy of a Gaussian has no upper bound while the entropy
+coefficient is a constant. The standard deviation therefore has a one-way channel to
+grow, which pushes still more samples outside the box.
 
 We use a Beta distribution with support on a closed interval. Actions can then never leave
 the box, clipping becomes the identity map, both channels close, the smoothness penalty is
@@ -984,11 +996,11 @@ can therefore be read on its own.
 \noindent\textbf{What the unshielded continuous configuration can show.}\ A
 continuous-action configuration without a shield can only take the plainest form, namely an
 unbounded Gaussian, an asymmetric give-way entry, and no shaping. Giving it the
-continuous-only shaping would break the symmetry with the discrete baseline, and the
-attribution would fail. The unbounded
-Gaussian is also the form that pushes many samples past the action box. A small re-evaluation was run during the
-exploration phase, and that setting is not the one used in the formal experiment. About
-$73\%$ of the decision steps of that policy sat against the boundary of the action box. The gain attributed to the shield is therefore measured against
+continuous-only shaping would break the symmetry with the discrete baseline and the
+attribution would fail. The unbounded Gaussian also pushes many samples past the action
+box. In a small re-evaluation during the exploration phase, which is not the setting of
+the formal experiment, about $73\%$ of the decision steps of that policy sat against the
+boundary. The gain attributed to the shield is therefore measured against
 the weakest form of continuous action. For the same reason the step from the discrete
 baseline to that configuration can be negative, and it should be read as a conservative
 lower bound.
@@ -996,17 +1008,17 @@ lower bound.
 \subsection{Metrics and Evaluation Protocol}
 \label{sec:metrics}
 
-\noindent\textbf{Metrics.}\ The main metrics are the arrival rate, the collision rate, the
-COLREGs violations per episode, the share of steps under emergency control, and the episode
-duration. The violation count is split into give-way and stand-on violations. Control quality, safety margin,
-shield behavior, and the single-step solve time are also reported. Every metric is broken
-down by encounter situation as well. The reward function differs across configurations, so the
+\noindent\textbf{Metrics.}\ The main metrics are the arrival rate, the collision rate, the COLREGs violations per
+episode, the share of steps under emergency control, and the episode duration. The
+violation count is split into give-way and stand-on violations. Control quality, safety
+margin, shield behavior and the single-step solve time are also reported, and every
+metric is broken down by encounter situation. The reward function differs across configurations, so the
 episode return is never compared across them.
 
 \noindent\textbf{How violations are counted.}\ Violations do not come from the situation
-decision of the shield. They come from an offline scorer that is independent of the shield.
-The scorer sees only the trajectory. At each step it re-decides, from the bare situation
-predicates, whether the own vessel is under a stand-on or a give-way obligation. A stand-on
+decision of the shield. An offline scorer that sees only the trajectory re-decides at each step, from the bare
+situation predicates, whether the own vessel is under a stand-on or a give-way
+obligation. A stand-on
 violation is counted per step, once the signed heading change accumulated over the
 obligation period exceeds the stand-on tolerance, and the accumulator is reset when the
 obligation ends. A give-way violation is counted per encounter, and an encounter counts as
@@ -1017,9 +1029,8 @@ condition.
 
 \noindent\textbf{The counting window and the shield do not coincide.}\ The scorer
 accumulates the heading change over a whole obligation period, while the shield constrains
-the change inside a single maneuver window. The two windows have different lengths.
-Emergency situations and steps that fall back also bypass the compliance constraint by
-design. The shield therefore does not guarantee a violation count of zero, and this paper
+the change inside a single maneuver window. The two windows differ in length. Emergency situations and fallback steps also bypass
+the constraint by design. The shield therefore does not guarantee a violation count of zero, and this paper
 does not claim one. In particular, Proposition~\ref{prop:comply} guarantees the turn
 direction on every give-way step. It does \textbf{not} imply a give-way violation count of
 zero. How often the mismatch occurs was not measured.
@@ -1052,11 +1063,11 @@ are computed on the same test set as Table~\ref{tab:main}. Figures~\ref{fig:curv
 and~\ref{fig:shield} are recorded during training and are labelled as such. Violation counts
 in the figures are the sum of stand-on and give-way violations.
 
-\noindent\textbf{Statistics.}\ The paired test is a per-seed paired sign test. With $8$
-seeds the smallest two-sided value it can reach is $p=2/2^{8}=0.0078$. Error bars are
-bootstrap $95\%$ intervals resampled over seeds. A run counts as converged when its arrival
-rate on the validation set reaches $50\%$. Diverged seeds are counted in the main table as
-they are, and a converged-seeds-only version is also reported.
+\noindent\textbf{Statistics.}\ The paired test is a per-seed paired sign test, whose smallest two-sided value with $8$
+seeds is $p=2/2^{8}=0.0078$. Error bars are bootstrap $95\%$ intervals resampled over
+seeds. A run counts as converged when its arrival rate on the validation set reaches
+$50\%$. Diverged seeds are counted in the main table as they are, and a
+converged-seeds-only version is also reported.
 
 \subsection{Main Comparison}
 \label{sec:res-main}
@@ -1206,14 +1217,13 @@ guarantee.
 \subsection{Behavior of the Safety Shield}
 \label{sec:res-shield}
 
-The emergency branch is the only part of this method that offers no guarantee, so how often
-it is used and what follows from its use are reported separately. At the end of training,
+The emergency branch is the only part of this method with no guarantee, so its use is
+reported separately. At the end of training,
 the projection produced $93.6\%$ of the control commands. The emergency controller produced
 $6.2\%$, and the three fallback branches produced $0.22\%$ in total
-(Figure~\ref{fig:shield}a). On the test set the share of emergency steps is $2.42\%$,
-against $4.64\%$ for the discrete safe baseline.
-The fallback is rare because it is used only when the safe control set is empty, and that
-seldom happens outside an emergency situation. Collisions are rare enough that their source cannot be attributed with confidence. Ours
+(Figure~\ref{fig:shield}a). On the test set the share of emergency steps is $2.42\%$, against $4.64\%$ for the
+discrete safe baseline. The fallback is rare because it is used only when the safe
+control set is empty, which seldom happens outside an emergency situation. Collisions are rare enough that their source cannot be attributed with confidence. Ours
 records two collisions in $4{,}800$ test episodes. If a collision falls under emergency
 control, then it occurs on a step where the last resort had already been engaged and had
 failed. Those steps
@@ -1231,15 +1241,13 @@ is largest for the symmetric-only configuration, at $0.093$, and smallest for th
 bounded-only configuration, at $0.066$. That ordering matches the turn increments in
 Figure~\ref{fig:ablation}.
 
-\noindent\textbf{Online cost.}\ The projection is one quadratic program with two variables
-and at most six constraints, so it is cheap enough to run at every step. The timings below come from a single
-thread of the $32$-core Linux server that ran the evaluation (\TBD), over $1{,}872$ decision
-steps of the trained policy. The median solve time of the program is $4.11$~ms and the $99$th percentile is
-$8.85$~ms.
-The forward pass of the policy adds a median of $0.44$~ms. A whole decision step, including
-the environment, has a median of $5.30$~ms and a $99$th percentile of $10.14$~ms. The
-decision period is $10$~s, so the $99$th percentile of a whole step is about one thousandth
-of the period. \textbf{These are wall-clock times on one machine. They record an order
+\noindent\textbf{Online cost.}\ The projection is one quadratic program with two variables and at most six constraints.
+The timings below come from a single thread of the $32$-core Linux server that ran the
+evaluation (\TBD), over $1{,}872$ decision steps of the trained policy. The median solve
+time is $4.11$~ms and the $99$th percentile is $8.85$~ms. The forward pass of the policy
+adds a median of $0.44$~ms. A whole decision step, including the environment, has a
+median of $5.30$~ms and a $99$th percentile of $10.14$~ms. The decision period is
+$10$~s, so the $99$th percentile of a step is about one thousandth of the period. \textbf{These are wall-clock times on one machine. They record an order
 of magnitude. They are not a comparison against any other method, which would need the same
 machine and the same protocol.}
 
@@ -1265,10 +1273,9 @@ same evaluation pipeline, on the same test set, at the same sample size
 (Table~\ref{tab:ext}). The question here is not whether a learning method is stronger. It
 is which dimensions a geometric method already covers.
 
-The answer narrows the defensible claim to one dimension. The collision rate does not
-separate the two families, since the control barrier function filter also reaches
-$0.00\%$ on this test set. The arrival rate and the smoothness columns are governed by the
-type of terminal constraint and by the control range, and neither supports a reading in
+The answer narrows the defensible claim to one dimension. The collision rate does not separate the two families, since the barrier function shield
+also reaches $0.00\%$ here. The arrival rate and the smoothness columns are governed by
+the terminal constraint and by the control range, and neither supports a reading in
 favor of Ours. The real difference is in COLREGs violations, and almost all of it
 comes from stand-on violations. These controllers aim only at avoiding contact, so they keep
 maneuvering during periods in which the rules require course and speed to be held.
@@ -1326,35 +1333,43 @@ Almost all of that gap is in stand-on violations, at $0.36$ against $4.48$.
 %==============================================================================
 % §6 讨论 —— 对应中文稿 906–943 行
 %==============================================================================
+%------------------------------------------------------------------------------
+\begin{figure}[htbp]
+ \centering
+ \includegraphics[width=\linewidth]{figs/fig6_trajectories.pdf}
+ \caption{Tracks of three configurations in two encounters. \capnote{Scenarios are picked by
+ geometry alone and never by outcome. Within each encounter type of the test set, the
+ scenario shown is the one whose closest approach is smallest when both vessels hold their
+ initial velocity, which is $7$~m for T-$1848$ and $2$~m for T-$76$. The seed is $s_0$, one of
+ the three declared in advance, and the checkpoint is the last one of the run rather than the
+ one selected on the validation set. The open circle is the start of the own vessel, the
+ square is the start of the target vessel, and the dashed line is the recorded track of the
+ target vessel. In (c) the dot marks the closest approach reached by each configuration and
+ the dashed line is the closest approach under constant velocity. \textbf{This figure is a
+ qualitative illustration and carries no quantitative claim.}}}
+ \label{fig:traj}
+\end{figure}
+%------------------------------------------------------------------------------
+
 \section{Discussion}
 \label{sec:discussion}
 
-\subsection{Three Points about the Mechanism}
-
-\noindent\textbf{A soft reward cannot exclude a command.}\ A soft reward can only shift the
-expected behavior of the policy. Masking and projection can remove a command outright. The
-difference between them is the premise. Masking needs the safe control set to be enumerable.
-This paper replaces that premise by convexity. The compliant direction is exactly one
-half-plane, and projecting onto its intersection with the action box is a quadratic program
-in two variables.
-
-\noindent\textbf{Both refinements belong to the continuous action space.}\ A quantized action
-space has no samples pushed past the action box, and it has no channel whose differential
-entropy is unbounded above. These two problems appear only after a COLREGs shield is moved
-into a continuous action space. The ablation is therefore not the tuning of two
-hyperparameters. It repairs two defects created by that move.
-
-\noindent\textbf{The mechanism complements the control-theoretic shields.}\ A reactive
-barrier function shield has no recursive feasibility proof under a $10$~s zero-order
-hold. The
-clearable set of this work suggests one route to that property, but the closed-loop
-integration and the recomputation under the official evaluation pipeline are not finished.
-It is stated here as a design direction and not as a guarantee that has been met.
+\subsection{Two Points about the Mechanism} \noindent\textbf{Both refinements belong to
+the continuous action space.}\ A quantized action space has no samples pushed past the
+action box, and it has no channel whose differential entropy is unbounded above. Both
+problems appear only after a COLREGs shield is moved into a continuous action space. The
+ablation is therefore not the tuning of two hyperparameters. It repairs two defects
+created by that move. \noindent\textbf{Recursive feasibility is not claimed.}\ A
+reactive barrier function shield has no recursive feasibility proof under a $10$~s
+zero-order hold. The clearable set of this work suggests one route to that property. The closed-loop
+integration is not finished, so it is stated as a design direction and not as a
+guarantee.
 
 \subsection{What Projection Buys and What It Costs}
 \label{sec:disc-grid}
 
-Both sides of the exchange can be measured directly, and Figure~\ref{fig:grid} reports them.
+Both sides of the exchange were measured directly, in exact arithmetic for the
+resolution and on one machine for the cost.
 
 The gain is in the resolution of a compliant turn. The rules require the heading change over
 the maneuver window to reach a threshold, which converts to a smallest admissible
@@ -1365,14 +1380,12 @@ $37.5\%$ above that value.
 
 \noindent\textbf{That gap does not shrink monotonically as the grid is refined.}\ The
 overshoot is set by the divisibility of $\omega_{\mathrm{turn}}$ by the grid spacing, not by
-the spacing itself. In Figure~\ref{fig:grid}a a $5\times5$ grid overshoots by $3.1\%$ while a
-$7\times7$ grid overshoots by $37.5\%$. The common statement that a finer grid approaches
+the spacing itself. A $5\times5$ grid overshoots by $3.1\%$ while a $7\times7$ grid overshoots by $37.5\%$. The common statement that a finer grid approaches
 continuous control therefore does not hold for this task. Only a continuous command with
 projection reaches the smallest admissible turn rate.
 
 The cost is in computation, and it runs against intuition.
-Figure~\ref{fig:grid}b shows that enumerating and masking $K\times K$ commands grows
-with $K^2$. Even at $K=121$, which is $14{,}641$ commands, it stays well below the time
+Enumerating and masking $K\times K$ commands costs time that grows with $K^2$. Even at $K=121$, which is $14{,}641$ commands, it stays well below the time
 of one projection. \textbf{Projection is not the cheaper option.} Its justification is capability
 rather than speed. Enumeration has no meaning on a continuous set, while projection is
 feasible and lands exactly on the boundary of the constraint. The deployment cost of one
@@ -1384,17 +1397,6 @@ increment column, because that column is also affected by the action-increment p
 that penalty is active only in the continuous configurations. The attributable comparison
 holds only among configurations that run the same penalty.
 
-\begin{figure}[htbp]
- \centering
- \includegraphics[width=0.86\linewidth]{figs/fig7_grid_vs_projection.pdf}
- \caption{Projection against enumeration. \capnote{(a) The amount by which the smallest
- compliant turn rate available on a $K\times K$ grid exceeds the smallest admissible value
- $\omega_{\mathrm{turn}}$. It is set by divisibility and \textbf{does not fall monotonically
- with $K$}. A continuous command with projection reaches it exactly, shown by the red line. (b) Time for one decision step. Enumeration grows with $K^2$, while projection
- does not depend on $K$. Panel (a) is exact arithmetic. Panel (b) is measured on one machine
- and is used only for the growth in $K$, not as the deployment cost.}}
- \label{fig:grid}
-\end{figure}
 
 \subsection{What This Means for Putting Autonomous Vessels into Service}
 
@@ -1457,6 +1459,31 @@ Three lines of work follow. The terminal constraint of the backup maneuver shoul
 wired into the deployed shield and verified in closed loop. Directional compliance
 should be extended to several target vessels with a conflict resolution rule. The
 far-field test should be implemented as an $O(1)$ early exit.
+
+%==============================================================================
+% 收尾四节 —— TRB 要求，对应中文稿 954–979 行
+%==============================================================================
+\section*{Acknowledgements}
+
+The authors thank the CommonOcean benchmark and \citl{krasowski2024}{Krasowski and
+Althoff 2024} for the public scenario library and the formalization of the rules. Both
+made a comparison under one condition possible.
+
+\section*{Author Contributions}
+
+The authors confirm contribution to the paper as follows. Study conception and design: all
+authors. Method and software: the first author. Data collection and analysis: the first and
+second authors. Interpretation of results: all authors. Draft preparation: the first author.
+All authors reviewed the results and approved the final version of the manuscript.
+
+\section*{Conflict of Interest}
+
+The authors declare that they have no known competing financial interests or personal
+relationships that could have appeared to influence the work reported in this paper.
+
+\section*{Funding}
+
+The authors received no specific funding for this work.
 
 %==============================================================================
 \FloatBarrier   % 🔴 参考文献之前把所有待排浮动体清空，否则图表会插进文献表中间
