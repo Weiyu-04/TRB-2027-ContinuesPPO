@@ -53,7 +53,9 @@
 \fancyhf{}
 \fancyhead[L]{\itshape Tang, Xue, Yang, and Li}
 \fancyfoot[C]{\thepage}
-\renewcommand{\headrulewidth}{0pt}
+% 🔴 user 2026-08-01 要页眉加线。官方 Word 样例的页眉**没有**横线（header1.xml 无边框），
+%    但投稿清单不管这一项 ⟹ 按 user 要求加，宽度取 0.4pt（细线，不喧宾夺主）。
+\renewcommand{\headrulewidth}{0.4pt}
 \renewcommand{\footrulewidth}{0pt}
 
 %--- 正文：两端对齐、单倍行距、首行缩进、段间不额外加空 -------------------------
@@ -592,9 +594,7 @@ exists and is unique, and it is obtained from a very small quadratic program.
  \caption{Overview of the method. \capnote{The safe control set $U_{\mathrm{safe}}$ is the intersection of the actuator
 limits, the half-plane of compliant directions, and the one-step collision-free
 constraint. The projection is part of the environment transition, so the shield sits
-inside the training loop. The two bypasses are exclusive: an emergency situation goes
-straight to the emergency controller, and every other situation falls back only when
-$U_{\mathrm{safe}}$ is empty. MLP denotes a multilayer perceptron.}}
+inside the training loop. The two bypasses are exclusive. MLP denotes a multilayer perceptron.}}
  \label{fig:overview}
 \end{figure}
 %------------------------------------------------------------------------------
@@ -1194,12 +1194,9 @@ unchanged.
  \includegraphics[width=\linewidth]{figs/fig3_ablation.pdf}
  \caption{Test-set comparison and ablation. \capnote{Official test set, the same source as
  Table~\ref{tab:main}. Points and bars are medians across seeds, error bars are bootstrap
- $95\%$ intervals resampled over seeds, and open points are single seeds. In (a), circles are
- continuous action spaces, triangles are discrete ones, filled markers carry a shield, and the
- lower right is the ideal region. Panels (c) to (e) are the $2\times2$ ablation, paired by
- seed, with the change relative to the leftmost bar printed above each bar; the paired tests
- are in the text. The arrival rate is bimodal, so (e) is a box plot with the number of
- nonconverged runs printed below.}}
+ $95\%$ intervals resampled over seeds, and open points are single seeds. The lower right of (a) is the ideal region. Panels (c) to (e) are the $2\times2$ ablation, paired by
+ seed, with the change relative to the leftmost bar printed above each bar; The arrival rate is bimodal, so (e) is a box plot with the number of nonconverged runs
+below each box.}}
  \label{fig:tradeoff}
 \end{figure}
 
@@ -1241,12 +1238,10 @@ zero is an observation and not a guarantee.
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig4_training_reliability.pdf}
- \caption{Training curves. \capnote{Thick lines are medians and shaded bands are interquartile ranges over \textbf{converged
-runs only}, so the panels describe learning speed among those runs. The fraction in the
-legend is the number of converged runs out of eight. Panels (a) to (c) and (f) are
-recorded once per trajectory batch on the training scenarios and carry the variation
-caused by sampled actions. Panel (d) is measured on the validation set once per
-checkpoint. Panel (e) counts all eight runs. \textbf{The reward
+ \caption{Training curves. \capnote{Medians with interquartile bands over \textbf{converged runs only}, so the panels
+describe learning speed among those runs; the legend gives the number of converged runs
+out of eight. Panels (a) to (c) and (f) come from training rollouts, (d) is measured on
+the validation set once per checkpoint, and (e) counts all eight runs. \textbf{The reward
  function differs across configurations, so the level in panel (a) is not compared across
  them.}}}
  \label{fig:curves}
@@ -1372,15 +1367,14 @@ terminal heading gate.
 \begin{figure}[htbp]
  \centering
  \includegraphics[width=\linewidth]{figs/fig6_trajectories.pdf}
- \caption{Tracks of three configurations in two encounters. \capnote{Scenarios are picked by geometry alone and never by outcome: for each encounter
-situation, the smallest closest approach under constant velocity, which is $7$~m for
-T-$1848$ and $2$~m for T-$76$. The seed is $s_0$ and the checkpoint is the last one of
-the run rather than the one selected on the validation set. The open circle and the
-square mark the start of the own vessel and of the target vessel, and the dashed line is
-the recorded track of the target vessel. In (c) the dot marks the closest approach reached by each configuration and the dashed
-line is the closest approach under constant velocity. Panels (d) and (e) give the turn rate and the speed over the same encounter, recovered
-from the recorded states. The shaded band in (d) is the stand-on tolerance used by the
-shield; the offline scorer applies a different test (Section~\ref{sec:metrics}).}}
+ \caption{Tracks and turn rate in two encounters. \capnote{Scenarios are picked by
+geometry alone: the smallest constant-velocity closest approach of each situation, $7$~m
+for T-$1848$ and $2$~m for T-$76$. Seed $s_0$, at the last checkpoint rather than the
+one selected on the validation set. In (a) and (b) the circle and the square are the
+starts of the own and the target vessel, and the dashed line is the recorded target
+track. Panels (c) to (e) share one turn-rate scale and come from the crossing encounter.
+The shaded band is the stand-on tolerance of the shield, and the offline scorer applies
+a different test (Section~\ref{sec:metrics}).}}
  \label{fig:traj}
 \end{figure}
 %------------------------------------------------------------------------------

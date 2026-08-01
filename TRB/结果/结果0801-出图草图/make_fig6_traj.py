@@ -162,60 +162,41 @@ def main():
         ax.scatter(x0, y0, s=16, marker="o", facecolor="white",
                    edgecolor=PS.PALETTE["neutral_black"], linewidths=0.8, zorder=6)
         ax.set_title(f"({'a' if ty=='head-on' else 'b'}) {ty.capitalize()}, T-{tid}")
+        if ty == "head-on":
+            from matplotlib.lines import Line2D
+            ax.legend(handles=[Line2D([], [], color=R.ARMS[t2][1], linewidth=1.2,
+                                      label=R.ARMS[t2][0]) for t2 in SHOW],
+                      loc="upper left", frameon=False, fontsize=5.2,
+                      handlelength=1.3, labelspacing=0.22, borderpad=0.15)
         ax.set_xlabel("East (km)")
         ax.set_ylabel("North (km)")
         ax.set_aspect("equal", adjustable="datalim")
 
-    # ── (c) 与他船的距离随时间 ────────────────────────────────────────────
-    #: 🔴 第一版这一格画的是「相对初始航向的累计转艏」，**作废**：那个量被"驶向目标"的
-    #   常规转向占满，与合规无关，属于图注说一套、图画另一套。
-    #   合规的判据是**义务期内**的航向改变，而义务期由离线判分器在评估侧判定、
-    #   轨迹产物里只有带盾臂记了 ρ（无盾臂 source=None、ρ 恒 0）⟹ 三条臂没有可比的公共窗口。
-    #   ⟹ 换成**与他船的距离**：三条臂共用同一条他船、同一把尺，可直接叠比，
-    #      且正是这个会遇真正关心的量。虚线是常速直行下的最近距离（本图的挑选判据本身）。
-    tid = pick["crossing"]
-    for tag in SHOW:
-        st = T[tag][tid]
-        d = np.hypot(np.array([q["ego_x"] - q["obs_x"] for q in st]),
-                     np.array([q["ego_y"] - q["obs_y"] for q in st])) / 1000.0
-        t = np.arange(len(d)) * DT / 60.0
-        c.plot(t, d, color=R.ARMS[tag][1], linewidth=1.2, label=R.ARMS[tag][0])
-        j = int(np.argmin(d))
-        c.scatter(t[j], d[j], s=12, color=R.ARMS[tag][1], zorder=5, linewidths=0)
-    c.axhline(cv_cpa(T[SHOW[0]][tid]) / 1000.0, color=PS.PALETTE["neutral_mid"],
-              linewidth=0.8, linestyle=(0, (3, 2)), zorder=1)
-    c.set_title(f"(c) Range to target vessel, T-{tid}")
-    c.tick_params(labelbottom=False)
-    c.set_ylabel("Range (km)")
-    c.set_ylim(bottom=0)
-
-    # ── (d)(e) 执行命令随时间：转艏率与航速 ────────────────────────────────
-    #: 两个量都由轨迹产物**精确反推**（命令零阶保持 ⟹ ω=Δψ/Δt、v 直接存了）。
-    #  🔴 (d) 里那条淡带是**盾**的直航容差 |ω| ≤ ε_ω；离线判分器判违规用的是
-    #     **义务期内累计航向改变**，是另一个判据（§5.2）——图注必须写明，别让人读混。
+    # ── (c)(d)(e) 转艏率：**一条配置一格** ────────────────────────────────
+    #: 🔴 2026-08-01 later-12（user）：三条线叠在一格里互相盖，看不出各自的起伏 ⟹
+    #  **每条线单独一格**，三格上下叠、共用横轴与同一纵轴范围，纵向对读即可比较。
+    #  转艏率是三个量里唯一真正互相遮挡的（距离与航速三条线几乎重合），所以拆的是它。
     EPS_W = 0.004363323129985824
-    dax.axhspan(-EPS_W, EPS_W, color=PS.PALETTE["neutral_mid"], alpha=0.16, zorder=1)
+    W = {}
     for tag in SHOW:
-        st = T[tag][tid]
-        psi = np.array([q["ego_psi"] for q in st])
-        dpsi = (np.diff(psi) + np.pi) % (2 * np.pi) - np.pi
-        w = dpsi / DT
-        t = np.arange(len(w)) * DT / 60.0
-        dax.plot(t, w, color=R.ARMS[tag][1], linewidth=1.0, zorder=3)
-        v = np.array([q["ego_v"] for q in st])
-        eax.plot(np.arange(len(v)) * DT / 60.0, v, color=R.ARMS[tag][1], linewidth=1.0,
-                 zorder=3)
-    dax.set_title("(d) Turn rate")
-    dax.tick_params(labelbottom=False)
-    dax.set_ylabel(r"$\omega$ (rad/s)")
-    dax.annotate(r"$|\omega|\leq\varepsilon_\omega$ (shield, stand-on)", (0.985, EPS_W),
-                 xycoords=("axes fraction", "data"), xytext=(0, 3),
-                 textcoords="offset points", fontsize=5.0, ha="right", va="bottom",
-                 color=PS.PALETTE["neutral_black"])
-    eax.set_title("(e) Speed")
-    eax.set_xlabel("Time (min)"); eax.set_ylabel("Speed (m/s)")
-    #: 图例整图只留一份（在 (c) 里），(a)(b)(d)(e) 共用同一套配色
-    c.legend(loc="best", fontsize=5.6, borderpad=0.3)
+        psi = np.array([q["ego_psi"] for q in T[tag][tid]])
+        W[tag] = ((np.diff(psi) + np.pi) % (2 * np.pi) - np.pi) / DT
+    ylim = max(np.abs(np.concatenate(list(W.values())))) * 1.15
+    for ax, tag, lab in zip((c, dax, eax), SHOW, "cde"):
+        ax.axhspan(-EPS_W, EPS_W, color=PS.PALETTE["neutral_mid"], alpha=0.16, zorder=1)
+        y = W[tag]
+        ax.plot(np.arange(len(y)) * DT / 60.0, y, color=R.ARMS[tag][1], linewidth=1.1, zorder=3)
+        ax.set_ylim(-ylim, ylim)
+        ax.set_ylabel(r"$\omega$ (rad/s)")
+        ax.set_title(f"({lab}) {R.ARMS[tag][0]}")
+        if tag != SHOW[-1]:
+            ax.tick_params(labelbottom=False)
+    eax.set_xlabel("Time (min)")
+    #: ε_ω 带只在第一格标一次
+    c.annotate(r"$|\omega|\leq\varepsilon_\omega$ (shield, stand-on)", (0.995, EPS_W),
+               xycoords=("axes fraction", "data"), xytext=(0, 2),
+               textcoords="offset points", fontsize=5.0, ha="right", va="bottom",
+               color=PS.PALETTE["neutral_black"])
 
     fig.tight_layout(w_pad=1.6, h_pad=0.6)
     PS.save(fig, "Fig6_trajectories", R.OUT_DIRS)
